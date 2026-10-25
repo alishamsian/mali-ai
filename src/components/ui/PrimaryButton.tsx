@@ -11,15 +11,17 @@ export function PrimaryButton({
   style: _style,
   ...rest
 }: PressableProps & { label: string }) {
-  const { accent, colors } = useAppTheme();
+  const { accent, colors, mode } = useAppTheme();
+  // Glass daylight: solid ink. The accent gradient ran ink → grey under ink text there.
+  const fill = mode === 'light' ? [colors.primary, colors.primary] : [colors.primary, accent.gradientEnd];
   return (
     <PressScale accessibilityRole="button" style={{ alignSelf: 'stretch' }} {...rest}>
       <LinearGradient
-        colors={[colors.primary, accent.gradientEnd]}
+        colors={fill}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.btn}>
-        <AppText variant="label" style={styles.label}>
+        <AppText variant="label" style={[styles.label, { color: colors.onPrimary }]}>
           {label}
         </AppText>
       </LinearGradient>

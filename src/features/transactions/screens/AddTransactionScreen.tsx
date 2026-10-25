@@ -74,6 +74,7 @@ export function AddTransactionScreen({
   const snapshot = useFinanceStore(s => s.snapshot);
   const add = useFinanceStore(s => s.addTransaction);
   const remove = useFinanceStore(s => s.deleteTransaction);
+  const upsertAccount = useFinanceStore(s => s.upsertAccount);
   const dict = t();
 
   const isReceipt = route.params?.mode === 'receipt';
@@ -235,7 +236,28 @@ export function AddTransactionScreen({
       setFormError(dict.add.needAmount);
       return;
     }
-    if (!accountId) {
+    // No account yet (fresh install, SMS not connected): create a real cash wallet rather
+    // than filing the entry under a demo id that startup cleanup would delete.
+    let targetAccountId = accountId;
+    if (!usableAccounts.some(a => a.id === accountId) && mode !== 'transfer') {
+      const now = new Date().toISOString();
+      targetAccountId = `acc_wallet_${Date.now()}`;
+      upsertAccount({
+        id: targetAccountId,
+        userId: snapshot.profile.id,
+        kind: 'cash',
+        bankId: 'cash',
+        name: dict.add.walletName,
+        balanceRial: 0,
+        transactionCount: 0,
+        createdAt: now,
+        updatedAt: now,
+        assetClass: 'cash',
+        liquidity: 'high',
+      });
+      setAccountId(targetAccountId);
+    }
+    if (!targetAccountId) {
       hapticWarn();
       setFormError(dict.add.needAccount);
       return;
@@ -298,7 +320,7 @@ export function AddTransactionScreen({
       add(mk(ids[0], accountId, 'out', { direction: 'out', type: 'withdrawal' }));
       add(mk(ids[1], toAccountId, 'in', { direction: 'in', type: 'deposit' }));
     } else {
-      add(mk(ids[0], accountId, direction));
+      add(mk(ids[0], targetAccountId, direction));
     }
     hapticSuccess();
     Keyboard.dismiss();

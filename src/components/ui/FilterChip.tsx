@@ -12,26 +12,38 @@ export function FilterChip({
   active?: boolean;
   onPress: () => void;
 }) {
-  const styles = useThemedStyles((colors, theme) => ({
-    chip: {
-      paddingHorizontal: 14,
-      minHeight: 36,
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: theme.palette.surfaceSolid,
-      justifyContent: 'center',
-    },
-    chipOn: {
-      borderColor: colors.primary,
-      backgroundColor: theme.palette.primaryGlow,
-    },
-    textOn: { color: colors.primary, fontFamily: theme.typography.fontFamily.medium },
-  }));
+  // Glass daylight: frosted chip, ink when selected; dark theme keeps the accent glow.
+  const styles = useThemedStyles((colors, theme) => {
+    const glass = theme.mode === 'light';
+    return {
+      chip: {
+        paddingHorizontal: 14,
+        minHeight: glass ? 40 : 36,
+        borderRadius: glass ? 999 : 18,
+        borderWidth: 1,
+        borderColor: glass ? colors.glassBorder : colors.border,
+        backgroundColor: glass ? colors.glassStrong : theme.palette.surfaceSolid,
+        justifyContent: 'center',
+      },
+      chipOn: {
+        borderColor: colors.primary,
+        backgroundColor: glass ? colors.primary : theme.palette.primaryGlow,
+      },
+      text: { color: glass ? colors.text : undefined },
+      textOn: {
+        color: glass ? colors.onPrimary : colors.primary,
+        fontFamily: theme.typography.fontFamily.medium,
+      },
+    };
+  });
 
   return (
-    <PressScale onPress={onPress} style={[styles.chip, active && styles.chipOn]}>
-      <AppText variant="caption" style={active ? styles.textOn : undefined}>
+    <PressScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: Boolean(active) }}
+      style={[styles.chip, active && styles.chipOn]}>
+      <AppText variant="caption" style={active ? styles.textOn : styles.text}>
         {label}
       </AppText>
     </PressScale>

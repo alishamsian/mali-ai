@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -77,6 +77,10 @@ const FILTERS: DayFilter[] = ['all', 'income', 'expense', 'transfer', 'sms'];
 const GROUPS: DayGroupBy[] = ['none', 'category', 'account', 'source'];
 const SORTS: DaySort[] = ['time_desc', 'time_asc', 'amount_desc', 'amount_asc'];
 const STRIP_RADIUS = 14;
+/** Day chip width + gap and the strip's side padding — used to centre the selected day. */
+const STRIP_CHIP = 52;
+const STRIP_GAP = 8;
+const STRIP_PAD = 20;
 
 function sourceGroupLabel(
   source: TransactionSource,
@@ -104,8 +108,8 @@ export function DailyLedgerScreen() {
   const { width } = useWindowDimensions();
   const { colors, mode, accent } = useAppTheme();
   const isLight = mode === 'light';
-  const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.04)';
-  const panelBg = isLight ? colors.surfaceSolid : 'rgba(255,255,255,0.035)';
+  const chipBg = isLight ? colors.glassStrong : 'rgba(255,255,255,0.04)';
+  const panelBg = isLight ? colors.glass : 'rgba(255,255,255,0.035)';
 
   const styles = useThemedStyles((c, th) => ({
     topBar: {
@@ -116,6 +120,15 @@ export function DailyLedgerScreen() {
       marginBottom: 14,
     },
     topTitles: { alignItems: 'flex-end', flex: 1 },
+    brandTile: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.primary,
+    },
+    brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: th.typography.fontFamily.bold, color: c.onPrimary },
     title: {
       fontSize: 24,
       fontFamily: th.typography.fontFamily.semibold,
@@ -163,13 +176,13 @@ export function DailyLedgerScreen() {
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: 999,
-      backgroundColor: accent.primaryGlow,
+      backgroundColor: isLight ? c.primary : accent.primaryGlow,
       borderWidth: 1,
       borderColor: c.primary,
     },
     todayPillText: {
       fontSize: 10,
-      color: c.primary,
+      color: isLight ? c.onPrimary : c.primary,
       fontFamily: th.typography.fontFamily.semibold,
     },
     dateLabel: {
@@ -191,24 +204,24 @@ export function DailyLedgerScreen() {
       backgroundColor: chipBg,
       gap: 4,
     },
-    dayChipOn: { borderColor: c.primary, backgroundColor: accent.primaryGlow },
+    dayChipOn: { borderColor: c.primary, backgroundColor: isLight ? c.primary : accent.primaryGlow },
     dayChipToday: { borderColor: `${c.primary}55` },
     dayWeek: { fontSize: 10, color: c.textMuted },
-    dayWeekOn: { color: c.primary },
+    dayWeekOn: { color: isLight ? c.onPrimary : c.primary },
     dayNum: {
       fontSize: 16,
       fontFamily: th.typography.fontFamily.semibold,
       color: c.text,
     },
-    dayNumOn: { color: c.primary },
+    dayNumOn: { color: isLight ? c.onPrimary : c.primary },
     activityDot: { width: 5, height: 5, borderRadius: 3, marginTop: 2 },
     activityDotEmpty: { backgroundColor: c.border },
     hero: {
       marginHorizontal: 16,
-      borderRadius: 24,
+      borderRadius: 30,
       padding: 18,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: isLight ? c.glassBorder : c.border,
       marginBottom: 12,
     },
     heroTop: {
@@ -273,11 +286,11 @@ export function DailyLedgerScreen() {
     },
     quickExpense: {
       flex: 1,
-      minHeight: 46,
-      borderRadius: 14,
+      minHeight: 52,
+      borderRadius: isLight ? 18 : 14,
       borderWidth: 1,
-      borderColor: `${c.expense}55`,
-      backgroundColor: `${c.expense}14`,
+      borderColor: isLight ? c.primary : `${c.expense}55`,
+      backgroundColor: isLight ? c.primary : `${c.expense}14`,
       flexDirection: 'row-reverse',
       alignItems: 'center',
       justifyContent: 'center',
@@ -285,11 +298,11 @@ export function DailyLedgerScreen() {
     },
     quickIncome: {
       flex: 1,
-      minHeight: 46,
-      borderRadius: 14,
+      minHeight: 52,
+      borderRadius: isLight ? 18 : 14,
       borderWidth: 1,
-      borderColor: `${c.income}55`,
-      backgroundColor: `${c.income}14`,
+      borderColor: isLight ? c.glassBorder : `${c.income}55`,
+      backgroundColor: isLight ? c.glassStrong : `${c.income}14`,
       flexDirection: 'row-reverse',
       alignItems: 'center',
       justifyContent: 'center',
@@ -309,8 +322,6 @@ export function DailyLedgerScreen() {
     optionBlock: { gap: 8 },
     optionLabel: { textAlign: 'right', fontSize: 11, color: c.textMuted },
     chipRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-    sortScroll: { flexGrow: 0 },
-    sortScrollContent: { flexDirection: 'row-reverse', gap: 8, paddingVertical: 2 },
     catCard: {
       marginTop: 14,
       padding: 14,
@@ -403,6 +414,7 @@ export function DailyLedgerScreen() {
     [snapshot.transactions, dayKey],
   );
   const isToday = dayKey === todayKey();
+  const stripRef = useRef<ScrollView>(null);
   const reviewCount = useMemo(
     () => reviewCountForDay(snapshot.transactions, dayKey),
     [snapshot.transactions, dayKey],
@@ -544,10 +556,10 @@ export function DailyLedgerScreen() {
   const heroGradient =
     summary.netRial >= 0
       ? isLight
-        ? ['#E8F4F1', '#EEF2F4', '#F4F7F8']
+        ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)']
         : ['rgba(16,40,34,0.95)', 'rgba(12,22,24,0.88)']
       : isLight
-        ? ['#F8EEED', '#F4F0F0', '#F6F4F4']
+        ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)']
         : ['rgba(42,22,24,0.95)', 'rgba(18,14,16,0.9)'];
 
   if (!hydrated) {
@@ -584,6 +596,9 @@ export function DailyLedgerScreen() {
             <AppText style={styles.title}>{dict.daily.title}</AppText>
             <AppText style={styles.subtitle}>{dict.daily.subtitle}</AppText>
           </View>
+          <View style={styles.brandTile}>
+            <AppText style={styles.brandGlyph}>پ</AppText>
+          </View>
         </View>
 
         <View style={styles.dateNav}>
@@ -617,8 +632,16 @@ export function DailyLedgerScreen() {
         </View>
 
         <ScrollView
+          ref={stripRef}
           horizontal
           showsHorizontalScrollIndicator={false}
+          // The strip is centred on the selected day; without this it opened at the
+          // left edge, i.e. two weeks in the future, with today off-screen.
+          onContentSizeChange={contentWidth => {
+            const left =
+              contentWidth - STRIP_PAD - (STRIP_RADIUS + 1) * STRIP_CHIP - STRIP_RADIUS * STRIP_GAP;
+            stripRef.current?.scrollTo({ x: Math.max(0, left + STRIP_CHIP / 2 - width / 2), animated: false });
+          }}
           contentContainerStyle={styles.strip}>
           {weekStrip.map(d => {
             const active = d.key === dayKey;
@@ -637,7 +660,7 @@ export function DailyLedgerScreen() {
                   {jalaliWeekdayShort(d.key)}
                 </AppText>
                 <AppText style={[styles.dayNum, active && styles.dayNumOn]}>
-                  {toPersianDigits(d.key.split('-')[2])}
+                  {toPersianDigits(String(Number(d.key.split('-')[2])))}
                 </AppText>
                 <View
                   style={[
@@ -645,7 +668,9 @@ export function DailyLedgerScreen() {
                     hasActivity
                       ? {
                           backgroundColor:
-                            d.netRial > 0
+                            active && isLight
+                              ? colors.onPrimary
+                              : d.netRial > 0
                               ? colors.income
                               : d.netRial < 0
                                 ? colors.expense
@@ -769,8 +794,8 @@ export function DailyLedgerScreen() {
 
         <View style={styles.quickRow}>
           <PressScale onPress={() => openAdd('expense')} style={styles.quickExpense}>
-            <Plus color={colors.expense} size={16} />
-            <AppText style={[styles.quickText, { color: colors.expense }]}>
+            <Plus color={isLight ? colors.onPrimary : colors.expense} size={16} />
+            <AppText style={[styles.quickText, { color: isLight ? colors.onPrimary : colors.expense }]}>
               {dict.daily.quickExpense}
             </AppText>
           </PressScale>
@@ -818,11 +843,7 @@ export function DailyLedgerScreen() {
           <View style={styles.optionsCard}>
             <View style={styles.optionBlock}>
               <AppText style={styles.optionLabel}>{dict.daily.sortBy}</AppText>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.sortScroll}
-                contentContainerStyle={styles.sortScrollContent}>
+              <View style={styles.chipRow}>
                 {SORTS.map(s => (
                   <FilterChip
                     key={s}
@@ -831,7 +852,7 @@ export function DailyLedgerScreen() {
                     onPress={() => setSort(s)}
                   />
                 ))}
-              </ScrollView>
+              </View>
             </View>
             <View style={styles.optionBlock}>
               <AppText style={styles.optionLabel}>{dict.daily.groupBy}</AppText>

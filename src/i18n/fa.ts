@@ -1088,6 +1088,7 @@ export const fa = {
     recentMerchants: 'اخیراً',
     quickAmounts: 'مبالغ پرتکرار',
     screenTitle: 'ثبت تراکنش',
+    walletName: 'کیف پول نقدی',
     balanceAfter: 'بعد از ثبت',
     moreDetails: 'جزئیات بیشتر',
     lessDetails: 'بستن جزئیات',
