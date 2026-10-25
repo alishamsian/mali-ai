@@ -9,6 +9,14 @@
         "start"
       ],
       "port": 8081
+    },
+    {
+      "name": "apk",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "preview/serve_apk.py"
+      ],
+      "port": 4174
     }
   ]
 }
