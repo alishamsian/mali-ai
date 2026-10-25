@@ -173,6 +173,27 @@ export function resolveAssetClass(account: FinancialAccount): AssetClass {
   return 'other';
 }
 
-export function allocationColor(assetClass: AssetClass): string {
-  return ASSET_CLASS_META[assetClass].accent;
+/**
+ * Glass daylight chart colours: each class differs in hue and lightness and keeps
+ * ≥3:1 against the frosted panels (the dark-theme accents are too pale on white).
+ */
+const LIGHT_ALLOCATION: Record<AssetClass, string> = {
+  bank: '#111316',
+  cash: '#17703E',
+  gold: '#A86E10',
+  silver: '#6B7280',
+  currency: '#1F5FA8',
+  crypto: '#C2410C',
+  stock: '#5B48D9',
+  fund: '#0E7490',
+  real_estate: '#9D174D',
+  vehicle: '#475569',
+  jewelry: '#BE185D',
+  collectible: '#7C3AED',
+  business: '#0F766E',
+  other: '#8A939C',
+};
+
+export function allocationColor(assetClass: AssetClass, mode: 'dark' | 'light' = 'dark'): string {
+  return mode === 'light' ? LIGHT_ALLOCATION[assetClass] : ASSET_CLASS_META[assetClass].accent;
 }

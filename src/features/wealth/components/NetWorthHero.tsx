@@ -56,7 +56,7 @@ export function NetWorthHero({
       borderRadius: 26,
       overflow: 'hidden',
       borderWidth: 1,
-      borderColor: isLight ? colors.border : 'rgba(94,234,212,0.18)',
+      borderColor: isLight ? colors.glassBorder : 'rgba(94,234,212,0.18)',
     },
     hero: {
       paddingHorizontal: 18,
@@ -153,7 +153,7 @@ export function NetWorthHero({
   const points = history.map(h => h.netWorthRial);
   const up = (changePct ?? 0) >= 0;
   const heroGradient = isLight
-    ? ['#E8F4F1', '#EEF2F4', '#F4F7F8']
+    ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.42)']
     : ['rgba(18, 40, 44, 0.98)', 'rgba(10, 22, 26, 0.98)', 'rgba(14, 28, 24, 0.96)'];
 
   return (
@@ -217,11 +217,14 @@ export function NetWorthHero({
             <Pressable
               key={r}
               onPress={() => onRangeChange(r)}
-              style={[styles.range, range === r && { backgroundColor: theme.palette.primaryGlow }]}>
+              style={[
+                styles.range,
+                range === r && { backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow },
+              ]}>
               <AppText
                 style={[
                   styles.rangeText,
-                  range === r && { color: colors.primary },
+                  range === r && { color: isLight ? colors.onPrimary : colors.primary },
                 ]}>
                 {dict.wealth.ranges[r]}
               </AppText>

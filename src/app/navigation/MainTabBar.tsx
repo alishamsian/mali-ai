@@ -63,6 +63,7 @@ export function MainTabBar({
       width: 40,
       height: 32,
       borderRadius: 12,
+      overflow: 'hidden' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },

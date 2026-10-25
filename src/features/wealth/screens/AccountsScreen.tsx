@@ -39,9 +39,11 @@ export function AccountsScreen() {
   const { colors, mode, accent } = useAppTheme();
   const isLight = mode === 'light';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.04)';
-  const panelBg = isLight ? colors.surfaceSolid : 'rgba(255,255,255,0.035)';
+  const panelBg = isLight ? colors.glass : 'rgba(255,255,255,0.035)';
 
   const [refreshing, setRefreshing] = useState(false);
+  /** Only a pull shows the spinner; the 2-minute background price refresh stays quiet. */
+  const [pulling, setPulling] = useState(false);
   const [priceError, setPriceError] = useState(false);
 
   const styles = useThemedStyles((c, th) => ({
@@ -96,7 +98,7 @@ export function AccountsScreen() {
       padding: 12,
       backgroundColor: panelBg,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: isLight ? c.glassBorder : c.border,
       alignItems: 'center',
     },
     perfLabel: {
@@ -165,7 +167,11 @@ export function AccountsScreen() {
       borderRadius: 8,
       backgroundColor: chipBg,
     },
-    sortOn: { backgroundColor: accent.primaryGlow, borderWidth: 1, borderColor: c.primary },
+    sortOn: {
+      backgroundColor: isLight ? c.primary : accent.primaryGlow,
+      borderWidth: 1,
+      borderColor: c.primary,
+    },
     sortText: { fontSize: 11, color: c.textMuted, textAlign: 'center' },
     list: { paddingHorizontal: 16, marginTop: 4 },
   }));
@@ -273,8 +279,11 @@ export function AccountsScreen() {
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void doRefresh()}
+            refreshing={pulling}
+            onRefresh={() => {
+              setPulling(true);
+              void doRefresh().finally(() => setPulling(false));
+            }}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
@@ -285,13 +294,13 @@ export function AccountsScreen() {
             style={[
               styles.addBtn,
               {
-                backgroundColor: accent.primaryGlow,
+                backgroundColor: isLight ? colors.primary : accent.primaryGlow,
                 borderColor: colors.primary,
               },
             ]}
             onPress={() => nav.navigate('AddWealthAsset')}>
-            <Plus size={16} color={colors.primary} strokeWidth={2.4} />
-            <AppText style={[styles.addBtnText, { color: colors.primary }]}>
+            <Plus size={16} color={isLight ? colors.onPrimary : colors.primary} strokeWidth={2.4} />
+            <AppText style={[styles.addBtnText, { color: isLight ? colors.onPrimary : colors.primary }]}>
               {dict.wealth.addAsset}
             </AppText>
           </Pressable>
@@ -386,10 +395,16 @@ export function AccountsScreen() {
               styles.classChip,
               classFilter === 'all' && {
                 borderColor: colors.primary,
-                backgroundColor: accent.primaryGlow,
+                backgroundColor: isLight ? colors.primary : accent.primaryGlow,
               },
             ]}>
-            <AppText style={styles.classChipText}>{dict.accounts.filterAll}</AppText>
+            <AppText
+              style={[
+                styles.classChipText,
+                classFilter === 'all' && isLight && { color: colors.onPrimary },
+              ]}>
+              {dict.accounts.filterAll}
+            </AppText>
           </Pressable>
           {ASSET_CLASS_ORDER.map(cls => (
             <Pressable
@@ -399,10 +414,16 @@ export function AccountsScreen() {
                 styles.classChip,
                 classFilter === cls && {
                   borderColor: colors.primary,
-                  backgroundColor: accent.primaryGlow,
+                  backgroundColor: isLight ? colors.primary : accent.primaryGlow,
                 },
               ]}>
-              <AppText style={styles.classChipText}>{dict.wealth.classes[cls]}</AppText>
+              <AppText
+                style={[
+                  styles.classChipText,
+                  classFilter === cls && isLight && { color: colors.onPrimary },
+                ]}>
+                {dict.wealth.classes[cls]}
+              </AppText>
             </Pressable>
           ))}
         </ScrollView>
@@ -424,7 +445,7 @@ export function AccountsScreen() {
               <AppText
                 style={[
                   styles.sortText,
-                  sort === id && { color: colors.text },
+                  sort === id && { color: isLight ? colors.onPrimary : colors.text },
                 ]}>
                 {label}
               </AppText>

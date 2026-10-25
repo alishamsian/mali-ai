@@ -33,7 +33,7 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { useFinanceStore } from '../../../store/finance/store';
 import type { FinancialAccount } from '../../../types/finance';
 import type { AssetClass } from '../../../types/wealth';
-import { ASSET_CLASS_META, resolveAssetClass } from '../catalog/classes';
+import { allocationColor, ASSET_CLASS_META, resolveAssetClass } from '../catalog/classes';
 import { holdingPerformance } from '../engine/portfolio';
 import { t } from '../../../i18n';
 import { toPersianDigits } from '../../../utils/numbers/digits';
@@ -366,7 +366,7 @@ function TypedAssetCard({
   index: number;
 }) {
   const dict = t();
-  const { colors } = useAppTheme();
+  const { colors, mode } = useAppTheme();
   const reduced = useFinanceStore(s => s.snapshot.settings.reducedMotion);
   const entrance = useCardEntrance(index, reduced);
   const pulse = usePulse(reduced);
@@ -450,7 +450,18 @@ function TypedAssetCard({
     },
   };
 
-  const look = palette[cls];
+  // Glass daylight: the dark gradients would put ink text on near-black, so use a
+  // frosted card and carry the class colour on the glyph instead.
+  const tint = allocationColor(cls, mode);
+  const look =
+    mode === 'light'
+      ? {
+          bg: ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)'],
+          border: colors.glassBorder,
+          glyphBg: `${tint}1A`,
+        }
+      : palette[cls];
+  const glyphColor = mode === 'light' ? tint : meta.accent;
   const monogram =
     account.details?.class === 'crypto'
       ? account.details.symbol.slice(0, 3).toUpperCase()
@@ -520,14 +531,14 @@ function TypedAssetCard({
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: `${meta.accent}55`,
+                  borderColor: `${glyphColor}55`,
                 },
                 cls === 'crypto' || cls === 'currency' ? pulse : null,
               ]}>
               {monogram ? (
                 <AppText
                   style={{
-                    color: meta.accent,
+                    color: glyphColor,
                     fontSize: 12,
                     fontFamily: 'Vazirmatn-SemiBold',
                     writingDirection: 'ltr',
@@ -535,7 +546,7 @@ function TypedAssetCard({
                   {monogram}
                 </AppText>
               ) : (
-                <ClassGlyph cls={cls} color={meta.accent} />
+                <ClassGlyph cls={cls} color={glyphColor} />
               )}
             </Animated.View>
           </View>

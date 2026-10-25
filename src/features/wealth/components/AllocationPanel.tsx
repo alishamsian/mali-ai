@@ -28,7 +28,7 @@ export function AllocationPanel({
   const dict = t();
   const { colors, mode } = useAppTheme();
   const isLight = mode === 'light';
-  const panelBg = isLight ? colors.surfaceSolid : 'rgba(255,255,255,0.035)';
+  const panelBg = isLight ? colors.glass : 'rgba(255,255,255,0.035)';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.05)';
   const styles = useThemedStyles((colors, theme) => ({
     wrap: {
@@ -38,7 +38,7 @@ export function AllocationPanel({
       borderRadius: 24,
       backgroundColor: panelBg,
       borderWidth: 1,
-      borderColor: isLight ? colors.border : 'rgba(94,234,212,0.12)',
+      borderColor: isLight ? colors.glassBorder : 'rgba(94,234,212,0.12)',
       overflow: 'hidden',
     },
     heading: {
@@ -139,8 +139,8 @@ export function AllocationPanel({
   const [selected, setSelected] = useState<string | null>(null);
   const active = slices.find(s => s.assetClass === selected) ?? slices[0];
   const chartSlices = useMemo(
-    () => slices.map(s => ({ value: s.valueRial, color: allocationColor(s.assetClass) })),
-    [slices],
+    () => slices.map(s => ({ value: s.valueRial, color: allocationColor(s.assetClass, mode) })),
+    [slices, mode],
   );
 
   return (
@@ -156,13 +156,13 @@ export function AllocationPanel({
               styles.filter,
               filter === f && {
                 borderColor: colors.primary,
-                backgroundColor: theme.palette.primaryGlow,
+                backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow,
               },
             ]}>
             <AppText
               style={[
                 styles.filterText,
-                filter === f && { color: colors.primary },
+                filter === f && { color: isLight ? colors.onPrimary : colors.primary },
               ]}>
               {dict.wealth.allocationFilters[f]}
             </AppText>
@@ -223,7 +223,7 @@ export function AllocationPanel({
                     ) : null}
                   </View>
                   <View
-                    style={[styles.swatch, { backgroundColor: allocationColor(s.assetClass) }]}
+                    style={[styles.swatch, { backgroundColor: allocationColor(s.assetClass, mode) }]}
                   />
                 </Pressable>
               );
