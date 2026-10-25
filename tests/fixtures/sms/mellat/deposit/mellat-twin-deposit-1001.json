@@ -1,0 +1,28 @@
+{
+  "id": "mellat-twin-deposit-1001",
+  "status": "real",
+  "bankId": "mellat",
+  "sender": {
+    "raw": null,
+    "sanitized": "9909",
+    "verified": true
+  },
+  "message": {
+    "sanitized": "بانک ملت\nواریز مبلغ 100,000,000 ریال\nمانده 300,000,000"
+  },
+  "transactionType": "deposit",
+  "expected": {
+    "amount": 100000000,
+    "currency": "IRR",
+    "cardLast4": null,
+    "balance": 300000000,
+    "merchant": null,
+    "type": "deposit"
+  },
+  "metadata": {
+    "source": "acceptance-anonymized",
+    "parserVersion": "1.2.0",
+    "collectionDate": "2026-08-27",
+    "note": "Twin deposit A — identical amount to twin B; distinct Android SMS id"
+  }
+}

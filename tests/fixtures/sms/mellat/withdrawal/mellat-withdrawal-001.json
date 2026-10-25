@@ -1,0 +1,17 @@
+{
+  "id": "mellat-withdrawal-001",
+  "status": "NEEDS_FIXTURES",
+  "bankId": "mellat",
+  "sender": { "raw": null, "sanitized": null, "verified": false },
+  "message": { "sanitized": "" },
+  "transactionType": "withdrawal",
+  "expected": {
+    "amount": null,
+    "currency": null,
+    "cardLast4": null,
+    "balance": null,
+    "merchant": null,
+    "type": "withdrawal"
+  },
+  "metadata": { "source": "unknown", "parserVersion": null, "collectionDate": null }
+}

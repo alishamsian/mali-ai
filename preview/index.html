@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Polt — پیش‌نمایش و نصب</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #05080a;
+        --surface: #121a20;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f4f7f8;
+        --muted: rgba(244, 247, 248, 0.55);
+        --primary: #2ee6c7;
+        --income: #6ee7b7;
+        --expense: #f0a5a0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0a0c0e;
+        color: var(--text);
+        font-family: Vazirmatn, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px;
+      }
+      h1 { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+      .hint { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+      .install {
+        display: inline-block;
+        margin-bottom: 20px;
+        padding: 12px 18px;
+        border-radius: 14px;
+        background: var(--primary);
+        color: #05201c;
+        font-weight: 600;
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .phones {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .phone {
+        width: 360px;
+        height: 740px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 36px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+      .screen { height: 100%; overflow: auto; padding: 18px 18px 92px; }
+      .screen::-webkit-scrollbar { display: none; }
+      .label { font-size: 11px; color: var(--muted); letter-spacing: 0.4px; text-align: center; margin-bottom: 10px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .hello { text-align: right; flex: 1; }
+      .hello h2 { margin: 0; font-size: 22px; }
+      .hello p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .icon {
+        width: 44px; height: 44px; border-radius: 14px;
+        background: var(--surface); border: 1px solid var(--border);
+        display: grid; place-items: center; color: var(--muted); font-size: 14px;
+      }
+      .avatar { border-radius: 16px; color: var(--primary); }
+      .balance {
+        margin: 16px 0 12px;
+        border-radius: 24px;
+        padding: 18px;
+        min-height: 168px;
+        background: linear-gradient(135deg, #1ad4c0, #2b6cff);
+      }
+      .balance .cap { opacity: 0.85; font-size: 13px; }
+      .balance .num { font-size: 32px; font-weight: 700; margin: 8px 0 4px; }
+      .mini {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;
+      }
+      .card {
+        background: rgba(18, 26, 32, 0.86);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 14px 16px;
+      }
+      .sec { margin: 18px 0 10px; color: var(--muted); font-size: 13px; text-align: right; }
+      .quick { display: flex; justify-content: space-between; }
+      .quick button {
+        background: none; border: 0; color: var(--muted); width: 72px;
+        font-family: inherit; font-size: 11px;
+      }
+      .orb {
+        width: 52px; height: 52px; border-radius: 26px; margin: 0 auto 8px;
+        background: var(--surface); border: 1px solid var(--border);
+      }
+      .tx { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+      .tx .meta { flex: 1; text-align: right; }
+      .tx .meta b { font-weight: 500; display: block; }
+      .tx .meta span { color: var(--muted); font-size: 12px; }
+      .tabbar {
+        position: absolute; bottom: 0; left: 0; right: 0; height: 78px;
+        background: #0a1014; border-top: 1px solid var(--border);
+        display: flex; align-items: flex-start; justify-content: space-around;
+        padding-top: 10px; color: var(--muted); font-size: 11px;
+      }
+      .tabbar .on { color: var(--primary); }
+      .fab {
+        width: 56px; height: 56px; border-radius: 28px; margin-top: -28px;
+        background: var(--primary); color: #05201c; font-size: 26px;
+        display: grid; place-items: center; font-weight: 700;
+        box-shadow: 0 8px 24px rgba(46, 230, 199, 0.35);
+      }
+      .filters { display: flex; justify-content: center; gap: 8px; margin: 14px 0; }
+      .chip {
+        border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--muted);
+      }
+      .chip.on { border-color: var(--primary); color: var(--primary); background: rgba(46,230,199,.16); }
+      .donut-wrap { display: grid; place-items: center; position: relative; height: 220px; }
+      .donut {
+        width: 200px; height: 200px; border-radius: 50%;
+        background: conic-gradient(#2ee6c7 0 36%, #7b6cff 36% 64%, #f0a070 64% 78%, #6ee7b7 78% 88%, #4c8dff 88% 100%);
+        mask: radial-gradient(circle 68px, transparent 68px, #000 69px);
+      }
+      .donut-center { position: absolute; text-align: center; }
+      .donut-center b { font-size: 20px; display: block; }
+      .cat { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+      .dot { width: 10px; height: 10px; border-radius: 5px; }
+      .bank {
+        border-radius: 22px; padding: 18px; min-height: 120px; margin-bottom: 12px; color: #fff;
+      }
+      .bank.mellat { background: linear-gradient(135deg, #1ad4c0, #148f9a); }
+      .bank.saman { background: linear-gradient(135deg, #6b5cff, #3d2e9a); }
+      .bank.cash { background: linear-gradient(135deg, #1a2228, #0e1418); border: 1px solid var(--border); }
+      .bar { height: 8px; background: rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; margin-top: 8px; }
+      .bar > i { display: block; height: 100%; background: var(--primary); }
+      .qr-box {
+        text-align: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px 24px 16px;
+        margin: 8px 0 24px;
+        max-width: 360px;
+      }
+      .qr-box img {
+        width: 240px;
+        height: 240px;
+        background: #fff;
+        border-radius: 12px;
+        display: block;
+        margin: 12px auto;
+      }
+      .qr-box code {
+        display: block;
+        direction: ltr;
+        font-size: 12px;
+        color: var(--primary);
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>نصب روی گوشی</h1>
+    <div class="qr-box">
+      <p class="hint" style="margin:0">
+        <strong>نسخه ۱.۱۴.۰ — Polt</strong> — ۱۲ شهریور ۱۴۰۵<br />
+        امنیت کامل (ذخیره رمزنگاری، PIN شش‌رقمی، پشتیبان AES) · تحلیل و intel بهبود یافته · قفل خزانه بدون نشت UI · APK ~۳۵MB.
+      </p>
+      <img src="./install-qr.png?v=20260902" alt="QR نصب Polt" />
+      <a class="install" href="./mali-ai.apk">دانلود فایل نصب (APK) — Polt v1.14.0</a>
+      <p class="hint" style="margin:12px 0 0">از همین شبکه وای‌فای:</p>
+      <code id="apk-url">http://192.168.70.136:4174/mali-ai.apk</code>
+      <a class="install" style="margin-top:12px;background:transparent;border:1px solid var(--primary);color:var(--primary)" href="http://192.168.70.136:4174/mali-ai.apk">دانلود مستقیم از سرور محلی</a>
+    </div>
+    <h1>پیش‌نمایش ظاهر پولت</h1>
+    <p class="hint">این همان زبان بصری اپ است. برای دیدن روی دستگاه، بیلد Android در حال اجراست.</p>
+    <div class="phones">
+      <div>
+        <div class="label">خانه</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="row">
+              <div class="icon">⚙</div>
+              <div class="hello">
+                <h2>سلام</h2>
+                <p>امروز ۲۵ مرداد</p>
+              </div>
+              <div class="icon avatar">ع</div>
+            </div>
+            <div class="balance">
+              <div class="row"><span class="cap">موجودی کل</span><span>◎</span></div>
+              <div class="num">۷۸,۴۵۰,۰۰۰</div>
+              <div class="cap">تومان</div>
+            </div>
+            <div class="sec">این ماه</div>
+            <div class="mini">
+              <div class="card"><div class="cap">درآمد</div><div style="color:var(--income);font-size:18px;margin-top:6px">+۵۴,۸۵۰,۰۰۰</div></div>
+              <div class="card"><div class="cap">هزینه</div><div style="color:var(--expense);font-size:18px;margin-top:6px">−۲۲,۴۰۰,۰۰۰</div></div>
+            </div>
+            <div class="card"><div class="cap">پس‌انداز</div><div style="font-size:20px;margin-top:6px">۳۲,۴۵۰,۰۰۰</div></div>
+            <div class="sec">دسترسی سریع</div>
+            <div class="quick">
+              <button><div class="orb"></div>تراکنش جدید</button>
+              <button><div class="orb"></div>انتقال وجه</button>
+              <button><div class="orb"></div>اسکن رسید</button>
+              <button><div class="orb"></div>بودجه‌بندی</button>
+            </div>
+            <div class="sec">آخرین تراکنش‌ها</div>
+            <div class="card">
+              <div class="tx"><div class="icon">□</div><div class="meta"><b>دیجی‌کالا</b><span>خرید آنلاین</span></div><div>−۵۴۸,۰۰۰</div></div>
+              <div class="tx"><div class="icon">↓</div><div class="meta"><b>واریز حقوق</b><span>بانک ملت</span></div><div style="color:var(--income)">+۲۵,۰۰۰,۰۰۰</div></div>
+              <div class="tx"><div class="icon">◌</div><div class="meta"><b>کافه نیکو</b><span>غذا</span></div><div>−۲۸۶,۰۰۰</div></div>
+            </div>
+          </div>
+          <nav class="tabbar">
+            <span class="on">خانه</span>
+            <span>تحلیل</span>
+            <span class="fab">+</span>
+            <span>حساب‌ها</span>
+            <span>پروفایل</span>
+          </nav>
+        </div>
+      </div>
+      <div>
+        <div class="label">تحلیل</div>
+        <div class="phone">
+          <div class="screen">
+            <h2 style="text-align:center;margin:8px 0">تحلیل</h2>
+            <div class="filters">
+              <span class="chip">هفته</span>
+              <span class="chip on">ماه</span>
+              <span class="chip">۳ ماه</span>
+              <span class="chip">سال</span>
+            </div>
+            <p class="hint" style="text-align:center">مرداد ۱۴۰۵</p>
+            <div class="donut-wrap">
+              <div class="donut"></div>
+              <div class="donut-center"><b>۳۲,۴۰۰,۰۰۰</b><span class="cap">مجموع هزینه‌ها</span></div>
+            </div>
+            <div class="card">هزینه‌های شما نسبت به دوره قبل<br /><b style="color:var(--income)">▼ ۸٪</b></div>
+            <div class="cat"><div class="dot" style="background:#2ee6c7"></div><div class="meta" style="flex:1;text-align:right">خانه و مسکن · ۳۶٪</div><span>۱۱,۶۶۴,۰۰۰</span></div>
+            <div class="cat"><div class="dot" style="background:#7b6cff"></div><div class="meta" style="flex:1;text-align:right">خورد و خوراک · ۲۸٪</div><span>۹,۰۷۲,۰۰۰</span></div>
+            <div class="cat"><div class="dot" style="background:#f0a070"></div><div class="meta" style="flex:1;text-align:right">حمل و نقل · ۱۴٪</div><span>۴,۵۳۶,۰۰۰</span></div>
+          </div>
+          <nav class="tabbar">
+            <span>خانه</span>
+            <span class="on">تحلیل</span>
+            <span class="fab">+</span>
+            <span>حساب‌ها</span>
+            <span>پروفایل</span>
+          </nav>
+        </div>
+      </div>
+      <div>
+        <div class="label">حساب‌ها</div>
+        <div class="phone">
+          <div class="screen">
+            <p class="hint" style="text-align:center">موجودی کل</p>
+            <h2 style="text-align:center;font-size:34px;margin:0 0 20px">۷۸,۴۵۰,۰۰۰</h2>
+            <div class="bank mellat"><div>بانک ملت</div><div class="cap">**** ۱۲۳۴</div><div style="font-size:22px;margin-top:16px">۴۸,۲۰۰,۰۰۰</div></div>
+            <div class="bank saman"><div>بانک سامان</div><div class="cap">**** ۴۵۶۷</div><div style="font-size:22px;margin-top:16px">۲۱,۵۰۰,۰۰۰</div></div>
+            <div class="bank cash"><div>کیف پول</div><div class="cap">نقد</div><div style="font-size:22px;margin-top:16px">۸,۷۵۰,۰۰۰</div></div>
+          </div>
+          <nav class="tabbar">
+            <span>خانه</span>
+            <span>تحلیل</span>
+            <span class="fab">+</span>
+            <span class="on">حساب‌ها</span>
+            <span>پروفایل</span>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

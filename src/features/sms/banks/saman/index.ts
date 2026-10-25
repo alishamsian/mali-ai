@@ -1,0 +1,1 @@
+export { samanParser } from './parser';

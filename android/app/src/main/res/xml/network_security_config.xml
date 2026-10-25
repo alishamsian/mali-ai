@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">tgju.org</domain>
+        <pin-set expiration="2027-09-01">
+            <pin digest="SHA-256">D7jTNkYeq+tfLveyxqUQ6Ruqlb/EKmNGePYQl9t2fTs=</pin>
+        </pin-set>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">coingecko.com</domain>
+        <pin-set expiration="2027-09-01">
+            <pin digest="SHA-256">iAyDoBlNkN0ypLQUj2D87aaMTnWdYPwX4GAn3CakxiU=</pin>
+        </pin-set>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <pin-set expiration="2027-09-01">
+            <pin digest="SHA-256">p4MbBTfU3MTzqPxM2Cjv0q3WON8L6FqSzam65NVEkcM=</pin>
+        </pin-set>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

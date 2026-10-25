@@ -1,0 +1,86 @@
+export const palette = {
+  bg0: '#040608',
+  bg1: '#070B0E',
+  bg2: '#0B1114',
+  surface: 'rgba(14, 22, 26, 0.72)',
+  surfaceSolid: '#10181C',
+  surfaceElevated: '#151E24',
+  border: 'rgba(212, 180, 131, 0.14)',
+  borderStrong: 'rgba(59, 232, 197, 0.28)',
+  textPrimary: '#F3F1EA',
+  textSecondary: 'rgba(243, 241, 234, 0.62)',
+  textMuted: 'rgba(243, 241, 234, 0.38)',
+  primary: '#3BE8C5',
+  primaryDim: '#1AA890',
+  primaryGlow: 'rgba(59, 232, 197, 0.22)',
+  filament: '#D4B483',
+  secondary: '#8B7CFF',
+  secondaryAlt: '#4C8DFF',
+  success: '#6EE7B7',
+  income: '#7DFFC8',
+  expense: '#F2A49C',
+  warning: '#E8C36A',
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  ink: '#071014',
+} as const;
+
+export type ColorToken = keyof typeof palette;
+
+export const colors = {
+  dark: {
+    background: palette.bg0,
+    backgroundAlt: palette.bg1,
+    backgroundElevated: palette.bg2,
+    surfaceInteractive: 'rgba(255,255,255,0.04)',
+    surface: palette.surface,
+    surfaceSolid: palette.surfaceSolid,
+    border: palette.border,
+    text: palette.textPrimary,
+    textSecondary: palette.textSecondary,
+    textMuted: palette.textMuted,
+    primary: palette.primary,
+    secondary: palette.secondary,
+    filament: palette.filament,
+    income: palette.income,
+    expense: palette.expense,
+    success: palette.success,
+    warning: palette.warning,
+    onPrimary: palette.ink,
+    glass: palette.surface,
+    glassStrong: palette.surfaceElevated,
+    glassBorder: palette.border,
+    highlight: palette.filament,
+    onHighlight: palette.ink,
+  },
+  /**
+   * «Glass daylight»: frosted white panels over a soft blue/sand backdrop.
+   * Ink is the action colour; amber is for highlights only. Muted text is
+   * only placed on glass panels (5.2:1), never straight on the backdrop.
+   */
+  light: {
+    background: '#DDE3E5',
+    backgroundAlt: '#E6EBED',
+    backgroundElevated: '#F4F6F7',
+    surface: 'rgba(255,255,255,0.55)',
+    surfaceSolid: 'rgba(255,255,255,0.82)',
+    border: 'rgba(255,255,255,0.8)',
+    text: '#111316',
+    textSecondary: '#454B53',
+    textMuted: '#5F656D',
+    primary: '#111316',
+    secondary: '#5B48D9',
+    filament: '#8A5A00',
+    income: '#17703E',
+    expense: '#111316',
+    success: '#17703E',
+    warning: '#8A5A00',
+    onPrimary: '#FFFFFF',
+    glass: 'rgba(255,255,255,0.55)',
+    glassStrong: 'rgba(255,255,255,0.82)',
+    glassBorder: 'rgba(255,255,255,0.8)',
+    highlight: '#F6C25B',
+    onHighlight: '#111316',
+  },
+} as const;
+
+export type ThemeMode = keyof typeof colors;

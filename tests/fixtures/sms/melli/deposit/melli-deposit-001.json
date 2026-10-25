@@ -1,0 +1,27 @@
+{
+  "id": "melli-deposit-001",
+  "status": "real",
+  "bankId": "melli",
+  "sender": {
+    "raw": null,
+    "sanitized": "9830009417",
+    "verified": true
+  },
+  "message": {
+    "sanitized": "بانك ملي ايران\nانتقال:1,500,000+\nحساب:61008\nمانده:117,896,079\n0603-19:36"
+  },
+  "transactionType": "deposit",
+  "expected": {
+    "amount": 1500000,
+    "currency": "IRR",
+    "cardLast4": "1008",
+    "balance": 117896079,
+    "merchant": null,
+    "type": "deposit"
+  },
+  "metadata": {
+    "source": "manual",
+    "parserVersion": "1.2.0",
+    "collectionDate": "2026-08-25"
+  }
+}

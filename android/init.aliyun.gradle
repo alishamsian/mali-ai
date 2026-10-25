@@ -1,0 +1,26 @@
+settingsEvaluated { settings ->
+  settings.pluginManagement.repositories {
+    maven { url "https://maven.aliyun.com/repository/google" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+    maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+  }
+}
+
+gradle.settingsEvaluated { settings ->
+  settings.pluginManagement.repositories {
+    maven { url "https://maven.aliyun.com/repository/google" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+    maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+  }
+}
+
+gradle.beforeProject { project ->
+  project.buildscript.repositories {
+    maven { url "https://maven.aliyun.com/repository/google" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+  }
+  project.repositories {
+    maven { url "https://maven.aliyun.com/repository/google" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+  }
+}
