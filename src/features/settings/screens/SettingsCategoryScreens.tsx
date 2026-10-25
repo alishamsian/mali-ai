@@ -288,7 +288,7 @@ export function SettingsBanksSmsScreen() {
         <SettingsNavRow
           title={dict.settings.needsReview}
           subtitle={toPersianDigits(String(review))}
-          onPress={() => navigateRoot(navigation, 'Notifications')}
+          onPress={() => navigateRoot(navigation, 'ReviewInbox')}
           last
         />
       </SettingsSection>
