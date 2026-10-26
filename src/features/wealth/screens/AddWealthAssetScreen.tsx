@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,10 +13,21 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { interpolate, t } from '../../../i18n';
 import { formatTomanFromRial, tomanToRial, rialToToman } from '../../../utils/currency/money';
 import { AmountField } from '../../../components/ui/AmountInput';
-import { parseIntegerAmount, sanitizeAmountDigits, toEnglishDigits, toPersianDigits } from '../../../utils/numbers/digits';
+import {
+  parseIntegerAmount,
+  sanitizeAmountDigits,
+  toEnglishDigits,
+  toPersianDigits,
+} from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
 import type { RootStackParamList } from '../../../app/navigation/types';
-import type { AssetClass, AssetDetails, BankAccountType, GoldType, GoldUnit } from '../../../types/wealth';
+import type {
+  AssetClass,
+  AssetDetails,
+  BankAccountType,
+  GoldType,
+  GoldUnit,
+} from '../../../types/wealth';
 import { ASSET_CLASS_META, ASSET_CLASS_ORDER } from '../catalog/classes';
 import type { FinancialAccount } from '../../../types/finance';
 import { fetchLiveUnitPrice } from '../pricing/providers';
@@ -29,32 +35,38 @@ import { currencyMarketSymbol, goldMarketSymbol } from '../pricing/symbols';
 import { validateWealthForm } from '../engine/validateAsset';
 import type { PriceSourceKind } from '../../../types/wealth';
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  keyboardType = 'default',
-  kind = 'text',
-}: {
+type FieldProps = {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'number-pad';
   kind?: 'text' | 'amount' | 'decimal';
-}) {
-  if (kind === 'amount') {
+};
+
+/** Amount fields get their own component so hooks never run conditionally. */
+function Field(props: FieldProps) {
+  if (props.kind === 'amount') {
     return (
       <AmountField
-        label={label}
-        value={value}
-        onChangeValue={onChange}
-        placeholder={placeholder}
+        label={props.label}
+        value={props.value}
+        onChangeValue={props.onChange}
+        placeholder={props.placeholder}
       />
     );
   }
+  return <PlainField {...props} />;
+}
 
+function PlainField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  keyboardType = 'default',
+  kind = 'text',
+}: FieldProps) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles(colors => ({
     field: { gap: 6 },
@@ -70,8 +82,7 @@ function Field({
     },
   }));
 
-  const displayValue =
-    kind === 'decimal' && value ? toPersianDigits(value) : value;
+  const displayValue = kind === 'decimal' && value ? toPersianDigits(value) : value;
 
   return (
     <View style={styles.field}>
@@ -309,14 +320,10 @@ export function AddWealthAssetScreen() {
     editing?.details?.class === 'fund' ? String(editing.details.units) : '',
   );
   const [fundBuyNav, setFundBuyNav] = useState(
-    editing?.details?.class === 'fund'
-      ? String(rialToToman(editing.details.purchaseNavRial))
-      : '',
+    editing?.details?.class === 'fund' ? String(rialToToman(editing.details.purchaseNavRial)) : '',
   );
   const [fundNav, setFundNav] = useState(
-    editing?.details?.class === 'fund'
-      ? String(rialToToman(editing.details.currentNavRial))
-      : '',
+    editing?.details?.class === 'fund' ? String(rialToToman(editing.details.currentNavRial)) : '',
   );
 
   // real estate
@@ -398,8 +405,7 @@ export function AddWealthAssetScreen() {
     const run = async () => {
       try {
         if (assetClass === 'gold') {
-          const sym =
-            goldUnit === 'mithqal' ? 'gold_mesghal' : goldMarketSymbol(goldType);
+          const sym = goldUnit === 'mithqal' ? 'gold_mesghal' : goldMarketSymbol(goldType);
           const q = await fetchLiveUnitPrice(sym);
           if (cancelled) {
             return;
@@ -529,7 +535,6 @@ export function AddWealthAssetScreen() {
     dict.wealth.liveLoading,
     dict.wealth.liveUnit,
   ]);
-
 
   const pickClass = (cls: AssetClass) => {
     setAssetClass(cls);
@@ -773,7 +778,9 @@ export function AddWealthAssetScreen() {
                   key={cls}
                   onPress={() => pickClass(cls)}
                   style={[styles.tile, { backgroundColor: ASSET_CLASS_META[cls].accentMuted }]}>
-                  <View style={[styles.tileDot, { backgroundColor: ASSET_CLASS_META[cls].accent }]} />
+                  <View
+                    style={[styles.tileDot, { backgroundColor: ASSET_CLASS_META[cls].accent }]}
+                  />
                   <AppText style={styles.tileText}>{dict.wealth.classes[cls]}</AppText>
                 </Pressable>
               ))}
@@ -817,7 +824,15 @@ export function AddWealthAssetScreen() {
                 />
                 <OptionPickerField
                   label={dict.wealth.fields.accountType}
-                  options={['checking', 'savings', 'deposit', 'short_term', 'long_term'] as BankAccountType[]}
+                  options={
+                    [
+                      'checking',
+                      'savings',
+                      'deposit',
+                      'short_term',
+                      'long_term',
+                    ] as BankAccountType[]
+                  }
                   value={accountType}
                   onChange={setAccountType}
                   labelOf={v => dict.wealth.bankTypes[v]}
@@ -942,7 +957,12 @@ export function AddWealthAssetScreen() {
                   onChange={v => setFxAmount(decimalInput(v))}
                   kind="decimal"
                 />
-                <Field label={dict.wealth.fields.avgRate} value={fxBuy} onChange={setFxBuy} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.avgRate}
+                  value={fxBuy}
+                  onChange={setFxBuy}
+                  kind="amount"
+                />
                 <Field
                   label={dict.wealth.fields.currentRate}
                   value={fxNow}
@@ -972,7 +992,12 @@ export function AddWealthAssetScreen() {
                   onChange={v => setCryptoQty(decimalInput(v))}
                   kind="decimal"
                 />
-                <Field label={dict.wealth.fields.avgBuy} value={cryptoBuy} onChange={setCryptoBuy} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.avgBuy}
+                  value={cryptoBuy}
+                  onChange={setCryptoBuy}
+                  kind="amount"
+                />
                 <Field
                   label={dict.wealth.fields.currentPrice}
                   value={cryptoNow}
@@ -993,30 +1018,62 @@ export function AddWealthAssetScreen() {
 
             {assetClass === 'stock' ? (
               <>
-                <Field label={dict.wealth.fields.symbol} value={stockSymbol} onChange={setStockSymbol} />
-                <Field label={dict.wealth.fields.company} value={stockCompany} onChange={setStockCompany} />
+                <Field
+                  label={dict.wealth.fields.symbol}
+                  value={stockSymbol}
+                  onChange={setStockSymbol}
+                />
+                <Field
+                  label={dict.wealth.fields.company}
+                  value={stockCompany}
+                  onChange={setStockCompany}
+                />
                 <Field
                   label={dict.wealth.fields.quantity}
                   value={stockQty}
                   onChange={v => setStockQty(decimalInput(v))}
                   kind="decimal"
                 />
-                <Field label={dict.wealth.fields.avgBuy} value={stockBuy} onChange={setStockBuy} kind="amount" />
-                <Field label={dict.wealth.fields.currentPrice} value={stockNow} onChange={setStockNow} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.avgBuy}
+                  value={stockBuy}
+                  onChange={setStockBuy}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.currentPrice}
+                  value={stockNow}
+                  onChange={setStockNow}
+                  kind="amount"
+                />
               </>
             ) : null}
 
             {assetClass === 'fund' ? (
               <>
-                <Field label={dict.wealth.fields.fundName} value={fundName} onChange={setFundName} />
+                <Field
+                  label={dict.wealth.fields.fundName}
+                  value={fundName}
+                  onChange={setFundName}
+                />
                 <Field
                   label={dict.wealth.fields.units}
                   value={fundUnits}
                   onChange={v => setFundUnits(decimalInput(v))}
                   kind="decimal"
                 />
-                <Field label={dict.wealth.fields.purchaseNav} value={fundBuyNav} onChange={setFundBuyNav} kind="amount" />
-                <Field label={dict.wealth.fields.currentNav} value={fundNav} onChange={setFundNav} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.purchaseNav}
+                  value={fundBuyNav}
+                  onChange={setFundBuyNav}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.currentNav}
+                  value={fundNav}
+                  onChange={setFundNav}
+                  kind="amount"
+                />
               </>
             ) : null}
 
@@ -1035,9 +1092,24 @@ export function AddWealthAssetScreen() {
                   onChange={v => setReOwn(digitsOnly(v))}
                   keyboardType="number-pad"
                 />
-                <Field label={dict.wealth.fields.purchasePrice} value={rePurchase} onChange={setRePurchase} kind="amount" />
-                <Field label={dict.wealth.fields.estimatedValue} value={reValue} onChange={setReValue} kind="amount" />
-                <Field label={dict.wealth.fields.mortgage} value={reMortgage} onChange={setReMortgage} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.purchasePrice}
+                  value={rePurchase}
+                  onChange={setRePurchase}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.estimatedValue}
+                  value={reValue}
+                  onChange={setReValue}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.mortgage}
+                  value={reMortgage}
+                  onChange={setReMortgage}
+                  kind="amount"
+                />
               </>
             ) : null}
 
@@ -1051,8 +1123,18 @@ export function AddWealthAssetScreen() {
                   onChange={v => setVYear(digitsOnly(v))}
                   keyboardType="number-pad"
                 />
-                <Field label={dict.wealth.fields.purchasePrice} value={vPurchase} onChange={setVPurchase} kind="amount" />
-                <Field label={dict.wealth.fields.estimatedValue} value={vValue} onChange={setVValue} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.purchasePrice}
+                  value={vPurchase}
+                  onChange={setVPurchase}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.estimatedValue}
+                  value={vValue}
+                  onChange={setVValue}
+                  kind="amount"
+                />
               </>
             ) : null}
 
@@ -1064,15 +1146,35 @@ export function AddWealthAssetScreen() {
                   onChange={v => setBizOwn(digitsOnly(v))}
                   keyboardType="number-pad"
                 />
-                <Field label={dict.wealth.fields.businessValue} value={bizVal} onChange={setBizVal} kind="amount" />
-                <Field label={dict.wealth.fields.investment} value={bizInvest} onChange={setBizInvest} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.businessValue}
+                  value={bizVal}
+                  onChange={setBizVal}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.investment}
+                  value={bizInvest}
+                  onChange={setBizInvest}
+                  kind="amount"
+                />
               </>
             ) : null}
 
             {['jewelry', 'collectible', 'other'].includes(assetClass) ? (
               <>
-                <Field label={dict.wealth.fields.purchasePrice} value={purchaseValue} onChange={setPurchaseValue} kind="amount" />
-                <Field label={dict.wealth.fields.estimatedValue} value={currentValue} onChange={setCurrentValue} kind="amount" />
+                <Field
+                  label={dict.wealth.fields.purchasePrice}
+                  value={purchaseValue}
+                  onChange={setPurchaseValue}
+                  kind="amount"
+                />
+                <Field
+                  label={dict.wealth.fields.estimatedValue}
+                  value={currentValue}
+                  onChange={setCurrentValue}
+                  kind="amount"
+                />
               </>
             ) : null}
 

@@ -250,6 +250,8 @@ interface FinanceState {
   markMonthClosingSeen: (monthKey: string) => void;
   dismissFirstCalmNight: () => void;
   addCategoryRuleFromMerchant: (merchant: string, categoryId: CategoryId) => void;
+  /** Undo support: put back the merchant's earlier rule, or remove the rule if there was none. */
+  restoreMerchantRule: (merchant: string, previous: FinanceSnapshot['rules'][number] | undefined) => void;
   flushCloud: () => Promise<void>;
   importBackupJson: (raw: string, password?: string) => { ok: true } | { ok: false; error: string };
   refreshWealthPrices: () => Promise<number>;
@@ -827,8 +829,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const snapshot = get().snapshot;
     persistSet(set, {
       ...snapshot,
-      rules: [...snapshot.rules, ruleFromCorrection(snapshot.profile.id, merchant, categoryId)],
+      // One rule per merchant: a later correction replaces the earlier one instead of piling up.
+      rules: [
+        ...snapshot.rules.filter(r => r.matcher !== merchant.trim()),
+        ruleFromCorrection(snapshot.profile.id, merchant, categoryId),
+      ],
     });
+  },
+  restoreMerchantRule: (merchant, previous) => {
+    const snapshot = get().snapshot;
+    const others = snapshot.rules.filter(r => r.matcher !== merchant.trim());
+    persistSet(set, { ...snapshot, rules: previous ? [...others, previous] : others });
   },
   flushCloud: async () => {
     const snapshot = get().snapshot;

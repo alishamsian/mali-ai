@@ -17,7 +17,9 @@ export function TabNavigator({ onAdd }: { onAdd: () => void }) {
   return (
     <Tab.Navigator
       initialRouteName="Home"
-      screenOptions={{ headerShown: false }}
+      // Hidden tabs stay mounted; freezing them stops every store change from re-rendering
+      // all five tab screens. They catch up when focused again.
+      screenOptions={{ headerShown: false, freezeOnBlur: true }}
       tabBar={props => <MainTabBar {...props} onAdd={onAdd} />}>
       <Tab.Screen name="Home" component={DashboardScreen} />
       <Tab.Screen name="Daily" component={DailyLedgerScreen} />

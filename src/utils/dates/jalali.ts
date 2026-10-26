@@ -56,9 +56,28 @@ export function toJalaliYmd(iso: string): { year: number; month: number; day: nu
   return { year, month, day };
 }
 
-/** Jalali calendar day key YYYY-MM-DD (شمسی) */
+const DAY_KEY_CACHE_LIMIT = 50_000;
+const dayKeyCache = new Map<string, string>();
+
+/**
+ * Jalali calendar day key YYYY-MM-DD (شمسی).
+ * String inputs are cached: analytics converts the same transaction dates thousands of
+ * times per render, and each dayjs jalali conversion is comparatively expensive on Hermes.
+ */
 export function jalaliDayKey(iso: string | Date): string {
-  return dayjs(iso).calendar('jalali').format('YYYY-MM-DD');
+  if (typeof iso !== 'string') {
+    return dayjs(iso).calendar('jalali').format('YYYY-MM-DD');
+  }
+  const hit = dayKeyCache.get(iso);
+  if (hit !== undefined) {
+    return hit;
+  }
+  if (dayKeyCache.size >= DAY_KEY_CACHE_LIMIT) {
+    dayKeyCache.clear();
+  }
+  const key = dayjs(iso).calendar('jalali').format('YYYY-MM-DD');
+  dayKeyCache.set(iso, key);
+  return key;
 }
 
 export function todayJalaliKey(): string {

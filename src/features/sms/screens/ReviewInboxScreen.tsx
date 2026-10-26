@@ -79,6 +79,7 @@ export function ReviewInboxScreen({
   useEffect(() => () => (timer.current ? clearTimeout(timer.current) : undefined), []);
 
   /** Snapshot of the review fields so «برگرداندن» puts the item back exactly as it was. */
+  const restoreRule = useFinanceStore(s => s.restoreMerchantRule);
   const restoreReview = useCallback(
     (txs: Transaction[]) => () => {
       for (const tx of txs) {
@@ -98,17 +99,24 @@ export function ReviewInboxScreen({
       hapticSuccess();
       if (categoryId && categoryId !== tx.categoryId) {
         // Also teaches a merchant rule, so the next SMS from here is filed automatically.
+        const merchant = tx.merchant?.trim();
+        const previousRule = merchant ? snapshot.rules.find(r => r.matcher === merchant) : undefined;
         recategorize(tx.id, categoryId);
         offerUndo({
           label: interpolate(dict.sms.recategorizedToast, { cat: dict.categories[categoryId] }),
-          restore: restoreReview([tx]),
+          restore: () => {
+            restoreReview([tx])();
+            if (merchant) {
+              restoreRule(merchant, previousRule);
+            }
+          },
         });
       } else {
         confirm(tx.id);
         offerUndo({ label: dict.sms.confirmedToast, restore: restoreReview([tx]) });
       }
     },
-    [confirm, dict, offerUndo, recategorize, restoreReview],
+    [confirm, dict, offerUndo, recategorize, restoreReview, restoreRule, snapshot.rules],
   );
 
   const onDelete = useCallback(

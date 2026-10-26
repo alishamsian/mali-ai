@@ -1,4 +1,9 @@
-import type { BudgetCategory, CategoryId, Transaction, TransactionSource } from '../../types/finance';
+import type {
+  BudgetCategory,
+  CategoryId,
+  Transaction,
+  TransactionSource,
+} from '../../types/finance';
 import {
   isoForJalaliDayKey,
   jalaliDayKey,
@@ -60,11 +65,35 @@ function isTransferLike(tx: Transaction): boolean {
   return tx.type === 'transfer' || Boolean(tx.transferId);
 }
 
-export function transactionsForDay(transactions: Transaction[], key: string): Transaction[] {
-  return transactions.filter(tx => jalaliDayKey(tx.transactionDate) === key);
+/** Day index per transactions array; the store replaces the array on every change, so it never goes stale. */
+const dayIndexCache = new WeakMap<Transaction[], Map<string, Transaction[]>>();
+
+function dayIndex(transactions: Transaction[]): Map<string, Transaction[]> {
+  let index = dayIndexCache.get(transactions);
+  if (!index) {
+    index = new Map();
+    for (const tx of transactions) {
+      const key = jalaliDayKey(tx.transactionDate);
+      const bucket = index.get(key);
+      if (bucket) {
+        bucket.push(tx);
+      } else {
+        index.set(key, [tx]);
+      }
+    }
+    dayIndexCache.set(transactions, index);
+  }
+  return index;
 }
 
-export function filterDayTransactions(transactions: Transaction[], filter: DayFilter): Transaction[] {
+export function transactionsForDay(transactions: Transaction[], key: string): Transaction[] {
+  return dayIndex(transactions).get(key) ?? [];
+}
+
+export function filterDayTransactions(
+  transactions: Transaction[],
+  filter: DayFilter,
+): Transaction[] {
   if (filter === 'all') {
     return transactions;
   }
@@ -263,14 +292,21 @@ export function groupDayTransactions(
     row.transactions.push(tx);
     map.set(id, row);
   }
-  return [...map.values()].sort((a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial));
+  return [...map.values()].sort(
+    (a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial),
+  );
 }
 
 export function reviewCountForDay(transactions: Transaction[], key: string): number {
-  return transactionsForDay(transactions, key).filter(tx => tx.needsReview && !tx.isConfirmed).length;
+  return transactionsForDay(transactions, key).filter(tx => tx.needsReview && !tx.isConfirmed)
+    .length;
 }
 
-export function expenseSeries(transactions: Transaction[], throughKey: string, days: number): number[] {
+export function expenseSeries(
+  transactions: Transaction[],
+  throughKey: string,
+  days: number,
+): number[] {
   const out: number[] = [];
   for (let i = days - 1; i >= 0; i--) {
     out.push(summarizeDay(transactions, shiftJalaliDayKey(throughKey, -i)).expenseRial);
@@ -312,7 +348,10 @@ export function dayInsightLine(
   yesterday: DaySummary,
   isToday: boolean,
   weekAvg: number | null,
-): { code: 'weekMore' | 'weekLess' | 'weekFlat' | 'yesterdayUp' | 'yesterdayDown' | 'yesterdayFlat'; vars: Record<string, string | number> } | null {
+): {
+  code: 'weekMore' | 'weekLess' | 'weekFlat' | 'yesterdayUp' | 'yesterdayDown' | 'yesterdayFlat';
+  vars: Record<string, string | number>;
+} | null {
   if (isToday && weekAvg != null && weekAvg > 0 && summary.expenseRial > 0) {
     const delta = summary.expenseRial - weekAvg;
     if (Math.abs(delta) < weekAvg * 0.05) {

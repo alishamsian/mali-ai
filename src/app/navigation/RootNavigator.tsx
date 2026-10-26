@@ -206,7 +206,7 @@ export function RootNavigator() {
         initialState={initialState}
         onStateChange={onStateChange}>
         <Stack.Navigator
-          screenOptions={{ headerShown: false, animation: stackAnimation }}
+          screenOptions={{ headerShown: false, animation: stackAnimation, freezeOnBlur: true }}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="SmsOnboarding" component={SmsOnboardingScreen} />

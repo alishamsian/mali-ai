@@ -1,5 +1,6 @@
 module.exports = {
   preset: 'react-native',
+  globalSetup: '<rootDir>/jest/globalSetup.js',
   setupFiles: ['<rootDir>/jest.setup.js'],
   modulePathIgnorePatterns: ['<rootDir>/ios/Pods'],
   moduleNameMapper: {
