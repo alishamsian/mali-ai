@@ -11,10 +11,32 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 
 type Call = { table: string; op: 'upsert' | 'delete'; rows?: Record<string, unknown>[]; id?: string };
 
-function fakeClient(opts: { failTable?: string; user?: boolean } = {}) {
+function fakeClient(
+  opts: {
+    failTable?: string;
+    user?: boolean;
+    /** Simulates a row the database rejects (constraint, bad value): its request fails. */
+    rejectRow?: (row: Record<string, unknown>) => boolean;
+  } = {},
+) {
   const calls: Call[] = [];
-  const result = (table: string) =>
-    Promise.resolve({ error: opts.failTable === table ? { message: `${table} down` } : null });
+  const result = (table: string, rows?: Record<string, unknown>[]) => {
+    if (opts.failTable === table) {
+      return Promise.resolve({ error: { message: `${table} down` } });
+    }
+    if (rows) {
+      // PostgREST rejects bulk rows whose key sets differ; compare what goes over the wire
+      // (JSON drops undefined values).
+      const keys = rows.map(r => Object.keys(JSON.parse(JSON.stringify(r))).sort().join(','));
+      if (new Set(keys).size > 1) {
+        return Promise.resolve({ error: { message: 'All object keys must match' } });
+      }
+      if (opts.rejectRow && rows.some(opts.rejectRow)) {
+        return Promise.resolve({ error: { message: 'violates not-null constraint' } });
+      }
+    }
+    return Promise.resolve({ error: null });
+  };
   const client = {
     auth: {
       getUser: async () => ({ data: { user: opts.user === false ? null : { id: USER } } }),
@@ -22,7 +44,7 @@ function fakeClient(opts: { failTable?: string; user?: boolean } = {}) {
     from: (table: string) => ({
       upsert: (rows: Record<string, unknown>[]) => {
         calls.push({ table, op: 'upsert', rows });
-        return result(table);
+        return result(table, rows);
       },
       delete: () => ({
         eq: (_col: string, id: string) => {
@@ -176,6 +198,41 @@ describe('flushSyncQueue (bugs 3 and 4)', () => {
     expect(next).toEqual([]);
     expect(calls.filter(c => c.table === 'transactions').map(c => c.rows!.length)).toEqual([
       200, 200, 50,
+    ]);
+  });
+
+  it('sends every column even when an older record lacks some fields', async () => {
+    const calls = fakeClient();
+    const legacy = { ...tx, id: 'tx_legacy', createdAt: undefined, fingerprint: undefined } as never;
+    const queue = [
+      createQueueItem('transactions', tx.id, 'upsert', tx),
+      createQueueItem('transactions', 'tx_legacy', 'upsert', legacy),
+    ];
+    const { queue: next } = await flushSyncQueue(queue, {
+      accounts: [{ ...account, createdAt: undefined } as never],
+    });
+    expect(next).toEqual([]);
+    const txCall = calls.find(c => c.table === 'transactions')!;
+    const wireKeys = (row: object) => Object.keys(JSON.parse(JSON.stringify(row))).sort();
+    expect(wireKeys(txCall.rows![0])).toEqual(wireKeys(txCall.rows![1]));
+    expect(txCall.rows![1]).toMatchObject({ fingerprint: 'tx_legacy' });
+    expect(calls.find(c => c.table === 'financial_accounts')!.rows![0].created_at).toEqual(
+      expect.any(String),
+    );
+  });
+
+  it('one rejected row only holds back itself, not its whole batch', async () => {
+    const calls = fakeClient({ rejectRow: row => row.local_id === 'tx_bad' });
+    const queue = ['tx_a', 'tx_bad', 'tx_b'].map(id =>
+      createQueueItem('transactions', id, 'upsert', { ...tx, id }),
+    );
+    const { queue: next } = await flushSyncQueue(queue, { accounts: [account] });
+
+    expect(next.map(i => i.entityId)).toEqual(['tx_bad']);
+    expect(next[0]).toMatchObject({ status: 'failed', lastError: 'violates not-null constraint' });
+    // One failed bulk request, then one request per row.
+    expect(calls.filter(c => c.table === 'transactions').map(c => c.rows!.length)).toEqual([
+      3, 1, 1, 1,
     ]);
   });
 });

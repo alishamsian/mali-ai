@@ -782,6 +782,13 @@ export function SettingsCloudScreen() {
   const copy = dict.cloud;
   const lastFlush = useFinanceStore(s => s.snapshot.settings.lastCloudFlushAt);
   const pending = useFinanceStore(s => s.snapshot.syncQueue.length);
+  const syncQueue = useFinanceStore(s => s.snapshot.syncQueue);
+  // Failed uploads stay queued with their error; surface the newest so problems are visible.
+  const failedItems = syncQueue.filter(item => item.status === 'failed');
+  const latestError = failedItems.reduce<string | undefined>(
+    (latest, item) => item.lastError ?? latest,
+    undefined,
+  );
   const flushCloud = useFinanceStore(s => s.flushCloud);
   const enqueueFullUpload = useFinanceStore(s => s.enqueueFullUpload);
   const restoreFromCloud = useFinanceStore(s => s.restoreFromCloud);
@@ -947,6 +954,14 @@ export function SettingsCloudScreen() {
           last
         />
       </SettingsSection>
+      {failedItems.length > 0 ? (
+        <AppText style={[styles.hint, { color: colors.expense }]} selectable>
+          {interpolate(copy.failed, {
+            count: toPersianDigits(failedItems.length),
+            error: latestError ?? '—',
+          })}
+        </AppText>
+      ) : null}
       <SettingsSection title={dict.settings.sections.danger}>
         <SettingsNavRow
           title={copy.signOut}

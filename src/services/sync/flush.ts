@@ -30,19 +30,25 @@ export function cloudIdFor(userId: string, localId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
+/**
+ * Every key is always present (null or a default, never undefined). JSON drops undefined
+ * keys, and PostgREST rejects a bulk upsert whose rows do not all have the same keys, so
+ * one older record missing e.g. createdAt used to fail the whole batch.
+ */
 function accountRow(userId: string, a: FinancialAccount) {
+  const now = new Date().toISOString();
   return {
     id: cloudIdFor(userId, a.id),
     user_id: userId,
-    kind: a.kind,
+    kind: a.kind ?? 'bank',
     bank_id: a.bankId ?? null,
-    name: a.name,
+    name: a.name ?? '',
     card_last4: a.cardLast4 ?? null,
-    balance_rial: Math.round(a.balanceRial),
+    balance_rial: Math.round(Number(a.balanceRial) || 0),
     last_sync_at: a.lastSyncAt ?? null,
-    transaction_count: a.transactionCount,
-    created_at: a.createdAt,
-    updated_at: a.updatedAt,
+    transaction_count: a.transactionCount ?? 0,
+    created_at: a.createdAt ?? now,
+    updated_at: a.updatedAt ?? a.createdAt ?? now,
     local_id: a.id,
     payload: a,
   };
@@ -56,29 +62,30 @@ export function cloudTransactionPayload(tx: Transaction): Omit<Transaction, 'sou
 }
 
 function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<string>) {
+  const stamp = tx.updatedAt ?? tx.createdAt ?? tx.transactionDate ?? new Date().toISOString();
   return {
     id: cloudIdFor(userId, tx.id),
     user_id: userId,
     account_id: knownAccounts.has(tx.accountId) ? cloudIdFor(userId, tx.accountId) : null,
-    type: tx.type,
-    direction: tx.direction,
-    amount_rial: Math.round(tx.amountRial),
+    type: tx.type ?? 'purchase',
+    direction: tx.direction ?? 'out',
+    amount_rial: Math.round(Number(tx.amountRial) || 0),
     currency: tx.currency ?? 'IRR',
     merchant: tx.merchant ?? null,
     description: tx.description ?? null,
     category_id: tx.categoryId ?? null,
-    transaction_date: tx.transactionDate,
+    transaction_date: tx.transactionDate ?? stamp,
     card_last4: tx.cardLast4 ?? null,
-    source: tx.source,
+    source: tx.source ?? 'manual',
     source_id: tx.sourceId ?? null,
-    fingerprint: tx.fingerprint,
-    confidence: tx.confidence,
-    is_confirmed: tx.isConfirmed,
-    needs_review: tx.needsReview,
+    fingerprint: tx.fingerprint ?? tx.id,
+    confidence: tx.confidence ?? null,
+    is_confirmed: tx.isConfirmed ?? false,
+    needs_review: tx.needsReview ?? false,
     transfer_id: tx.transferId ? cloudIdFor(userId, tx.transferId) : null,
     notes: tx.notes ?? null,
-    created_at: tx.createdAt,
-    updated_at: tx.updatedAt,
+    created_at: tx.createdAt ?? stamp,
+    updated_at: stamp,
     local_id: tx.id,
     payload: cloudTransactionPayload(tx),
   };
@@ -86,6 +93,37 @@ function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<stri
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'sync-failed';
+}
+
+type Client = NonNullable<ReturnType<typeof getSupabase>>;
+
+async function upsertOnce(client: Client, table: string, rows: object[]): Promise<string | undefined> {
+  try {
+    const { error } = await client.from(table).upsert(rows);
+    return error?.message;
+  } catch (err) {
+    return errorMessage(err);
+  }
+}
+
+/**
+ * Upserts rows in one request; if that fails, retries them one by one so a single bad
+ * row only holds back itself. Returns the error per row index (undefined = stored).
+ */
+async function upsertIsolating(
+  client: Client,
+  table: string,
+  rows: object[],
+): Promise<(string | undefined)[]> {
+  const bulkError = await upsertOnce(client, table, rows);
+  if (!bulkError || rows.length === 1) {
+    return rows.map(() => bulkError);
+  }
+  const errors: (string | undefined)[] = [];
+  for (const row of rows) {
+    errors.push(await upsertOnce(client, table, [row]));
+  }
+  return errors;
 }
 
 /**
@@ -152,37 +190,33 @@ export async function flushSyncQueue(
       }
     }
   }
-  const accountUpserts = accountItems.filter(item => item.operation === 'upsert');
-  let accountsError: string | undefined;
-  if (accountRows.size > 0) {
-    try {
-      const { error } = await client
-        .from('financial_accounts')
-        .upsert([...accountRows.values()].map(a => accountRow(user.id, a)));
-      accountsError = error?.message;
-    } catch (err) {
-      accountsError = errorMessage(err);
+  const accountList = [...accountRows.values()];
+  const accountErrors =
+    accountList.length > 0
+      ? await upsertIsolating(
+          client,
+          'financial_accounts',
+          accountList.map(a => accountRow(user.id, a)),
+        )
+      : [];
+  const accountError = new Map(accountList.map((a, i) => [a.id, accountErrors[i]]));
+  for (const item of accountItems) {
+    if (item.operation === 'upsert') {
+      settle([item], accountError.get(item.entityId));
     }
   }
-  settle(accountUpserts, accountsError);
-  const knownAccounts = accountsError ? new Set<string>() : new Set(accountRows.keys());
+  // Only accounts that are really in the cloud may be referenced (account_id FK).
+  const knownAccounts = new Set(accountList.filter(a => !accountError.get(a.id)).map(a => a.id));
 
   // 2. Transaction upserts, in chunks.
   for (let i = 0; i < txUpserts.length; i += UPSERT_CHUNK) {
     const chunk = txUpserts.slice(i, i + UPSERT_CHUNK);
-    let chunkError: string | undefined;
-    try {
-      const { error } = await client
-        .from('transactions')
-        .upsert(chunk.map(({ tx }) => transactionRow(user.id, tx, knownAccounts)));
-      chunkError = error?.message;
-    } catch (err) {
-      chunkError = errorMessage(err);
-    }
-    settle(
-      chunk.map(({ item }) => item),
-      chunkError,
+    const errors = await upsertIsolating(
+      client,
+      'transactions',
+      chunk.map(({ tx }) => transactionRow(user.id, tx, knownAccounts)),
     );
+    chunk.forEach(({ item }, index) => settle([item], errors[index]));
   }
 
   // 3. Deletes.

@@ -24,6 +24,7 @@ export const fa = {
     signedInAs: 'وارد شده با',
     syncNow: 'همگام‌سازی الان',
     pending: '{count} مورد در صف',
+    failed: '{count} مورد ارسال نشد. آخرین خطا: {error}',
     restore: 'بازگردانی از ابر',
     restoreHint: 'فقط چیزهایی که روی این گوشی نیست اضافه می‌شود؛ چیزی پاک یا جایگزین نمی‌شود.',
     restoreDone: '{transactions} تراکنش و {accounts} حساب اضافه شد.',
