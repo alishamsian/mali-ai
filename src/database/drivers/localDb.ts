@@ -43,7 +43,27 @@ export class LocalFinanceDb {
     return Boolean(this.driver.get(KEY));
   }
 
+  /**
+   * Same bytes as JSON.stringify(snapshot), still one atomic write, but each top-level
+   * section is re-serialized only when its reference changed. Store updates are
+   * immutable, so a settings toggle or sync-queue write no longer re-stringifies
+   * tens of thousands of transactions.
+   */
   save(snapshot: FinanceSnapshot): void {
-    this.driver.set(KEY, JSON.stringify(snapshot));
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(snapshot)) {
+      if (value === undefined) {
+        continue;
+      }
+      let hit = this.sectionCache.get(key);
+      if (!hit || hit.ref !== value) {
+        hit = { ref: value, json: JSON.stringify(value) };
+        this.sectionCache.set(key, hit);
+      }
+      parts.push(`${JSON.stringify(key)}:${hit.json}`);
+    }
+    this.driver.set(KEY, `{${parts.join(',')}}`);
   }
+
+  private readonly sectionCache = new Map<string, { ref: unknown; json: string }>();
 }
