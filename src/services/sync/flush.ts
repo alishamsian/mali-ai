@@ -1,70 +1,201 @@
-import type { SyncQueueItem } from '../../types/finance';
+import { sha256 } from 'js-sha256';
+import type { FinancialAccount, SyncQueueItem, Transaction } from '../../types/finance';
 import { getSupabase } from '../supabase/client';
 import { markRetry } from './queue';
+
+const UPSERT_CHUNK = 200;
+
+export type FlushResult = {
+  queue: SyncQueueItem[];
+  /** False when there is no Supabase client or signed-in user; the queue is returned untouched. */
+  ran: boolean;
+};
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export async function flushSyncQueue(queue: SyncQueueItem[]): Promise<SyncQueueItem[]> {
+/**
+ * Local ids (`tx_…`, `acc_sms_…`) are not UUIDs. Derive a stable UUID per user + local id
+ * so the same local row always upserts or deletes the same cloud row.
+ */
+export function cloudIdFor(userId: string, localId: string): string {
+  if (isUuid(localId)) {
+    return localId.toLowerCase();
+  }
+  const hex = sha256(`mali:${userId}:${localId}`);
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+function accountRow(userId: string, a: FinancialAccount) {
+  return {
+    id: cloudIdFor(userId, a.id),
+    user_id: userId,
+    kind: a.kind,
+    bank_id: a.bankId ?? null,
+    name: a.name,
+    card_last4: a.cardLast4 ?? null,
+    balance_rial: Math.round(a.balanceRial),
+    last_sync_at: a.lastSyncAt ?? null,
+    transaction_count: a.transactionCount,
+    created_at: a.createdAt,
+    updated_at: a.updatedAt,
+  };
+}
+
+function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<string>) {
+  return {
+    id: cloudIdFor(userId, tx.id),
+    user_id: userId,
+    account_id: knownAccounts.has(tx.accountId) ? cloudIdFor(userId, tx.accountId) : null,
+    type: tx.type,
+    direction: tx.direction,
+    amount_rial: Math.round(tx.amountRial),
+    currency: tx.currency ?? 'IRR',
+    merchant: tx.merchant ?? null,
+    description: tx.description ?? null,
+    category_id: tx.categoryId ?? null,
+    transaction_date: tx.transactionDate,
+    card_last4: tx.cardLast4 ?? null,
+    source: tx.source,
+    source_id: tx.sourceId ?? null,
+    fingerprint: tx.fingerprint,
+    confidence: tx.confidence,
+    is_confirmed: tx.isConfirmed,
+    needs_review: tx.needsReview,
+    transfer_id: tx.transferId ? cloudIdFor(userId, tx.transferId) : null,
+    notes: tx.notes ?? null,
+    created_at: tx.createdAt,
+    updated_at: tx.updatedAt,
+  };
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'sync-failed';
+}
+
+/**
+ * Sends due queue items to Supabase. Synced items are dropped from the result.
+ * Accounts go first, including every account a pending transaction points at, so the
+ * transactions' account_id foreign key always resolves.
+ */
+export async function flushSyncQueue(
+  queue: SyncQueueItem[],
+  options: { accounts: FinancialAccount[] },
+): Promise<FlushResult> {
   const client = getSupabase();
   if (!client) {
-    return queue;
+    return { queue, ran: false };
   }
   const {
     data: { user },
   } = await client.auth.getUser();
   if (!user) {
-    return queue;
+    return { queue, ran: false };
   }
 
   const now = Date.now();
-  const next: SyncQueueItem[] = [];
+  const results = new Map<string, SyncQueueItem | null>();
+  const due: SyncQueueItem[] = [];
   for (const item of queue) {
     if (item.status === 'synced') {
-      next.push(item);
-      continue;
-    }
-    if (item.nextRetryAt && Date.parse(item.nextRetryAt) > now) {
-      next.push(item);
-      continue;
-    }
-    try {
-      if (item.entity === 'transactions') {
-        if (!isUuid(item.entityId)) {
-          next.push(markRetry(item, 'local-id: wait for cloud identity mapping'));
-          continue;
-        }
-        const payload = JSON.parse(item.payload) as Record<string, unknown>;
-        const { error } = await client.from('transactions').upsert({
-          id: item.entityId,
-          user_id: user.id,
-          account_id: payload.accountId,
-          type: payload.type,
-          direction: payload.direction,
-          amount_rial: payload.amountRial,
-          currency: payload.currency ?? 'IRR',
-          merchant: payload.merchant,
-          description: payload.description,
-          category_id: payload.categoryId,
-          transaction_date: payload.transactionDate,
-          card_last4: payload.cardLast4,
-          source: payload.source,
-          fingerprint: payload.fingerprint,
-          confidence: payload.confidence,
-          is_confirmed: payload.isConfirmed,
-          needs_review: payload.needsReview,
-          notes: payload.notes,
-        });
-        if (error) {
-          next.push(markRetry(item, error.message));
-          continue;
-        }
-      }
-      next.push({ ...item, status: 'synced', lastError: undefined });
-    } catch (err) {
-      next.push(markRetry(item, err instanceof Error ? err.message : 'sync-failed'));
+      results.set(item.id, null);
+    } else if (item.nextRetryAt && Date.parse(item.nextRetryAt) > now) {
+      results.set(item.id, item);
+    } else {
+      due.push(item);
     }
   }
-  return next;
+
+  const settle = (items: SyncQueueItem[], error?: string) => {
+    for (const item of items) {
+      results.set(item.id, error ? markRetry(item, error) : null);
+    }
+  };
+
+  const accountsById = new Map(options.accounts.map(a => [a.id, a]));
+  const accountItems = due.filter(item => item.entity === 'financial_accounts');
+  const txItems = due.filter(item => item.entity === 'transactions');
+  // Nothing else is uploaded yet; dropping keeps unknown entities from piling up.
+  settle(due.filter(item => item.entity !== 'financial_accounts' && item.entity !== 'transactions'));
+
+  // 1. Accounts: queued upserts plus any account a pending transaction references.
+  const accountRows = new Map<string, FinancialAccount>();
+  for (const item of accountItems) {
+    if (item.operation === 'upsert') {
+      const account = accountsById.get(item.entityId) ?? (JSON.parse(item.payload) as FinancialAccount);
+      accountRows.set(account.id, account);
+    }
+  }
+  const txUpserts: { item: SyncQueueItem; tx: Transaction }[] = [];
+  for (const item of txItems) {
+    if (item.operation === 'upsert') {
+      const tx = JSON.parse(item.payload) as Transaction;
+      txUpserts.push({ item, tx });
+      const account = accountsById.get(tx.accountId);
+      if (account) {
+        accountRows.set(account.id, account);
+      }
+    }
+  }
+  const accountUpserts = accountItems.filter(item => item.operation === 'upsert');
+  let accountsError: string | undefined;
+  if (accountRows.size > 0) {
+    try {
+      const { error } = await client
+        .from('financial_accounts')
+        .upsert([...accountRows.values()].map(a => accountRow(user.id, a)));
+      accountsError = error?.message;
+    } catch (err) {
+      accountsError = errorMessage(err);
+    }
+  }
+  settle(accountUpserts, accountsError);
+  const knownAccounts = accountsError ? new Set<string>() : new Set(accountRows.keys());
+
+  // 2. Transaction upserts, in chunks.
+  for (let i = 0; i < txUpserts.length; i += UPSERT_CHUNK) {
+    const chunk = txUpserts.slice(i, i + UPSERT_CHUNK);
+    let chunkError: string | undefined;
+    try {
+      const { error } = await client
+        .from('transactions')
+        .upsert(chunk.map(({ tx }) => transactionRow(user.id, tx, knownAccounts)));
+      chunkError = error?.message;
+    } catch (err) {
+      chunkError = errorMessage(err);
+    }
+    settle(
+      chunk.map(({ item }) => item),
+      chunkError,
+    );
+  }
+
+  // 3. Deletes.
+  const deletes = due.filter(
+    item =>
+      item.operation === 'delete' &&
+      (item.entity === 'transactions' || item.entity === 'financial_accounts'),
+  );
+  for (const item of deletes) {
+    try {
+      const { error } = await client
+        .from(item.entity)
+        .delete()
+        .eq('id', cloudIdFor(user.id, item.entityId));
+      settle([item], error?.message);
+    } catch (err) {
+      settle([item], errorMessage(err));
+    }
+  }
+
+  const next: SyncQueueItem[] = [];
+  for (const item of queue) {
+    const result = results.has(item.id) ? results.get(item.id) : item;
+    if (result) {
+      next.push(result);
+    }
+  }
+  return { queue: next, ran: true };
 }

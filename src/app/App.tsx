@@ -73,13 +73,21 @@ function BootSplash() {
 }
 
 /** Shown when the encrypted store cannot be opened. Saves nothing, so retry is safe. */
-function StorageErrorScreen({ code, onRetry }: { code: string; onRetry: () => void }) {
+function StorageErrorScreen({
+  code,
+  detail,
+  onRetry,
+}: {
+  code: string;
+  detail?: string;
+  onRetry: () => void;
+}) {
   const copy = t().storageError;
   return (
     <View style={errorStyles.root}>
       <Text style={errorStyles.title}>{copy.title}</Text>
       <Text style={errorStyles.body}>{code === 'key-mismatch' ? copy.mismatch : copy.body}</Text>
-      <Text style={errorStyles.code}>{code}</Text>
+      <Text style={errorStyles.code}>{__DEV__ && detail ? `${code} · ${detail}` : code}</Text>
       <Pressable accessibilityRole="button" onPress={onRetry} style={errorStyles.button}>
         <Text style={errorStyles.buttonLabel}>{copy.retry}</Text>
       </Pressable>
@@ -88,23 +96,23 @@ function StorageErrorScreen({ code, onRetry }: { code: string; onRetry: () => vo
 }
 
 const errorStyles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#040608', justifyContent: 'center', padding: 24, gap: 16 },
+  root: { flex: 1, backgroundColor: '#DDE3E5', justifyContent: 'center', padding: 24, gap: 16 },
   title: {
-    color: '#fff',
+    color: '#111316',
     fontSize: 20,
     fontFamily: typography.fontFamily.bold,
     textAlign: 'right',
   },
   body: {
-    color: '#c9d1d9',
+    color: '#454B53',
     fontSize: 15,
     lineHeight: 26,
     fontFamily: typography.fontFamily.regular,
     textAlign: 'right',
   },
-  code: { color: '#6e7681', fontSize: 12, textAlign: 'right' },
+  code: { color: '#5F656D', fontSize: 12, textAlign: 'right' },
   button: {
-    backgroundColor: '#2f81f7',
+    backgroundColor: '#111316',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -133,7 +141,11 @@ export default function App() {
       {hydrated ? (
         <AppShell />
       ) : storageError ? (
-        <StorageErrorScreen code={storageError.code} onRetry={() => void hydrate()} />
+        <StorageErrorScreen
+          code={storageError.code}
+          detail={storageError.detail}
+          onRetry={() => void hydrate()}
+        />
       ) : (
         <BootSplash />
       )}

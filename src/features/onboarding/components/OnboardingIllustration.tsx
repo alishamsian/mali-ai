@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useFinanceStore } from '../../../store/finance/store';
 import type { OnboardingSlideConfig } from '../config';
+import { useAppTheme } from '../../../theme/ThemeBridge';
 
 function useMotionEnabled(): boolean {
   const reduced = useFinanceStore(s => Boolean(s.snapshot.settings.reducedMotion));
@@ -339,6 +340,9 @@ export function OnboardingIllustration({
   active: boolean;
 }) {
   const motion = useMotionEnabled();
+  const { mode } = useAppTheme();
+  // The scenes are drawn for a dark stage; on the glass daylight page they sit in an ink card.
+  const stage = mode === 'light' ? '#111316' : 'rgba(255,255,255,0.03)';
 
   if (!active) {
     return <View style={styles.placeholder} />;
@@ -354,7 +358,7 @@ export function OnboardingIllustration({
   }
 
   return (
-    <View style={[styles.illustration, { borderColor: `${slide.accent}33` }]}>
+    <View style={[styles.illustration, { borderColor: `${slide.accent}33`, backgroundColor: stage }]}>
       <LinearGradient colors={[`${slide.accent}18`, 'rgba(4,6,8,0)']} style={StyleSheet.absoluteFill} />
       <Scene slide={slide} enabled={motion} />
     </View>

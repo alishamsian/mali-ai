@@ -1,5 +1,6 @@
 import { LocalFinanceDb } from '../drivers/localDb';
 import type { FinanceSnapshot } from '../schema/snapshot';
+import { enqueueSync } from '../../services/sync/queue';
 import type {
   FinancialAccount,
   SyncQueueItem,
@@ -66,7 +67,7 @@ export class FinanceRepository {
   }
 
   enqueue(item: SyncQueueItem): void {
-    this.commit(s => ({ ...s, syncQueue: [...s.syncQueue, item] }));
+    this.commit(s => ({ ...s, syncQueue: enqueueSync(s.syncQueue, item) }));
   }
 }
 

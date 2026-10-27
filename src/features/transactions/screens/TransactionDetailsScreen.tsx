@@ -1,14 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, ChevronUp, HelpCircle, Trash2 } from 'lucide-react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
-import { ScreenHeader } from '../../../components/ui/ScreenHeader';
-import { Surface } from '../../../components/ui/Surface';
+import { GlassPanel } from '../../../components/ui/GlassPanel';
 import { PressScale } from '../../../components/ui/PressScale';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
-import { AlertBanner } from '../../../components/ui/AlertBanner';
 import { MoneyText } from '../../../components/ui/MoneyText';
 import { BankEmblem } from '../../../components/banks/BankEmblem';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
@@ -103,7 +101,10 @@ export function TransactionDetailsScreen({
   navigation: NativeStackNavigationProp<RootStackParamList>;
 }) {
   const insets = useSafeAreaInsets();
-  const { colors, mode, accent } = useAppTheme();
+  const { colors, mode } = useAppTheme();
+  const glass = mode === 'light';
+  /** Danger red that keeps ≥5:1 on glass; the dark theme keeps its expense coral. */
+  const danger = glass ? '#B23A3A' : colors.expense;
   const dict = t();
   const tx = useFinanceStore(s => s.snapshot.transactions.find(x => x.id === route.params.id));
   const hidden = useFinanceStore(s => s.snapshot.settings.hideBalances);
@@ -112,9 +113,35 @@ export function TransactionDetailsScreen({
   const recategorize = useFinanceStore(s => s.recategorizeTransaction);
   const remove = useFinanceStore(s => s.deleteTransaction);
   const [whyOpen, setWhyOpen] = useState(false);
+  // Two-step delete: the first tap arms it, a second tap within 4 s deletes.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) {
+      return;
+    }
+    const id = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(id);
+  }, [armed]);
   const styles = useThemedStyles((c, th) => ({
     screen: { flex: 1 },
-    content: { paddingHorizontal: 20, paddingBottom: 40 },
+    content: { paddingHorizontal: 16, paddingBottom: 40 },
+    header: {
+      flexDirection: 'row-reverse',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 17, fontFamily: th.typography.fontFamily.semibold, color: c.text },
+    brandTile: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.primary,
+    },
+    brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: th.typography.fontFamily.bold, color: c.onPrimary },
     hero: {
       alignItems: 'center',
       paddingVertical: 22,
@@ -152,7 +179,7 @@ export function TransactionDetailsScreen({
       borderWidth: 1,
     },
     amountBlock: { alignItems: 'center', gap: 4, width: '100%', paddingHorizontal: 6 },
-    amount: { width: '100%', fontSize: 34, letterSpacing: -1 },
+    amount: { width: '100%', fontSize: 40, letterSpacing: -1, fontFamily: th.typography.fontFamily.semibold },
     unit: { fontSize: 12, color: c.textMuted },
     dateLine: { textAlign: 'center', color: c.textMuted },
     chips: {
@@ -167,14 +194,14 @@ export function TransactionDetailsScreen({
       gap: 6,
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 10,
+      borderRadius: 999,
       borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(8,13,16,0.03)',
+      borderColor: glass ? c.glassBorder : c.border,
+      backgroundColor: glass ? c.glassStrong : 'rgba(255,255,255,0.04)',
     },
     reviewChip: {
-      borderColor: accent.primaryGlow,
-      backgroundColor: accent.primaryGlow,
+      borderColor: c.highlight,
+      backgroundColor: c.highlight,
     },
     section: { marginBottom: 12, paddingHorizontal: 14, paddingVertical: 4 },
     sectionTitle: {
@@ -186,9 +213,10 @@ export function TransactionDetailsScreen({
     categoryBlock: {
       paddingVertical: 10,
       paddingHorizontal: 2,
-      borderRadius: 12,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: glass ? c.glassBorder : c.border,
+      backgroundColor: glass ? c.glassStrong : 'transparent',
       padding: 12,
       marginBottom: 4,
     },
@@ -217,8 +245,8 @@ export function TransactionDetailsScreen({
     whyBody: { gap: 10, paddingBottom: 12 },
     smsBox: {
       padding: 12,
-      borderRadius: 12,
-      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(8,13,16,0.04)',
+      borderRadius: 16,
+      backgroundColor: glass ? c.glassStrong : 'rgba(255,255,255,0.04)',
       borderWidth: 1,
       borderColor: c.border,
     },
@@ -233,10 +261,15 @@ export function TransactionDetailsScreen({
     actions: { gap: 10, marginTop: 8 },
     delete: {
       marginTop: 18,
-      minHeight: 48,
+      minHeight: 52,
+      borderRadius: 18,
+      borderWidth: 1,
+      flexDirection: 'row-reverse',
+      gap: 8,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    deleteText: { fontSize: 15, fontFamily: th.typography.fontFamily.semibold },
     mergedNote: {
       textAlign: 'right',
       marginTop: 8,
@@ -280,9 +313,19 @@ export function TransactionDetailsScreen({
         style={styles.screen}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
         showsVerticalScrollIndicator={false}>
-        <ScreenHeader title={dict.transactions.details} onBack={() => navigation.goBack()} />
+        <View style={styles.header}>
+          <PressScale onPress={() => navigation.goBack()} accessibilityLabel={dict.common.back}>
+            <GlassPanel strong radius={16} style={styles.backBtn}>
+              <ChevronRight color={colors.text} size={22} />
+            </GlassPanel>
+          </PressScale>
+          <AppText style={styles.headerTitle}>{dict.transactions.details}</AppText>
+          <View style={styles.brandTile}>
+            <AppText style={styles.brandGlyph}>پ</AppText>
+          </View>
+        </View>
 
-        <Surface level="raised" style={styles.hero}>
+        <GlassPanel radius={30} style={styles.hero}>
           <View style={styles.heroTop}>
             <View
               style={[
@@ -332,22 +375,18 @@ export function TransactionDetailsScreen({
             ) : null}
             {needsCategoryConfirm ? (
               <View style={[styles.chip, styles.reviewChip]}>
-                <AppText variant="caption" style={{ color: colors.primary }}>
+                <AppText variant="caption" style={{ color: colors.onHighlight }}>
                   {dict.transactions.needsReview}
                 </AppText>
               </View>
             ) : null}
           </View>
-        </Surface>
-
-        {needsCategoryConfirm ? (
-          <AlertBanner tone="warn" message={dict.transactions.pickCategoryHint} />
-        ) : null}
+        </GlassPanel>
 
         <AppText variant="kicker" style={styles.sectionTitle}>
           {dict.transactions.info}
         </AppText>
-        <Surface level="raised" style={styles.section}>
+        <GlassPanel radius={24} style={styles.section}>
           <View
             style={[
               styles.categoryBlock,
@@ -376,7 +415,7 @@ export function TransactionDetailsScreen({
           />
           <InfoRow label={dict.transactions.account} value={account?.name ?? '—'} />
           <InfoRow label={dict.transactions.source} value={sourceLabel(tx.source, dict.transactions)} last />
-        </Surface>
+        </GlassPanel>
 
         {tx.mergedFromId ? (
           <AppText variant="caption" style={[styles.mergedNote, { color: colors.textMuted }]}>
@@ -389,14 +428,14 @@ export function TransactionDetailsScreen({
             <AppText variant="kicker" style={styles.sectionTitle}>
               {dict.transactions.notes}
             </AppText>
-            <Surface level="raised" style={[styles.section, { paddingVertical: 14 }]}>
+            <GlassPanel radius={24} style={[styles.section, { paddingVertical: 14 }]}>
               <AppText style={{ textAlign: 'right', lineHeight: 24 }}>{tx.notes}</AppText>
-            </Surface>
+            </GlassPanel>
           </>
         ) : null}
 
         {isSms ? (
-          <Surface level="raised" style={styles.section}>
+          <GlassPanel radius={24} style={styles.section}>
             <PressScale onPress={() => setWhyOpen(v => !v)} style={styles.whyToggle}>
               <View style={styles.whyTitleRow}>
                 <HelpCircle color={colors.textSecondary} size={18} />
@@ -430,7 +469,7 @@ export function TransactionDetailsScreen({
                 </View>
               </View>
             ) : null}
-          </Surface>
+          </GlassPanel>
         ) : null}
 
         <View style={styles.actions}>
@@ -449,11 +488,25 @@ export function TransactionDetailsScreen({
 
         <PressScale
           onPress={() => {
+            if (!armed) {
+              setArmed(true);
+              return;
+            }
             remove(tx.id);
             navigation.goBack();
           }}
-          style={styles.delete}>
-          <AppText style={{ color: colors.expense }}>{dict.transactions.delete}</AppText>
+          accessibilityRole="button"
+          accessibilityLabel={armed ? dict.transactions.deleteConfirm : dict.transactions.delete}
+          style={[
+            styles.delete,
+            armed
+              ? { backgroundColor: danger, borderColor: danger }
+              : { backgroundColor: glass ? colors.glassStrong : 'transparent', borderColor: glass ? colors.glassBorder : colors.border },
+          ]}>
+          <Trash2 color={armed ? '#FFFFFF' : danger} size={18} strokeWidth={2} />
+          <AppText style={[styles.deleteText, { color: armed ? '#FFFFFF' : danger }]}>
+            {armed ? dict.transactions.deleteConfirm : dict.transactions.delete}
+          </AppText>
         </PressScale>
       </ScrollView>
     </NightCanvas>

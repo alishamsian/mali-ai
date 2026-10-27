@@ -189,6 +189,7 @@ export const fa = {
     notes: 'یادداشت',
     edit: 'ویرایش',
     delete: 'حذف',
+    deleteConfirm: 'حذف قطعی؟ دوباره بزن',
     addNote: 'یادداشت',
     markCategory: 'دسته‌بندی',
     filters: 'فیلترها',

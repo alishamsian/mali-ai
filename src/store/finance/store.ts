@@ -30,10 +30,20 @@ import type {
   UserSettings,
 } from '../../types/finance';
 import { applyTransferLinks, detectTransfers } from '../../engine/transfer/detect';
-import { createQueueItem } from '../../services/sync/queue';
+import {
+  compactSyncQueue,
+  createQueueItem,
+  enqueueSync,
+  mergeFlushedQueue,
+} from '../../services/sync/queue';
 import { monthlyTotals } from '../../engine/insights/analytics';
 import { ruleFromCorrection } from '../../engine/category/engine';
-import { ingestIncomingSms, recomputeAccountBalancesFromSms, type IngestSmsOptions, type RawSmsPayload } from '../../features/sms/ingest';
+import {
+  ingestIncomingSms,
+  recomputeAccountBalancesFromSms,
+  type IngestSmsOptions,
+  type RawSmsPayload,
+} from '../../features/sms/ingest';
 import {
   checkpointPatchFromResult,
   runIncrementalSmsSync,
@@ -62,6 +72,7 @@ const NAV_STATE_KEY = 'mali.nav.state.v1';
 
 let db: LocalFinanceDb | null = null;
 let hydrating: Promise<void> | null = null;
+let flushing: Promise<void> | null = null;
 
 function requireDb(): LocalFinanceDb {
   if (!db) {
@@ -142,20 +153,21 @@ function liveSnapshot(get: () => FinanceState): FinanceSnapshot {
   return smsBatchWorking ?? get().snapshot;
 }
 
-function persistSet(
-  set: (partial: Partial<FinanceState>) => void,
-  snapshot: FinanceSnapshot,
-) {
+/**
+ * Full persist. During an SMS batch it also replaces the working copy, so a user action
+ * taken mid-sync survives the batch's final write instead of being overwritten by it.
+ */
+function persistSet(set: (partial: Partial<FinanceState>) => void, snapshot: FinanceSnapshot) {
+  if (isSmsBatching()) {
+    smsBatchWorking = snapshot;
+  }
   syncDisplayCurrency(snapshot.settings);
   requireDb().save(snapshot);
   set({ snapshot });
 }
 
 /** During batch: write working copy only. Outside: full persist. */
-function commitSnapshot(
-  set: (partial: Partial<FinanceState>) => void,
-  snapshot: FinanceSnapshot,
-) {
+function commitSnapshot(set: (partial: Partial<FinanceState>) => void, snapshot: FinanceSnapshot) {
   if (isSmsBatching()) {
     smsBatchWorking = snapshot;
     return;
@@ -199,7 +211,7 @@ interface FinanceState {
   snapshot: FinanceSnapshot;
   hydrated: boolean;
   /** Set when the encrypted store could not be opened; nothing is loaded or saved. */
-  storageError: { code: string } | null;
+  storageError: { code: string; detail?: string } | null;
   /** Ephemeral SMS sync UI state (not persisted). */
   smsSync: {
     status: IncrementalSyncStatus;
@@ -251,7 +263,10 @@ interface FinanceState {
   dismissFirstCalmNight: () => void;
   addCategoryRuleFromMerchant: (merchant: string, categoryId: CategoryId) => void;
   /** Undo support: put back the merchant's earlier rule, or remove the rule if there was none. */
-  restoreMerchantRule: (merchant: string, previous: FinanceSnapshot['rules'][number] | undefined) => void;
+  restoreMerchantRule: (
+    merchant: string,
+    previous: FinanceSnapshot['rules'][number] | undefined,
+  ) => void;
   flushCloud: () => Promise<void>;
   importBackupJson: (raw: string, password?: string) => { ok: true } | { ok: false; error: string };
   refreshWealthPrices: () => Promise<number>;
@@ -274,7 +289,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           driver = await bootstrapStorage();
         } catch (e) {
           // Do not continue with an empty snapshot — persisting it would wipe real data.
-          set({ storageError: { code: (e as { code?: string })?.code ?? 'unknown' } });
+          const err = e as { code?: string; name?: string; message?: string };
+          set({
+            storageError: {
+              code: err?.code ?? 'unknown',
+              detail: `${err?.name ?? 'Error'}: ${err?.message ?? String(e)}`,
+            },
+          });
           return;
         }
         set({ storageError: null });
@@ -295,6 +316,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
             ...cleaned,
             goals: cleaned.goals ?? [],
             recurring: cleaned.recurring ?? [],
+            // Older builds kept every synced item and every edit; shrink that on load.
+            syncQueue: compactSyncQueue(cleaned.syncQueue ?? []),
           },
           cleaned.transactions,
         );
@@ -319,7 +342,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     return hydrating;
   },
   persist: () => {
-    requireDb().save(get().snapshot);
+    requireDb().save(liveSnapshot(get));
   },
   wipeAllData: async () => {
     await clearPinHash();
@@ -334,14 +357,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     applyUserTheme({ theme: fresh.settings.theme, accentId: fresh.settings.accentId });
   },
   toggleHideBalances: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       settings: { ...snapshot.settings, hideBalances: !snapshot.settings.hideBalances },
     });
   },
   completeOnboarding: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     let next = {
       ...snapshot,
       settings: { ...snapshot.settings, onboardingCompleted: true },
@@ -370,7 +393,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         ...snapshot,
         transactions: nextTxs,
         accounts: applyBalance(snapshot.accounts, tx),
-        syncQueue: [...snapshot.syncQueue, createQueueItem('transactions', tx.id, 'upsert', tx)],
+        syncQueue: enqueueSync(
+          snapshot.syncQueue,
+          createQueueItem('transactions', tx.id, 'upsert', tx),
+        ),
       });
       return;
     }
@@ -383,11 +409,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     persistSet(set, {
       ...linked,
       accounts,
-      syncQueue: [...snapshot.syncQueue, createQueueItem('transactions', tx.id, 'upsert', tx)],
+      syncQueue: enqueueSync(
+        snapshot.syncQueue,
+        createQueueItem('transactions', tx.id, 'upsert', tx),
+      ),
     });
   },
   deleteTransaction: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const tx = snapshot.transactions.find(item => item.id === id);
     if (!tx) {
       return;
@@ -396,21 +425,38 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     persistSet(set, {
       ...relink(snapshot, nextTxs),
       accounts: reverseBalance(snapshot.accounts, tx),
-      syncQueue: [...snapshot.syncQueue, createQueueItem('transactions', id, 'delete', { id })],
+      syncQueue: enqueueSync(
+        snapshot.syncQueue,
+        createQueueItem('transactions', id, 'delete', { id }),
+      ),
     });
   },
   updateTransaction: (id, patch) => {
-    const snapshot = get().snapshot;
-    const transactions = snapshot.transactions.map(tx =>
-      tx.id === id ? { ...tx, ...patch, updatedAt: new Date().toISOString() } : tx,
-    );
-    persistSet(set, relink(snapshot, transactions));
+    const snapshot = liveSnapshot(get);
+    let updated: Transaction | undefined;
+    const transactions = snapshot.transactions.map(tx => {
+      if (tx.id !== id) {
+        return tx;
+      }
+      updated = { ...tx, ...patch, updatedAt: new Date().toISOString() };
+      return updated;
+    });
+    if (!updated) {
+      return;
+    }
+    persistSet(set, {
+      ...relink(snapshot, transactions),
+      syncQueue: enqueueSync(
+        snapshot.syncQueue,
+        createQueueItem('transactions', id, 'upsert', updated),
+      ),
+    });
   },
   confirmTransaction: id => {
     get().updateTransaction(id, { isConfirmed: true, needsReview: false, confidence: 1 });
   },
   recategorizeTransaction: (id, categoryId) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const tx = snapshot.transactions.find(item => item.id === id);
     get().updateTransaction(id, {
       categoryId,
@@ -423,7 +469,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
   updateSettings: patch => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const settings = withSettingsDefaults({ ...snapshot.settings, ...patch });
     persistSet(set, { ...snapshot, settings });
     if (patch.bankConnections != null || patch.selectedBankIds != null) {
@@ -431,7 +477,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
   verifyBankSender: ({ bankId, sender, method = 'user_selected_sms' }) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const connections = addVerifiedSender(
       snapshot.settings.bankConnections ?? [],
       bankId,
@@ -449,7 +495,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     pushVerifiedSendersToNative(settings);
   },
   removeBankSender: (bankId, sender) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const connections = removeVerifiedSender(
       snapshot.settings.bankConnections ?? [],
       bankId,
@@ -464,7 +510,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     pushVerifiedSendersToNative(settings);
   },
   updateProfile: patch => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, { ...snapshot, profile: { ...snapshot.profile, ...patch } });
   },
   upsertAccount: account => {
@@ -489,33 +535,36 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       commitSnapshot(set, {
         ...snapshot,
         accounts: nextAccounts,
-        syncQueue: [
-          ...snapshot.syncQueue,
+        syncQueue: enqueueSync(
+          snapshot.syncQueue,
           createQueueItem('financial_accounts', nextAccount.id, 'upsert', nextAccount),
-        ],
+        ),
       });
       return;
     }
     const withHistory = appendNetWorthPoint({ ...snapshot, accounts: nextAccounts });
     persistSet(set, {
       ...withHistory,
-      syncQueue: [
-        ...snapshot.syncQueue,
+      syncQueue: enqueueSync(
+        snapshot.syncQueue,
         createQueueItem('financial_accounts', nextAccount.id, 'upsert', nextAccount),
-      ],
+      ),
     });
   },
   deleteAccount: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const nextAccounts = snapshot.accounts.filter(a => a.id !== id);
     const withHistory = appendNetWorthPoint({ ...snapshot, accounts: nextAccounts });
     persistSet(set, {
       ...withHistory,
-      syncQueue: [...snapshot.syncQueue, createQueueItem('financial_accounts', id, 'delete', { id })],
+      syncQueue: enqueueSync(
+        snapshot.syncQueue,
+        createQueueItem('financial_accounts', id, 'delete', { id }),
+      ),
     });
   },
   upsertBudget: (budget, categories) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       budgets: [...snapshot.budgets.filter(b => b.id !== budget.id), budget],
@@ -526,18 +575,18 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     });
   },
   upsertGoal: goal => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       goals: [...snapshot.goals.filter(g => g.id !== goal.id), goal],
     });
   },
   deleteGoal: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, { ...snapshot, goals: snapshot.goals.filter(g => g.id !== id) });
   },
   contributeGoal: (id, amountRial) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       goals: snapshot.goals.map(g =>
@@ -548,14 +597,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     });
   },
   upsertRecurring: item => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       recurring: [...snapshot.recurring.filter(r => r.id !== item.id), item],
     });
   },
   deleteRecurring: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, { ...snapshot, recurring: snapshot.recurring.filter(r => r.id !== id) });
   },
   ingestSms: (payload, options) => {
@@ -585,9 +634,25 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       return result;
     }
     if (result.kind === 'updated' && result.transaction) {
-      get().updateTransaction(result.transaction.id, {
-        transactionDate: result.transaction.transactionDate,
-      });
+      const { id, transactionDate } = result.transaction;
+      if (!isSmsBatching()) {
+        get().updateTransaction(id, { transactionDate });
+        return result;
+      }
+      // In a batch: patch the working copy only (no per-SMS disk write).
+      const live = liveSnapshot(get);
+      const target = live.transactions.find(tx => tx.id === id);
+      if (target) {
+        const patched = { ...target, transactionDate, updatedAt: new Date().toISOString() };
+        commitSnapshot(set, {
+          ...live,
+          transactions: live.transactions.map(tx => (tx.id === id ? patched : tx)),
+          syncQueue: enqueueSync(
+            live.syncQueue,
+            createQueueItem('transactions', id, 'upsert', patched),
+          ),
+        });
+      }
       return result;
     }
     if (result.kind === 'unknown' && result.unknown) {
@@ -775,33 +840,33 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     return result;
   },
   dismissUnknown: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, { ...snapshot, unknownSms: snapshot.unknownSms.filter(u => u.id !== id) });
   },
   clearUnknownSms: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, { ...snapshot, unknownSms: [] });
   },
   dismissFirstSmsWin: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       settings: { ...snapshot.settings, firstSmsWinDismissed: true, firstSmsWinReady: false },
     });
   },
   dismissGuestPreview: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, clearGuestPreview(snapshot));
   },
   joinProWaitlist: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       settings: { ...snapshot.settings, proWaitlistJoined: true },
     });
   },
   dismissMoment: id => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const prev = snapshot.settings.dismissedMomentIds ?? [];
     if (prev.includes(id)) {
       return;
@@ -812,21 +877,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     });
   },
   markMonthClosingSeen: monthKey => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       settings: { ...snapshot.settings, lastMonthClosingKey: monthKey },
     });
   },
   dismissFirstCalmNight: () => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       settings: { ...snapshot.settings, firstCalmNightDismissed: true },
     });
   },
   addCategoryRuleFromMerchant: (merchant, categoryId) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     persistSet(set, {
       ...snapshot,
       // One rule per merchant: a later correction replaces the earlier one instead of piling up.
@@ -837,21 +902,40 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     });
   },
   restoreMerchantRule: (merchant, previous) => {
-    const snapshot = get().snapshot;
+    const snapshot = liveSnapshot(get);
     const others = snapshot.rules.filter(r => r.matcher !== merchant.trim());
     persistSet(set, { ...snapshot, rules: previous ? [...others, previous] : others });
   },
-  flushCloud: async () => {
-    const snapshot = get().snapshot;
-    const nextQueue = await flushSyncQueue(snapshot.syncQueue);
-    persistSet(set, {
-      ...get().snapshot,
-      syncQueue: nextQueue,
-      settings: withSettingsDefaults({
-        ...get().snapshot.settings,
-        lastCloudFlushAt: new Date().toISOString(),
-      }),
-    });
+  flushCloud: () => {
+    // Interval, foreground and the settings button can overlap; share one flush.
+    if (!flushing) {
+      flushing = (async () => {
+        const sent = liveSnapshot(get).syncQueue;
+        if (sent.length === 0) {
+          return;
+        }
+        const { queue: flushed, ran } = await flushSyncQueue(sent, {
+          accounts: liveSnapshot(get).accounts,
+        });
+        if (!ran) {
+          // No client or no user: nothing changed, so skip the full-snapshot write.
+          return;
+        }
+        // Re-read after the await: edits made during the upload must not be overwritten.
+        const live = liveSnapshot(get);
+        persistSet(set, {
+          ...live,
+          syncQueue: mergeFlushedQueue(live.syncQueue, sent, flushed),
+          settings: withSettingsDefaults({
+            ...live.settings,
+            lastCloudFlushAt: new Date().toISOString(),
+          }),
+        });
+      })().finally(() => {
+        flushing = null;
+      });
+    }
+    return flushing;
   },
   importBackupJson: (raw, password) => {
     const validated = resolveBackupInput(raw, password);
@@ -860,7 +944,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
     try {
       const parsed = validated.data;
-      const current = get().snapshot;
+      const current = liveSnapshot(get);
       const next: FinanceSnapshot = {
         ...emptySnapshot(current.profile.id),
         version: SCHEMA_VERSION,
@@ -905,16 +989,35 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
   refreshWealthPrices: async () => {
-    const snapshot = get().snapshot;
-    const { accounts: nextAccounts, updated } = await refreshPricesFromHoldings(
-      snapshot.accounts,
-      { force: true },
-    );
-    if (updated > 0) {
-      const withHistory = appendNetWorthPoint({ ...snapshot, accounts: nextAccounts });
-      persistSet(set, withHistory);
+    const priced = liveSnapshot(get).accounts;
+    const { accounts: nextAccounts, updated } = await refreshPricesFromHoldings(priced, {
+      force: true,
+    });
+    if (updated === 0) {
+      return 0;
     }
-    return updated;
+    // Apply only the repriced accounts, onto the snapshot as it is after the fetch.
+    // An account edited or deleted meanwhile keeps the user's version.
+    const repriced = new Map<string, { before: FinancialAccount; after: FinancialAccount }>();
+    nextAccounts.forEach((after, index) => {
+      if (after !== priced[index]) {
+        repriced.set(after.id, { before: priced[index], after });
+      }
+    });
+    const live = liveSnapshot(get);
+    let applied = 0;
+    const accounts = live.accounts.map(a => {
+      const hit = repriced.get(a.id);
+      if (hit && hit.before === a) {
+        applied += 1;
+        return hit.after;
+      }
+      return a;
+    });
+    if (applied > 0) {
+      persistSet(set, appendNetWorthPoint({ ...live, accounts }));
+    }
+    return applied;
   },
 }));
 
@@ -941,7 +1044,9 @@ export function selectMonthStats(snapshot: FinanceSnapshot) {
     }
   }
 
-  const monthTx = snapshot.transactions.filter(t => Date.parse(t.transactionDate) >= start.getTime());
+  const monthTx = snapshot.transactions.filter(
+    t => Date.parse(t.transactionDate) >= start.getTime(),
+  );
   return monthlyTotals(monthTx);
 }
 
