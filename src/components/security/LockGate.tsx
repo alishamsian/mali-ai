@@ -25,7 +25,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as co
 export function LockGate({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles(colors => ({
+  const styles = useThemedStyles(c => ({
     root: { flex: 1 },
     overlay: {
       ...StyleSheet.absoluteFillObject,
@@ -39,7 +39,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       width: 72,
       height: 72,
       borderRadius: 20,
-      backgroundColor: colors.primary,
+      backgroundColor: c.primary,
       transform: [{ rotate: '8deg' }],
     },
     dots: { flexDirection: 'row-reverse', gap: 10, marginVertical: 28 },
@@ -48,11 +48,11 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       height: 12,
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
     },
-    dotOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-    dotErr: { borderColor: colors.expense },
-    err: { color: colors.expense, marginBottom: 8 },
+    dotOn: { backgroundColor: c.primary, borderColor: c.primary },
+    dotErr: { borderColor: c.expense },
+    err: { color: c.expense, marginBottom: 8 },
     bio: { alignItems: 'center', gap: 8, marginBottom: 16 },
     pad: { flexDirection: 'row', flexWrap: 'wrap', width: 276, justifyContent: 'center' },
     key: {
@@ -64,7 +64,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       borderRadius: 18,
       backgroundColor: 'rgba(16,24,28,0.8)',
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
     },
     keyGhost: { backgroundColor: 'transparent', borderColor: 'transparent' },
   }));

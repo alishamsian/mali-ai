@@ -68,7 +68,7 @@ import {
 } from '../../../services/supabase/auth';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-function createCategoryStyles(colors: ThemeSnapshot['colors'], t: typeof theme) {
+function createCategoryStyles(colors: ThemeSnapshot['colors'], th: typeof theme) {
   return {
     hint: {
       textAlign: 'right' as const,
@@ -89,7 +89,7 @@ function createCategoryStyles(colors: ThemeSnapshot['colors'], t: typeof theme) 
     },
     dayChipOn: {
       borderColor: colors.primary,
-      backgroundColor: t.palette.primaryGlow,
+      backgroundColor: th.palette.primaryGlow,
     },
     input: {
       minHeight: 48,
@@ -109,14 +109,14 @@ function createCategoryStyles(colors: ThemeSnapshot['colors'], t: typeof theme) 
     about: { alignItems: 'center' as const, paddingVertical: 32, gap: 8 },
     aboutName: {
       fontSize: 28,
-      fontFamily: t.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
     },
     aboutMeta: { fontSize: 13, color: colors.textMuted, textAlign: 'center' as const },
     aboutMaker: {
       marginTop: 12,
       fontSize: 14,
       textAlign: 'center' as const,
-      fontFamily: t.typography.fontFamily.medium,
+      fontFamily: th.typography.fontFamily.medium,
     },
     accentGrid: {
       flexDirection: 'row-reverse' as const,
@@ -251,7 +251,7 @@ export function SettingsBanksSmsScreen() {
   const connections = settings.bankConnections ?? [];
   const bankCount = connections.filter(c => c.verifiedSenders.length > 0).length;
   const unknown = snapshot.unknownSms.length;
-  const review = snapshot.transactions.filter(t => t.needsReview && !t.isConfirmed).length;
+  const review = snapshot.transactions.filter(tx => tx.needsReview && !tx.isConfirmed).length;
   const last = smsSync.lastResult;
   const syncDebug =
     last &&

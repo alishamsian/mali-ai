@@ -52,11 +52,11 @@ export function SettingsHomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((c, t) => ({
+  const styles = useThemedStyles((c, th) => ({
     title: {
       textAlign: 'right' as const,
       fontSize: 26,
-      fontFamily: t.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
       color: c.text,
     },
     subtitle: {
@@ -75,7 +75,7 @@ export function SettingsHomeScreen() {
     profileBody: { flex: 1, alignItems: 'flex-end' as const },
     profileName: {
       fontSize: 16,
-      fontFamily: t.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
       color: c.text,
     },
     profileMeta: { marginTop: 3, fontSize: 11, color: c.textMuted },
@@ -83,7 +83,7 @@ export function SettingsHomeScreen() {
       width: 48,
       height: 48,
       borderRadius: 16,
-      backgroundColor: t.palette.primaryGlow,
+      backgroundColor: th.palette.primaryGlow,
       borderWidth: 1,
       borderColor: c.primary,
       alignItems: 'center' as const,
@@ -92,7 +92,7 @@ export function SettingsHomeScreen() {
     avatarText: {
       fontSize: 18,
       color: c.primary,
-      fontFamily: t.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
     },
     search: {
       minHeight: 46,
@@ -119,7 +119,7 @@ export function SettingsHomeScreen() {
     rowTitle: {
       fontSize: 14,
       color: c.text,
-      fontFamily: t.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
       textAlign: 'right' as const,
     },
     rowSub: { marginTop: 3, fontSize: 11, color: c.textMuted, textAlign: 'right' as const },

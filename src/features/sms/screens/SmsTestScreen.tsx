@@ -17,7 +17,7 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 
-function createSmsTestStyles(c: { background: string; border: string; text: string; surfaceSolid: string }, t: { typography: { fontFamily: { regular: string } } }) {
+function createSmsTestStyles(c: { background: string; border: string; text: string; surfaceSolid: string }, th: { typography: { fontFamily: { regular: string } } }) {
   return {
     screen: { flex: 1, backgroundColor: c.background },
     sectionLabel: { textAlign: 'right' as const, marginTop: 4 },
@@ -39,7 +39,7 @@ function createSmsTestStyles(c: { background: string; border: string; text: stri
       color: c.text,
       paddingHorizontal: 12,
       backgroundColor: c.surfaceSolid,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
       writingDirection: 'ltr' as const,
     },
     input: {
@@ -50,7 +50,7 @@ function createSmsTestStyles(c: { background: string; border: string; text: stri
       color: c.text,
       padding: 12,
       backgroundColor: c.surfaceSolid,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
     },
   };
 }

@@ -210,7 +210,6 @@ async function executeIncrementalSmsSync(
       perSenderCounts = collected.perSenderCounts;
     } else if (input.readBatch) {
       let offset = 0;
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const page = await input.readBatch({
           minDateMs: rangeStart,

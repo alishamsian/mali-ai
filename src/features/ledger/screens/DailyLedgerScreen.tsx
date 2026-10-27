@@ -545,8 +545,8 @@ export function DailyLedgerScreen() {
     }
   };
 
-  const openAdd = (mode: 'expense' | 'income') => {
-    navigation.navigate('AddTransaction', { mode, dayKey });
+  const openAdd = (addMode: 'expense' | 'income') => {
+    navigation.navigate('AddTransaction', { mode: addMode, dayKey });
   };
 
   const openCalendar = () => {

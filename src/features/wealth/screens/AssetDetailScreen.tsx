@@ -48,7 +48,7 @@ export function AssetDetailScreen() {
   const { colors, mode } = useAppTheme();
   const isLight = mode === 'light';
   const panelBg = isLight ? colors.surfaceSolid : 'rgba(255,255,255,0.035)';
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     header: {
       flexDirection: 'row-reverse',
       justifyContent: 'space-between',
@@ -61,37 +61,37 @@ export function AssetDetailScreen() {
       alignItems: 'center',
       marginBottom: 14,
     },
-    classTag: { fontSize: 12, color: colors.textMuted },
+    classTag: { fontSize: 12, color: c.textMuted },
     title: {
       marginTop: 6,
       fontSize: 18,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       textAlign: 'center',
     },
     value: {
       marginTop: 14,
       fontSize: 30,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
     },
-    toman: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-    priceSrc: { marginTop: 12, fontSize: 11, color: colors.textMuted },
+    toman: { fontSize: 12, color: c.textMuted, marginTop: 2 },
+    priceSrc: { marginTop: 12, fontSize: 11, color: c.textMuted },
     block: {
       borderRadius: 18,
       padding: 14,
       marginBottom: 12,
       backgroundColor: panelBg,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
     },
     blockTitle: {
       textAlign: 'right',
       marginBottom: 10,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
     },
-    notes: { textAlign: 'right', color: colors.text, lineHeight: 22 },
+    notes: { textAlign: 'right', color: c.text, lineHeight: 22 },
     delete: { alignItems: 'center', paddingVertical: 16 },
   }));
   const dict = t();

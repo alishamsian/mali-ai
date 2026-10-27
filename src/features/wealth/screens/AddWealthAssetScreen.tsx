@@ -68,17 +68,17 @@ function PlainField({
   kind = 'text',
 }: FieldProps) {
   const { colors } = useAppTheme();
-  const styles = useThemedStyles(colors => ({
+  const styles = useThemedStyles(c => ({
     field: { gap: 6 },
-    label: { textAlign: 'right', color: colors.textMuted, fontSize: 12 },
+    label: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
     input: {
       minHeight: 46,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: colors.border,
-      color: colors.text,
+      borderColor: c.border,
+      color: c.text,
       paddingHorizontal: 14,
-      backgroundColor: colors.surface,
+      backgroundColor: c.surface,
     },
   }));
 
@@ -117,7 +117,7 @@ export function AddWealthAssetScreen() {
   const { colors, mode } = useAppTheme();
   const isLight = mode === 'light';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.04)';
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     header: {
       flexDirection: 'row-reverse',
       justifyContent: 'space-between',
@@ -127,8 +127,8 @@ export function AddWealthAssetScreen() {
     prompt: {
       textAlign: 'right',
       fontSize: 20,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       marginBottom: 16,
     },
     grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10 },
@@ -138,18 +138,18 @@ export function AddWealthAssetScreen() {
       paddingVertical: 16,
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       backgroundColor: chipBg,
       alignItems: 'flex-end',
       gap: 8,
     },
     tileDot: { width: 8, height: 8, borderRadius: 4 },
-    tileText: { color: colors.text, fontSize: 14, textAlign: 'right' },
+    tileText: { color: c.text, fontSize: 14, textAlign: 'right' },
     form: { gap: 10 },
     formClass: {
       textAlign: 'right',
-      color: colors.primary,
-      fontFamily: theme.typography.fontFamily.semibold,
+      color: c.primary,
+      fontFamily: th.typography.fontFamily.semibold,
       marginBottom: 4,
     },
     banks: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
@@ -158,14 +158,14 @@ export function AddWealthAssetScreen() {
       alignItems: 'center',
       gap: 6,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 5,
     },
-    chipOn: { borderColor: colors.primary, backgroundColor: theme.palette.primaryGlow },
-    hint: { textAlign: 'right', color: colors.textMuted, fontSize: 11, lineHeight: 18 },
-    formError: { textAlign: 'center', color: colors.expense, fontSize: 13, marginTop: 8 },
+    chipOn: { borderColor: c.primary, backgroundColor: th.palette.primaryGlow },
+    hint: { textAlign: 'right', color: c.textMuted, fontSize: 11, lineHeight: 18 },
+    formError: { textAlign: 'center', color: c.expense, fontSize: 13, marginTop: 8 },
   }));
   const dict = t();
   const snapshot = useFinanceStore(s => s.snapshot);

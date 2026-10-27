@@ -45,7 +45,6 @@ export async function collectBankSenderSms(input: {
   for (const sender of senders) {
     let offset = 0;
     let senderCount = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const page = await read({
         sender,

@@ -18,7 +18,7 @@ export function AuthScreen({
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((c, t) => ({
+  const styles = useThemedStyles((c, th) => ({
     screen: { flex: 1, backgroundColor: c.background },
     input: {
       minHeight: 52,
@@ -28,7 +28,7 @@ export function AuthScreen({
       color: c.text,
       paddingHorizontal: 16,
       backgroundColor: c.surfaceSolid,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
     },
   }));
   const signIn = useAuthStore(s => s.signInLocal);

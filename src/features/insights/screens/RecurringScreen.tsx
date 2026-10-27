@@ -21,7 +21,7 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 export function RecurringScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((c, t) => ({
+  const styles = useThemedStyles((c, th) => ({
     input: {
       minHeight: 48,
       borderRadius: 14,
@@ -30,7 +30,7 @@ export function RecurringScreen({ embedded = false }: { embedded?: boolean } = {
       color: c.text,
       paddingHorizontal: 12,
       marginTop: 10,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
     },
     pinAll: {
       paddingVertical: 10,

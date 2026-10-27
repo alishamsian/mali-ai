@@ -10,7 +10,6 @@ const SERVICE = 'ir.maliai.vault';
 
 let keychain: typeof import('react-native-keychain') | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   keychain = require('react-native-keychain');
 } catch {
   keychain = null;

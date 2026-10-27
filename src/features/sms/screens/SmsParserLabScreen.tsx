@@ -19,7 +19,7 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 
-function createLabStyles(c: { border: string; text: string; surfaceSolid: string }, t: { typography: { fontFamily: { regular: string } } }) {
+function createLabStyles(c: { border: string; text: string; surfaceSolid: string }, th: { typography: { fontFamily: { regular: string } } }) {
   return {
     input: {
       minHeight: 48,
@@ -30,7 +30,7 @@ function createLabStyles(c: { border: string; text: string; surfaceSolid: string
       paddingHorizontal: 12,
       paddingVertical: 10,
       backgroundColor: c.surfaceSolid,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
     },
     row: {
       flexDirection: 'row-reverse' as const,

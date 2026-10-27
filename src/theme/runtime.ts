@@ -194,7 +194,6 @@ export function applyUserTheme(input: {
     notify();
   } catch (e) {
     if (__DEV__) {
-      // eslint-disable-next-line no-console
       console.warn('[theme] applyUserTheme failed', e);
     }
   }

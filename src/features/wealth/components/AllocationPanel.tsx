@@ -30,7 +30,7 @@ export function AllocationPanel({
   const isLight = mode === 'light';
   const panelBg = isLight ? colors.glass : 'rgba(255,255,255,0.035)';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.05)';
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     wrap: {
       marginHorizontal: 16,
       marginBottom: 18,
@@ -38,22 +38,22 @@ export function AllocationPanel({
       borderRadius: 24,
       backgroundColor: panelBg,
       borderWidth: 1,
-      borderColor: isLight ? colors.glassBorder : 'rgba(94,234,212,0.12)',
+      borderColor: isLight ? c.glassBorder : 'rgba(94,234,212,0.12)',
       overflow: 'hidden',
     },
     heading: {
       textAlign: 'right',
       alignSelf: 'stretch',
-      fontFamily: theme.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
       fontSize: 16,
-      color: colors.text,
+      color: c.text,
       marginBottom: 4,
     },
     hint: {
       textAlign: 'right',
       alignSelf: 'stretch',
       fontSize: 12,
-      color: colors.textMuted,
+      color: c.textMuted,
       marginBottom: 12,
     },
     filters: {
@@ -68,14 +68,14 @@ export function AllocationPanel({
       paddingVertical: 6,
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       backgroundColor: chipBg,
     },
-    filterText: { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+    filterText: { fontSize: 11, color: c.textMuted, textAlign: 'center' },
     empty: {
       textAlign: 'center',
       alignSelf: 'stretch',
-      color: colors.textMuted,
+      color: c.textMuted,
       paddingVertical: 20,
     },
     body: { alignItems: 'center' },
@@ -93,13 +93,13 @@ export function AllocationPanel({
     },
     centerPct: {
       fontSize: 22,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       textAlign: 'center',
     },
     centerLabel: {
       fontSize: 11,
-      color: colors.textMuted,
+      color: c.textMuted,
       marginTop: 2,
       textAlign: 'center',
     },
@@ -117,20 +117,20 @@ export function AllocationPanel({
     legendBody: { flex: 1, alignItems: 'flex-end', minWidth: 0 },
     legendName: {
       fontSize: 13,
-      color: colors.text,
+      color: c.text,
       textAlign: 'right',
     },
     legendMeta: {
       fontSize: 11,
-      color: colors.textMuted,
+      color: c.textMuted,
       marginTop: 2,
       textAlign: 'right',
       writingDirection: 'ltr',
     },
     legendPct: {
       fontSize: 13,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       minWidth: 40,
       textAlign: 'left',
       writingDirection: 'ltr',

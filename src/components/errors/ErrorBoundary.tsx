@@ -79,3 +79,17 @@ const styles = StyleSheet.create({
   },
   buttonLabel: { color: '#fff', fontSize: 16, fontFamily: typography.fontFamily.semibold },
 });
+
+/**
+ * Navigator `screenLayout`: one boundary per screen, so a crash in one screen leaves the
+ * rest of the app usable. Defined once at module level so React keeps the same type.
+ */
+export function screenErrorLayout({
+  children,
+  route,
+}: {
+  children: React.ReactNode;
+  route: { name: string };
+}) {
+  return <ErrorBoundary scope={route.name}>{children}</ErrorBoundary>;
+}

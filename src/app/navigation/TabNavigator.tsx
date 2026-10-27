@@ -8,7 +8,7 @@ import { TransactionsScreen } from '../../features/transactions/screens/Transact
 import { AddPlaceholderScreen } from '../../features/transactions/screens/AddPlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
 import type { MainTabParamList } from './types';
-import { ErrorBoundary } from '../../components/errors/ErrorBoundary';
+import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -21,9 +21,7 @@ export function TabNavigator({ onAdd }: { onAdd: () => void }) {
       // Hidden tabs stay mounted; freezing them stops every store change from re-rendering
       // all five tab screens. They catch up when focused again.
       screenOptions={{ headerShown: false, freezeOnBlur: true }}
-      screenLayout={({ children, route }) => (
-        <ErrorBoundary scope={route.name}>{children}</ErrorBoundary>
-      )}
+      screenLayout={screenErrorLayout}
       tabBar={props => <MainTabBar {...props} onAdd={onAdd} />}>
       <Tab.Screen name="Home" component={DashboardScreen} />
       <Tab.Screen name="Daily" component={DailyLedgerScreen} />

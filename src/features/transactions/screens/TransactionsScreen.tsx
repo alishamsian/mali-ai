@@ -61,7 +61,7 @@ export function TransactionsScreen({
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     screen: { flex: 1, backgroundColor: 'transparent' },
     headerWrap: { paddingHorizontal: 20 },
     search: {
@@ -71,16 +71,16 @@ export function TransactionsScreen({
       gap: 8,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceSolid,
+      borderColor: c.border,
+      backgroundColor: c.surfaceSolid,
       paddingHorizontal: 12,
       minHeight: 48,
       marginBottom: 12,
     },
     input: {
       flex: 1,
-      color: colors.text,
-      fontFamily: theme.typography.fontFamily.regular,
+      color: c.text,
+      fontFamily: th.typography.fontFamily.regular,
       fontSize: 15,
     },
     filterBar: {
@@ -95,13 +95,13 @@ export function TransactionsScreen({
       height: 44,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.surfaceSolid,
+      backgroundColor: c.surfaceSolid,
     },
     filterToggleOn: {
-      borderColor: colors.primary,
+      borderColor: c.primary,
       backgroundColor: 'rgba(59,232,197,0.1)',
     },
     filterBadge: { position: 'absolute' as const, top: 4, left: 4 },

@@ -25,7 +25,6 @@ function renderGate() {
 
 async function typePin(pin: string) {
   for (const digit of pin) {
-    // eslint-disable-next-line no-await-in-loop
     await act(async () => {
       fireEvent.press(screen.getByText(digit));
     });
@@ -67,7 +66,6 @@ describe('LockGate', () => {
     renderGate();
     await screen.findByText(fa.profile.unlock);
     for (let i = 0; i < 5; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await typePin('000000');
     }
     await screen.findByText(fa.profile.pinLocked);

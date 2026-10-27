@@ -69,7 +69,7 @@ import { AppText } from '../../components/ui/AppText';
 import type { RootStackParamList } from './types';
 import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ErrorBoundary } from '../../components/errors/ErrorBoundary';
+import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 import { setCloudAutoRefresh } from '../../services/supabase/client';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -211,9 +211,7 @@ export function RootNavigator() {
         onStateChange={onStateChange}>
         <Stack.Navigator
           screenOptions={{ headerShown: false, animation: stackAnimation, freezeOnBlur: true }}
-          screenLayout={({ children, route }) => (
-            <ErrorBoundary scope={route.name}>{children}</ErrorBoundary>
-          )}
+          screenLayout={screenErrorLayout}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="SmsOnboarding" component={SmsOnboardingScreen} />

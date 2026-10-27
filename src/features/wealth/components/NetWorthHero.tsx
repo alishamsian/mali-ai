@@ -49,14 +49,14 @@ export function NetWorthHero({
     transform: [{ translateY: interpolate(enter.value, [0, 1], [10, 0]) }],
   }));
 
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     shell: {
       marginHorizontal: 16,
       marginBottom: 14,
       borderRadius: 26,
       overflow: 'hidden',
       borderWidth: 1,
-      borderColor: isLight ? colors.glassBorder : 'rgba(94,234,212,0.18)',
+      borderColor: isLight ? c.glassBorder : 'rgba(94,234,212,0.18)',
     },
     hero: {
       paddingHorizontal: 18,
@@ -66,7 +66,7 @@ export function NetWorthHero({
     caption: {
       textAlign: 'center',
       alignSelf: 'stretch',
-      color: colors.textMuted,
+      color: c.textMuted,
       fontSize: 13,
       letterSpacing: 0.3,
     },
@@ -76,8 +76,8 @@ export function NetWorthHero({
       marginTop: 10,
       fontSize: 36,
       lineHeight: 44,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       writingDirection: 'ltr',
     },
     currency: {
@@ -85,7 +85,7 @@ export function NetWorthHero({
       alignSelf: 'stretch',
       marginTop: 2,
       fontSize: 12,
-      color: colors.textMuted,
+      color: c.textMuted,
     },
     changePill: {
       alignSelf: 'center',
@@ -95,17 +95,17 @@ export function NetWorthHero({
       borderRadius: 999,
       backgroundColor: isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.05)',
       borderWidth: 1,
-      borderColor: isLight ? colors.border : 'rgba(255,255,255,0.08)',
+      borderColor: isLight ? c.border : 'rgba(255,255,255,0.08)',
     },
     change: {
       textAlign: 'center',
       fontSize: 13,
-      fontFamily: theme.typography.fontFamily.semibold,
+      fontFamily: th.typography.fontFamily.semibold,
     },
     changeMuted: {
       textAlign: 'center',
       fontSize: 12,
-      color: colors.textMuted,
+      color: c.textMuted,
     },
     tri: {
       flexDirection: 'row',
@@ -120,18 +120,18 @@ export function NetWorthHero({
       borderRadius: 16,
       backgroundColor: isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.045)',
       borderWidth: 1,
-      borderColor: isLight ? colors.border : 'rgba(255,255,255,0.06)',
+      borderColor: isLight ? c.border : 'rgba(255,255,255,0.06)',
     },
     triLabel: {
       fontSize: 10,
-      color: colors.textMuted,
+      color: c.textMuted,
       marginBottom: 4,
       textAlign: 'center',
     },
     triValue: {
       fontSize: 12,
-      fontFamily: theme.typography.fontFamily.semibold,
-      color: colors.text,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
       textAlign: 'center',
       writingDirection: 'ltr',
     },
@@ -148,7 +148,7 @@ export function NetWorthHero({
       paddingVertical: 6,
       borderRadius: 10,
     },
-    rangeText: { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+    rangeText: { fontSize: 11, color: c.textMuted, textAlign: 'center' },
   }));
   const points = history.map(h => h.netWorthRial);
   const up = (changePct ?? 0) >= 0;

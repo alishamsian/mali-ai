@@ -18,11 +18,11 @@ export function ScreenHeader({
   right?: React.ReactNode;
 }) {
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     wrap: {
       flexDirection: 'row-reverse',
       alignItems: 'center',
-      marginBottom: theme.spacing.lg,
+      marginBottom: th.spacing.lg,
       minHeight: 44,
     },
     back: {
@@ -31,9 +31,9 @@ export function ScreenHeader({
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.palette.surfaceSolid,
+      backgroundColor: th.palette.surfaceSolid,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
     },
     backSpacer: { width: 44 },
     center: { flex: 1, alignItems: 'center', gap: 2 },

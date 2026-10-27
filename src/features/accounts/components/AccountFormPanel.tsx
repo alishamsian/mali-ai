@@ -71,15 +71,15 @@ export function AccountFormPanel({
 }) {
   const dict = t();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((colors, theme) => ({
+  const styles = useThemedStyles((c, th) => ({
     panel: {
       gap: 10,
       marginTop: 12,
       padding: 14,
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceSolid,
+      borderColor: c.border,
+      backgroundColor: c.surfaceSolid,
     },
     header: {
       flexDirection: 'row-reverse',
@@ -92,13 +92,13 @@ export function AccountFormPanel({
       minHeight: 40,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     kindChipOn: {
-      borderColor: colors.primary,
-      backgroundColor: theme.palette.primaryGlow,
+      borderColor: c.primary,
+      backgroundColor: th.palette.primaryGlow,
     },
     banks: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
     bankChip: {
@@ -106,20 +106,20 @@ export function AccountFormPanel({
       alignItems: 'center',
       gap: 6,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: c.border,
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 5,
     },
-    bankChipOn: { borderColor: colors.primary, backgroundColor: theme.palette.primaryGlow },
+    bankChipOn: { borderColor: c.primary, backgroundColor: th.palette.primaryGlow },
     input: {
       minHeight: 46,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: colors.border,
-      color: colors.text,
+      borderColor: c.border,
+      color: c.text,
       paddingHorizontal: 14,
-      backgroundColor: colors.surface,
+      backgroundColor: c.surface,
     },
     valuePreview: {
       flexDirection: 'row-reverse',
@@ -130,7 +130,7 @@ export function AccountFormPanel({
     },
     hint: {
       textAlign: 'right',
-      color: colors.textMuted,
+      color: c.textMuted,
       lineHeight: 18,
     },
     deleteBtn: {

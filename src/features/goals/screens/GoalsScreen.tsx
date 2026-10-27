@@ -21,7 +21,7 @@ const KINDS: GoalKind[] = ['travel', 'debt', 'savings', 'other'];
 export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles((c, t) => ({
+  const styles = useThemedStyles((c, th) => ({
     input: {
       minHeight: 48,
       borderRadius: 14,
@@ -30,11 +30,11 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
       color: c.text,
       paddingHorizontal: 12,
       marginTop: 10,
-      fontFamily: t.typography.fontFamily.regular,
+      fontFamily: th.typography.fontFamily.regular,
     },
     chips: { flexDirection: 'row-reverse' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 10 },
     chip: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-    chipOn: { borderColor: c.primary, backgroundColor: t.palette.primaryGlow },
+    chipOn: { borderColor: c.primary, backgroundColor: th.palette.primaryGlow },
     barBg: { height: 8, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' as const, marginTop: 8 },
     bar: { height: 8, backgroundColor: c.primary },
     row: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, marginTop: 12 },
