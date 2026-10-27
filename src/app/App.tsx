@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RootNavigator } from './navigation/RootNavigator';
 import { LockGate } from '../components/security/LockGate';
+import { ErrorBoundary } from '../components/errors/ErrorBoundary';
 import { AppMotionBridge } from '../components/motion/AppMotionBridge';
 import { useFinanceStore } from '../store/finance/store';
 import { ThemeBridge, useAppTheme } from '../theme/ThemeBridge';
@@ -52,18 +53,21 @@ function ThemeRoot({ children }: { children: React.ReactNode }) {
 }
 
 function AppShell() {
+  // Outer net only: each screen also has its own boundary (navigator screenLayout).
   return (
-    <ThemeRoot>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <AppMotionBridge>
-            <LockGate>
-              <RootNavigator />
-            </LockGate>
-          </AppMotionBridge>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </ThemeRoot>
+    <ErrorBoundary scope="app">
+      <ThemeRoot>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <AppMotionBridge>
+              <LockGate>
+                <RootNavigator />
+              </LockGate>
+            </AppMotionBridge>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ThemeRoot>
+    </ErrorBoundary>
   );
 }
 

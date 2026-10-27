@@ -68,6 +68,7 @@ import { AppText } from '../../components/ui/AppText';
 import type { RootStackParamList } from './types';
 import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ErrorBoundary } from '../../components/errors/ErrorBoundary';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const NAV_STATE_KEY = 'mali.nav.state.v1';
@@ -207,6 +208,9 @@ export function RootNavigator() {
         onStateChange={onStateChange}>
         <Stack.Navigator
           screenOptions={{ headerShown: false, animation: stackAnimation, freezeOnBlur: true }}
+          screenLayout={({ children, route }) => (
+            <ErrorBoundary scope={route.name}>{children}</ErrorBoundary>
+          )}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="SmsOnboarding" component={SmsOnboardingScreen} />

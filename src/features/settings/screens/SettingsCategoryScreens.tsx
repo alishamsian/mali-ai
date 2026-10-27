@@ -54,6 +54,8 @@ import { hapticSuccess, hapticWarn } from '../../../utils/haptics';
 import { providerForClass } from '../../wealth/pricing/providers';
 import { ACCENT_PRESETS } from '../../../theme/accentPresets';
 import { useAppTheme } from '../../../theme/ThemeBridge';
+import { formatCrashReport, getCrashLog } from '../../../services/crash/crashLog';
+import { APP_VERSION } from '../../../app/config/version';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function createCategoryStyles(colors: ThemeSnapshot['colors'], t: typeof theme) {
@@ -1305,6 +1307,21 @@ export function SettingsSupportScreen() {
           }}
         />
         <SettingsNavRow
+          title={dict.crash.report}
+          subtitle={dict.crash.reportHint}
+          onPress={() => {
+            const entries = getCrashLog();
+            if (entries.length === 0) {
+              Alert.alert(dict.crash.report, dict.crash.reportEmpty);
+              return;
+            }
+            void Share.share({
+              message: formatCrashReport(entries, APP_VERSION),
+              title: dict.crash.reportShareTitle,
+            });
+          }}
+        />
+        <SettingsNavRow
           title={dict.settings.privacyPolicy}
           onPress={() => navigateRoot(navigation, 'Privacy')}
         />
@@ -1329,7 +1346,7 @@ export function SettingsAboutScreen() {
       <View style={styles.about}>
         <AppText style={[styles.aboutName, { color: colors.primary }]}>{dict.appName}</AppText>
         <AppText style={styles.aboutMeta}>
-          {dict.settings.versionLabel} {toPersianDigits('0.1.0')}
+          {dict.settings.versionLabel} {toPersianDigits(APP_VERSION)}
         </AppText>
         <AppText style={styles.aboutMeta}>{dict.settings.aboutBody}</AppText>
         <AppText style={[styles.aboutMaker, { color: colors.textSecondary }]}>

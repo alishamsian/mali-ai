@@ -67,6 +67,7 @@ import { refreshPricesFromHoldings } from '../../features/wealth/pricing/provide
 import { financialMonthTransactions, type MonthWindowInput } from '../../engine/insights/monthPeriod';
 import { applyUserTheme } from '../../theme/runtime';
 import { SCHEMA_VERSION } from '../../database/schema/snapshot';
+import { attachCrashLogStorage } from '../../services/crash/crashLog';
 
 const NAV_STATE_KEY = 'mali.nav.state.v1';
 
@@ -355,6 +356,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           return;
         }
         set({ storageError: null });
+        attachCrashLogStorage(driver);
         db = new LocalFinanceDb(driver);
         bindRepository(new FinanceRepository(db));
         const loaded = db.hasSnapshot() ? db.load() : emptySnapshot();

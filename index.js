@@ -6,6 +6,7 @@ import 'react-native-get-random-values';
 import 'react-native-gesture-handler';
 import { AppRegistry, I18nManager } from 'react-native';
 import App from './src/app/App';
+import { installGlobalErrorHandler } from './src/services/crash/crashLog';
 import { name as appName } from './app.json';
 
 /**
@@ -18,5 +19,7 @@ I18nManager.swapLeftAndRightInRTL(false);
 if (I18nManager.isRTL) {
   I18nManager.forceRTL(false);
 }
+
+installGlobalErrorHandler();
 
 AppRegistry.registerComponent(appName, () => App);
