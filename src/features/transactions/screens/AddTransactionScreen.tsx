@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react-native';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
@@ -12,7 +12,7 @@ import { useAppTheme } from '../../../theme/ThemeBridge';
 import { theme } from '../../../theme';
 import { AmountKeypad } from '../components/AmountKeypad';
 import { interpolate, t } from '../../../i18n';
-import { useFinanceStore } from '../../../store/finance/store';
+import { findSmsDuplicateOf, useFinanceStore } from '../../../store/finance/store';
 import { formatTomanFromRial, tomanToRial } from '../../../utils/currency/money';
 import { parseIntegerAmount, toPersianDigits } from '../../../utils/numbers/digits';
 import { tomanToPersianWords } from '../../../utils/numbers/persianWords';
@@ -21,6 +21,7 @@ import {
   jalaliDayLabel,
   shiftJalaliDayKey,
   todayJalaliKey,
+  toJalaliLabel,
 } from '../../../utils/dates/jalali';
 import { categorize } from '../../../engine/category/engine';
 import { buildFingerprint } from '../../../engine/duplicate/fingerprint';
@@ -315,16 +316,38 @@ export function AddTransactionScreen({
     });
 
     const stamp = Date.now();
-    const ids = isTransfer ? [`tx_${stamp}_out`, `tx_${stamp}_in`] : [`tx_${stamp}`];
-    if (isTransfer) {
-      add(mk(ids[0], accountId, 'out', { direction: 'out', type: 'withdrawal' }));
-      add(mk(ids[1], toAccountId, 'in', { direction: 'in', type: 'deposit' }));
-    } else {
-      add(mk(ids[0], targetAccountId, direction));
+    const txs = isTransfer
+      ? [
+          mk(`tx_${stamp}_out`, accountId, 'out', { direction: 'out', type: 'withdrawal' }),
+          mk(`tx_${stamp}_in`, toAccountId, 'in', { direction: 'in', type: 'deposit' }),
+        ]
+      : [mk(`tx_${stamp}`, targetAccountId, direction)];
+    const commit = () => {
+      txs.forEach(tx => add(tx, { allowDuplicate: true }));
+      hapticSuccess();
+      Keyboard.dismiss();
+      setSavedIds(txs.map(tx => tx.id));
+    };
+    // Checked up front for every leg, so a transfer is never half-saved.
+    const duplicate = txs
+      .map(tx => findSmsDuplicateOf(snapshot.transactions, tx))
+      .find(Boolean);
+    if (!duplicate) {
+      commit();
+      return;
     }
-    hapticSuccess();
-    Keyboard.dismiss();
-    setSavedIds(ids);
+    hapticWarn();
+    Alert.alert(
+      dict.add.duplicateTitle,
+      interpolate(dict.add.duplicateBody, {
+        amount: formatTomanFromRial(duplicate.amountRial),
+        date: toJalaliLabel(duplicate.transactionDate),
+      }),
+      [
+        { text: dict.common.cancel, style: 'cancel' },
+        { text: dict.add.saveAnyway, onPress: commit },
+      ],
+    );
   };
 
   const chip = (label: string, on: boolean, onPress: () => void, key?: string) => (

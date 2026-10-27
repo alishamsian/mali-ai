@@ -281,7 +281,11 @@ interface FinanceState {
   persist: () => void;
   toggleHideBalances: () => void;
   completeOnboarding: () => void;
-  addTransaction: (tx: Transaction) => void;
+  /**
+   * Returns false when a manual entry was not added because it duplicates an SMS
+   * transaction; pass allowDuplicate after the user confirms it is a separate one.
+   */
+  addTransaction: (tx: Transaction, options?: { allowDuplicate?: boolean }) => boolean;
   deleteTransaction: (id: string) => void;
   updateTransaction: (id: string, patch: Partial<Transaction>) => void;
   confirmTransaction: (id: string) => void;
@@ -436,21 +440,18 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
     persistSet(set, next);
   },
-  addTransaction: (tx: Transaction) => {
+  addTransaction: (tx: Transaction, options) => {
     const snapshot = liveSnapshot(get);
-    const hit = findCrossSourceDuplicate(snapshot.transactions, tx);
-    if (hit && tx.source === 'manual' && hit.source === 'android_sms') {
-      return;
-    }
-    if (tx.source === 'android_sms' && hit?.source === 'android_sms') {
-      // fall through
+    if (!options?.allowDuplicate && findSmsDuplicateOf(snapshot.transactions, tx)) {
+      return false;
     }
     const nextTxs = [tx, ...snapshot.transactions];
     if (tx.sourceSmsId && smsBatchSourceIds) {
       smsBatchSourceIds.add(tx.sourceSmsId);
     }
-    if (isSmsBatching()) {
-      // Defer transfer-link + authoritative balance recompute until endSmsBatch
+    if (isSmsBatching() && tx.source === 'android_sms') {
+      // Defer transfer-link + authoritative balance recompute until endSmsBatch.
+      // A manual entry made mid-sync takes the normal path so it shows up at once.
       commitSnapshot(set, {
         ...snapshot,
         transactions: nextTxs,
@@ -460,7 +461,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           createQueueItem('transactions', tx.id, 'upsert', tx),
         ),
       });
-      return;
+      return true;
     }
     const linked = relink(snapshot, nextTxs);
     const bumped = applyBalance(snapshot.accounts, tx);
@@ -476,6 +477,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         createQueueItem('transactions', tx.id, 'upsert', tx),
       ),
     });
+    return true;
   },
   deleteTransaction: id => {
     const snapshot = liveSnapshot(get);
@@ -1078,6 +1080,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     return applied;
   },
 }));
+
+/**
+ * The SMS transaction a manual entry would duplicate (same amount and direction within
+ * 48 h, compatible merchant), if any. SMS-vs-SMS and transfers never count.
+ */
+export function findSmsDuplicateOf(
+  transactions: Transaction[],
+  tx: Transaction,
+): Transaction | undefined {
+  if (tx.source !== 'manual') {
+    return undefined;
+  }
+  const hit = findCrossSourceDuplicate(transactions, tx);
+  return hit?.source === 'android_sms' ? hit : undefined;
+}
 
 export function selectMonthStats(snapshot: MonthWindowInput, now = new Date()) {
   return monthlyTotals(financialMonthTransactions(snapshot, 0, now));

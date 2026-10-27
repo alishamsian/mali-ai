@@ -123,7 +123,7 @@ export function ReviewInboxScreen({
     (tx: Transaction) => {
       hapticTap();
       remove(tx.id);
-      offerUndo({ label: dict.sms.deletedToast, restore: () => add(tx) });
+      offerUndo({ label: dict.sms.deletedToast, restore: () => add(tx, { allowDuplicate: true }) });
     },
     [add, dict.sms.deletedToast, offerUndo, remove],
   );

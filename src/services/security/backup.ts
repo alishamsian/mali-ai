@@ -87,15 +87,81 @@ export function validateBackupJson(raw: string): { ok: true; data: BackupPayload
   }
 }
 
-export function resolveBackupInput(
-  raw: string,
-  password?: string,
-): { ok: true; data: BackupPayload } | { ok: false; error: string } {
+type BackupResult = { ok: true; data: BackupPayload } | { ok: false; error: string };
+
+const OPTIONAL_ARRAYS = [
+  'budgets',
+  'budgetCategories',
+  'goals',
+  'recurring',
+  'rules',
+  'transfers',
+  'netWorthHistory',
+] as const;
+const DIRECTIONS = new Set(['in', 'out', 'internal']);
+
+const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+const isAmount = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+function transactionLooksValid(tx: unknown): boolean {
+  if (!tx || typeof tx !== 'object') {
+    return false;
+  }
+  const t = tx as Record<string, unknown>;
+  return (
+    isText(t.id) &&
+    isText(t.accountId) &&
+    isAmount(t.amountRial) &&
+    t.amountRial >= 0 &&
+    DIRECTIONS.has(t.direction as string) &&
+    isText(t.transactionDate) &&
+    !Number.isNaN(Date.parse(t.transactionDate))
+  );
+}
+
+function accountLooksValid(account: unknown): boolean {
+  if (!account || typeof account !== 'object') {
+    return false;
+  }
+  const a = account as Record<string, unknown>;
+  return isText(a.id) && typeof a.name === 'string' && isAmount(a.balanceRial);
+}
+
+/**
+ * Item-level checks shared by plain and encrypted backups. A restore replaces the whole
+ * store, so one malformed row rejects the file instead of half-importing broken data.
+ */
+export function checkBackupPayload(data: BackupPayload): BackupResult {
+  if (!Array.isArray(data.transactions) || !Array.isArray(data.accounts)) {
+    return { ok: false, error: 'schema' };
+  }
+  for (const key of OPTIONAL_ARRAYS) {
+    if (data[key] != null && !Array.isArray(data[key])) {
+      return { ok: false, error: 'schema' };
+    }
+  }
+  if (data.settings != null && typeof data.settings !== 'object') {
+    return { ok: false, error: 'schema' };
+  }
+  if (!data.transactions.every(transactionLooksValid) || !data.accounts.every(accountLooksValid)) {
+    return { ok: false, error: 'schema' };
+  }
+  const ids = new Set(data.transactions.map(tx => tx.id));
+  if (ids.size !== data.transactions.length) {
+    return { ok: false, error: 'schema' };
+  }
+  return { ok: true, data };
+}
+
+export function resolveBackupInput(raw: string, password?: string): BackupResult {
+  let result: BackupResult;
   if (isEncryptedBackupJson(raw)) {
     if (!password) {
       return { ok: false, error: 'password-required' };
     }
-    return decryptBackupJson(raw, password);
+    result = decryptBackupJson(raw, password);
+  } else {
+    result = validateBackupJson(raw);
   }
-  return validateBackupJson(raw);
+  return result.ok ? checkBackupPayload(result.data) : result;
 }

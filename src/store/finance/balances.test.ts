@@ -135,3 +135,32 @@ describe('balances on edit', () => {
     expect(balance('acc_note')).toBe(7_778);
   });
 });
+
+describe('manual entries that duplicate an SMS transaction', () => {
+  const smsAt = '2026-10-05T09:00:00.000Z';
+
+  it('are not added silently: addTransaction reports false and adds nothing', () => {
+    state().upsertAccount(account('acc_dup', 0));
+    state().addTransaction(smsTx('sms_dup', 'acc_dup', 777_000, 9_000_000, smsAt));
+    const manual = tx('tx_manual_dup', 'acc_dup', { amountRial: 777_000, transactionDate: smsAt, merchant: undefined });
+
+    expect(state().addTransaction(manual)).toBe(false);
+    expect(state().snapshot.transactions.some(t => t.id === 'tx_manual_dup')).toBe(false);
+  });
+
+  it('are added when the user confirms they are separate', () => {
+    const manual = tx('tx_manual_dup2', 'acc_dup', { amountRial: 777_000, transactionDate: smsAt, merchant: undefined });
+    expect(state().addTransaction(manual, { allowDuplicate: true })).toBe(true);
+    expect(state().snapshot.transactions.some(t => t.id === 'tx_manual_dup2')).toBe(true);
+  });
+
+  it('show up at once when added during an SMS sync', () => {
+    state().upsertAccount(account('acc_mid_sync', 1_000));
+    state().beginSmsBatch();
+    state().addTransaction(tx('tx_manual_mid_sync', 'acc_mid_sync', { amountRial: 333 }));
+    const visible = state().snapshot.transactions.some(t => t.id === 'tx_manual_mid_sync');
+    state().endSmsBatch();
+    expect(visible).toBe(true);
+    expect(balance('acc_mid_sync')).toBe(667);
+  });
+});
