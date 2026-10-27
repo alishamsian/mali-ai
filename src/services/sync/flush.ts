@@ -41,7 +41,16 @@ function accountRow(userId: string, a: FinancialAccount) {
     transaction_count: a.transactionCount,
     created_at: a.createdAt,
     updated_at: a.updatedAt,
+    local_id: a.id,
+    payload: a,
   };
+}
+
+/** The raw SMS text stays on the device; everything else is kept for restore. */
+export function cloudTransactionPayload(tx: Transaction): Omit<Transaction, 'sourceSmsPreview'> {
+  const rest: Partial<Transaction> = { ...tx };
+  delete rest.sourceSmsPreview;
+  return rest as Omit<Transaction, 'sourceSmsPreview'>;
 }
 
 function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<string>) {
@@ -68,6 +77,8 @@ function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<stri
     notes: tx.notes ?? null,
     created_at: tx.createdAt,
     updated_at: tx.updatedAt,
+    local_id: tx.id,
+    payload: cloudTransactionPayload(tx),
   };
 }
 

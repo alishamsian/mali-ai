@@ -48,6 +48,7 @@ import {
   SettingsAppearanceScreen,
   SettingsAssetsScreen,
   SettingsBackupScreen,
+  SettingsCloudScreen,
   SettingsBanksSmsScreen,
   SettingsBudgetsScreen,
   SettingsDataScreen,
@@ -69,6 +70,7 @@ import type { RootStackParamList } from './types';
 import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary';
+import { setCloudAutoRefresh } from '../../services/supabase/client';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const NAV_STATE_KEY = 'mali.nav.state.v1';
@@ -145,6 +147,7 @@ export function RootNavigator() {
     const onChange = (next: AppStateStatus) => {
       const prev = appState.current;
       appState.current = next;
+      setCloudAutoRefresh(next === 'active');
       if (prev.match(/inactive|background/) && next === 'active') {
         triggerIncrementalSync();
       }
@@ -248,6 +251,7 @@ export function RootNavigator() {
           <Stack.Screen name="SettingsNotifications" component={SettingsNotificationsPrefsScreen} />
           <Stack.Screen name="SettingsSecurity" component={SettingsSecurityScreen} />
           <Stack.Screen name="SettingsBackup" component={SettingsBackupScreen} />
+          <Stack.Screen name="SettingsCloud" component={SettingsCloudScreen} />
           <Stack.Screen name="SettingsData" component={SettingsDataScreen} />
           <Stack.Screen name="SettingsAppearance" component={SettingsAppearanceScreen} />
           <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} />

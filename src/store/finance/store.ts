@@ -5,8 +5,11 @@ import { stripSeededDemo } from '../../database/seed/stripDemo';
 import {
   applyGuestPreview,
   clearGuestPreview,
+  isGuestFingerprint,
   shouldOfferGuestPreview,
 } from '../../database/seed/guestPreview';
+import { pullCloudRecords } from '../../services/sync/pull';
+import { signOutCloud } from '../../services/supabase/auth';
 import { hapticSuccess } from '../../utils/haptics';
 import { isLargeTransaction, playVaultChime } from '../../utils/vaultFeedback';
 import { clearPinHash, storePinHash } from '../../services/security/pin';
@@ -64,7 +67,10 @@ import { findCrossSourceDuplicate } from '../../engine/duplicate/crossSource';
 import { appendNetWorthPoint } from '../../features/wealth/migration/migrateAccounts';
 import { revalueFromDetails } from '../../features/wealth/engine/portfolio';
 import { refreshPricesFromHoldings } from '../../features/wealth/pricing/providers';
-import { financialMonthTransactions, type MonthWindowInput } from '../../engine/insights/monthPeriod';
+import {
+  financialMonthTransactions,
+  type MonthWindowInput,
+} from '../../engine/insights/monthPeriod';
 import { applyUserTheme } from '../../theme/runtime';
 import { SCHEMA_VERSION } from '../../database/schema/snapshot';
 import { attachCrashLogStorage } from '../../services/crash/crashLog';
@@ -169,7 +175,9 @@ function balancesAfterRemoving(
   remaining: Transaction[],
 ): FinancialAccount[] {
   const reversed = reverseBalance(accounts, tx);
-  return hasSmsBalance(tx) ? recomputeSmsBalancesFor(reversed, remaining, [tx.accountId]) : reversed;
+  return hasSmsBalance(tx)
+    ? recomputeSmsBalancesFor(reversed, remaining, [tx.accountId])
+    : reversed;
 }
 
 /** Balances after `before` is edited into `after` (amount, direction or account changed). */
@@ -331,6 +339,12 @@ interface FinanceState {
   flushCloud: () => Promise<void>;
   importBackupJson: (raw: string, password?: string) => { ok: true } | { ok: false; error: string };
   refreshWealthPrices: () => Promise<number>;
+  /** After cloud sign-in: queue every account and transaction for upload. */
+  enqueueFullUpload: () => void;
+  /** Adds cloud accounts and transactions missing on this device; never overwrites local rows. */
+  restoreFromCloud: () => Promise<
+    { ok: true; addedTransactions: number; addedAccounts: number } | { ok: false; error: string }
+  >;
 }
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({
@@ -413,6 +427,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       // Keep wiping: the data matters more than a PIN record the reset settings no longer use.
     }
     await clearVaultToken();
+    // The cloud session (refresh token) lives in the store being wiped.
+    await signOutCloud();
     try {
       getStorageDriver().set(NAV_STATE_KEY, '');
     } catch {
@@ -1047,6 +1063,55 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     } catch {
       return { ok: false, error: 'parse' };
     }
+  },
+  enqueueFullUpload: () => {
+    const snapshot = liveSnapshot(get);
+    let queue = snapshot.syncQueue;
+    for (const account of snapshot.accounts) {
+      if (!account.id.startsWith('guest_')) {
+        queue = enqueueSync(
+          queue,
+          createQueueItem('financial_accounts', account.id, 'upsert', account),
+        );
+      }
+    }
+    for (const tx of snapshot.transactions) {
+      if (!isGuestFingerprint(tx.fingerprint, tx.id)) {
+        queue = enqueueSync(queue, createQueueItem('transactions', tx.id, 'upsert', tx));
+      }
+    }
+    persistSet(set, { ...snapshot, syncQueue: queue });
+  },
+  restoreFromCloud: async () => {
+    const pulled = await pullCloudRecords();
+    if (!pulled.ok) {
+      return pulled;
+    }
+    // Merge onto the snapshot as it is after the network call.
+    const live = clearGuestPreview(liveSnapshot(get));
+    const accountIds = new Set(live.accounts.map(a => a.id));
+    const txIds = new Set(live.transactions.map(tx => tx.id));
+    const smsIds = new Set(
+      live.transactions.map(tx => tx.sourceSmsId).filter((id): id is string => Boolean(id)),
+    );
+    const newAccounts = pulled.records.accounts.filter(a => !accountIds.has(a.id));
+    const newTxs = pulled.records.transactions.filter(
+      tx => !txIds.has(tx.id) && !(tx.sourceSmsId && smsIds.has(tx.sourceSmsId)),
+    );
+    if (newAccounts.length === 0 && newTxs.length === 0) {
+      return { ok: true, addedTransactions: 0, addedAccounts: 0 };
+    }
+    const transactions = [...newTxs, ...live.transactions].sort(
+      (a, b) => Date.parse(b.transactionDate) - Date.parse(a.transactionDate),
+    );
+    const touched = [...new Set(newTxs.map(tx => tx.accountId))];
+    const accounts = recomputeSmsBalancesFor(
+      [...live.accounts, ...newAccounts],
+      transactions,
+      touched,
+    );
+    persistSet(set, appendNetWorthPoint({ ...relink(live, transactions), accounts }));
+    return { ok: true, addedTransactions: newTxs.length, addedAccounts: newAccounts.length };
   },
   refreshWealthPrices: async () => {
     const priced = liveSnapshot(get).accounts;

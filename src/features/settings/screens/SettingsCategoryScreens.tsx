@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -56,6 +56,16 @@ import { ACCENT_PRESETS } from '../../../theme/accentPresets';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { formatCrashReport, getCrashLog } from '../../../services/crash/crashLog';
 import { APP_VERSION } from '../../../app/config/version';
+import { isSupabaseConfigured } from '../../../services/supabase/client';
+import {
+  emailLooksValid,
+  getCloudUser,
+  onCloudUserChange,
+  sendEmailCode,
+  signOutCloud,
+  verifyEmailCode,
+  type CloudUser,
+} from '../../../services/supabase/auth';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function createCategoryStyles(colors: ThemeSnapshot['colors'], t: typeof theme) {
@@ -765,6 +775,200 @@ export function SettingsSecurityScreen() {
   );
 }
 
+export function SettingsCloudScreen() {
+  const styles = useThemedStyles(createCategoryStyles);
+  const { colors } = useAppTheme();
+  const dict = t();
+  const copy = dict.cloud;
+  const lastFlush = useFinanceStore(s => s.snapshot.settings.lastCloudFlushAt);
+  const pending = useFinanceStore(s => s.snapshot.syncQueue.length);
+  const flushCloud = useFinanceStore(s => s.flushCloud);
+  const enqueueFullUpload = useFinanceStore(s => s.enqueueFullUpload);
+  const restoreFromCloud = useFinanceStore(s => s.restoreFromCloud);
+  const [user, setUser] = useState<CloudUser | null>(null);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void getCloudUser().then(u => alive && setUser(u));
+    const unsubscribe = onCloudUserChange(u => alive && setUser(u));
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const run = async (task: () => Promise<void>) => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await task();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const send = () =>
+    run(async () => {
+      if (!emailLooksValid(email)) {
+        hapticWarn();
+        Alert.alert(copy.invalidEmail);
+        return;
+      }
+      const result = await sendEmailCode(email);
+      if (!result.ok) {
+        hapticWarn();
+        Alert.alert(copy.failedTitle, copy.failedBody);
+        return;
+      }
+      setCodeSentTo(email.trim().toLowerCase());
+      setCode('');
+    });
+
+  const verify = () =>
+    run(async () => {
+      if (!codeSentTo) {
+        return;
+      }
+      if (code.replace(/\D/g, '').length < 6) {
+        hapticWarn();
+        Alert.alert(copy.invalidCode);
+        return;
+      }
+      const result = await verifyEmailCode(codeSentTo, code);
+      if (!result.ok) {
+        hapticWarn();
+        Alert.alert(copy.failedTitle, copy.failedBody);
+        return;
+      }
+      setCodeSentTo(null);
+      setCode('');
+      // Everything already on the phone goes up once; later edits queue themselves.
+      enqueueFullUpload();
+      void flushCloud();
+      hapticSuccess();
+      Alert.alert(copy.signedInTitle, copy.signedInBody);
+    });
+
+  const restore = () =>
+    run(async () => {
+      const result = await restoreFromCloud();
+      if (!result.ok) {
+        hapticWarn();
+        Alert.alert(copy.restore, copy.restoreFailed);
+        return;
+      }
+      hapticSuccess();
+      Alert.alert(
+        copy.restore,
+        result.addedTransactions + result.addedAccounts === 0
+          ? copy.restoreNothing
+          : interpolate(copy.restoreDone, {
+              transactions: toPersianDigits(result.addedTransactions),
+              accounts: toPersianDigits(result.addedAccounts),
+            }),
+      );
+    });
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <Shell title={copy.title}>
+        <AppText style={styles.hint}>{copy.notConfigured}</AppText>
+      </Shell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Shell title={copy.title}>
+        <AppText style={styles.hint}>{copy.intro}</AppText>
+        {codeSentTo ? (
+          <>
+            <AppText style={styles.hint}>
+              {interpolate(copy.codeSent, { email: codeSentTo })}
+            </AppText>
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder={copy.codePlaceholder}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              maxLength={8}
+              textAlign="center"
+              style={styles.input}
+            />
+            <PrimaryButton label={copy.verify} onPress={() => void verify()} disabled={busy} />
+            <SettingsNavRow title={copy.changeEmail} onPress={() => setCodeSentTo(null)} last />
+          </>
+        ) : (
+          <>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder={copy.emailPlaceholder}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textAlign="left"
+              style={styles.input}
+            />
+            <PrimaryButton label={copy.sendCode} onPress={() => void send()} disabled={busy} />
+          </>
+        )}
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell title={copy.title}>
+      <AppText style={styles.hint}>{`${copy.signedInAs}: ${user.email ?? user.id}`}</AppText>
+      <SettingsSection title={dict.settings.sections.sync}>
+        <SettingsNavRow
+          title={copy.syncNow}
+          subtitle={`${lastFlush ? toJalaliLabel(lastFlush) : dict.settings.syncNever} · ${interpolate(
+            copy.pending,
+            { count: toPersianDigits(pending) },
+          )}`}
+          onPress={() => void run(flushCloud)}
+        />
+        <SettingsNavRow
+          title={copy.restore}
+          subtitle={copy.restoreHint}
+          onPress={() => void restore()}
+          last
+        />
+      </SettingsSection>
+      <SettingsSection title={dict.settings.sections.danger}>
+        <SettingsNavRow
+          title={copy.signOut}
+          subtitle={copy.signOutConfirm}
+          onPress={() =>
+            Alert.alert(copy.signOut, copy.signOutConfirm, [
+              { text: dict.common.cancel, style: 'cancel' },
+              {
+                text: dict.common.confirm,
+                style: 'destructive',
+                onPress: () => void run(signOutCloud),
+              },
+            ])
+          }
+          last
+        />
+      </SettingsSection>
+      <AppText style={styles.hint}>{copy.notSynced}</AppText>
+    </Shell>
+  );
+}
+
 export function SettingsBackupScreen() {
   const styles = useThemedStyles(createCategoryStyles);
   const { colors } = useAppTheme();
@@ -854,18 +1058,13 @@ export function SettingsBackupScreen() {
       {cloud ? (
         <SettingsSection title={dict.settings.sections.sync}>
           <SettingsNavRow
-            title={dict.settings.cloudStatus}
-            subtitle={dict.profile.cloudOn}
-            onPress={() => void flushCloud()}
-          />
-          <SettingsNavRow
-            title={dict.settings.lastCloudFlush}
+            title={dict.cloud.title}
             subtitle={
               settings.lastCloudFlushAt
-                ? toJalaliLabel(settings.lastCloudFlushAt)
-                : dict.settings.syncNever
+                ? `${dict.settings.lastCloudFlush}: ${toJalaliLabel(settings.lastCloudFlushAt)}`
+                : dict.cloud.rowHint
             }
-            onPress={() => void flushCloud()}
+            onPress={() => navigateRoot(navigation, 'SettingsCloud')}
             last
           />
         </SettingsSection>
