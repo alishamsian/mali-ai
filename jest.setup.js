@@ -33,3 +33,10 @@ jest.mock('react-native-keychain', () => ({
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+// FlashList ships untranspiled ESM and needs real layout to render rows; in tests a
+// FlatList renders the same items synchronously.
+jest.mock('@shopify/flash-list', () => {
+  const { FlatList } = require('react-native');
+  return { FlashList: FlatList };
+});
