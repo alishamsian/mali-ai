@@ -64,6 +64,9 @@ export function getSupabase(): SupabaseClient | null {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+        // The email link comes back as poolet://auth?code=…; PKCE keeps the session
+        // tokens out of the URL and only completes on the phone that asked for it.
+        flowType: 'pkce',
       },
     });
   }

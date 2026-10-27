@@ -6,6 +6,9 @@ export type AuthResult = { ok: true } | { ok: false; error: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Where the sign-in email link returns; must be in the project's redirect allow-list. */
+export const AUTH_REDIRECT_URL = 'poolet://auth';
+
 export function emailLooksValid(email: string): boolean {
   return EMAIL_RE.test(email.trim());
 }
@@ -19,8 +22,10 @@ function failure(error: unknown): AuthResult {
 }
 
 /**
- * Step 1 of email sign-in: Supabase emails a one-time code. Creates the account on
- * first use. The project's "Magic Link" email template must include {{ .Token }}.
+ * Step 1 of email sign-in. Supabase emails a sign-in link back to the app
+ * (AUTH_REDIRECT_URL), plus a one-time code when the email template includes
+ * {{ .Token }} (templates are editable only with custom SMTP on the free plan).
+ * Creates the account on first use.
  */
 export async function sendEmailCode(email: string): Promise<AuthResult> {
   const client = getSupabase();
@@ -33,7 +38,7 @@ export async function sendEmailCode(email: string): Promise<AuthResult> {
   try {
     const { error } = await client.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo: AUTH_REDIRECT_URL },
     });
     return error ? failure(error) : { ok: true };
   } catch (error) {
@@ -61,6 +66,56 @@ export async function verifyEmailCode(email: string, code: string): Promise<Auth
       return failure(error ?? { message: 'no-session' });
     }
     return { ok: true };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export function isAuthRedirect(url: string | null | undefined): url is string {
+  return Boolean(url && url.startsWith(AUTH_REDIRECT_URL));
+}
+
+function urlParams(url: string): Map<string, string> {
+  const params = new Map<string, string>();
+  // Query (?code=…) and fragment (#error=…) both carry values.
+  for (const part of url.split(/[?#]/).slice(1)) {
+    for (const pair of part.split('&')) {
+      const [key, value = ''] = pair.split('=');
+      if (key) {
+        params.set(decodeURIComponent(key), decodeURIComponent(value.replace(/\+/g, ' ')));
+      }
+    }
+  }
+  return params;
+}
+
+/** Finishes sign-in from the email link that reopened the app. */
+export async function completeSignInFromUrl(url: string): Promise<AuthResult> {
+  const client = getSupabase();
+  if (!client) {
+    return { ok: false, error: 'not-configured' };
+  }
+  const params = urlParams(url);
+  const linkError = params.get('error_description') ?? params.get('error');
+  if (linkError) {
+    return { ok: false, error: linkError };
+  }
+  try {
+    const code = params.get('code');
+    if (code) {
+      const { error } = await client.auth.exchangeCodeForSession(code);
+      return error ? failure(error) : { ok: true };
+    }
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken) {
+      const { error } = await client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      return error ? failure(error) : { ok: true };
+    }
+    return { ok: false, error: 'no-code' };
   } catch (error) {
     return failure(error);
   }

@@ -44,11 +44,23 @@ npm run apk
 بدون تنظیم Supabase اپ کاملاً آفلاین کار می‌کند و داده‌ها رمزگذاری‌شده روی گوشی می‌مانند.
 
 1. یک پروژه در Supabase بسازید.
-2. مایگریشن‌ها را به ترتیب اجرا کنید، یا در SQL Editor داشبورد یا با CLI (`supabase link` و بعد `supabase db push`):
-   - `supabase/migrations/0001_init.sql`: جدول‌ها و RLS
+2. مایگریشن‌ها را به ترتیب اجرا کنید. بعد از `supabase login` نیازی به رمز دیتابیس نیست:
+
+   ```bash
+   supabase db query --linked --project-ref <REF> -f supabase/migrations/0001_init.sql
+   ```
+
+   - `0001_init.sql`: جدول‌ها و RLS
    - `0002_sync_category_fk.sql`: حذف کلید خارجی دسته‌بندی
    - `0003_sync_local_payload.sql`: ستون‌های لازم برای بازگردانی کامل
-3. در Authentication → Email Templates → Magic Link، کد یک‌بارمصرف `{{ .Token }}` را در متن ایمیل بگذارید (ورود اپ با کد ۶ رقمی است، نه لینک).
+   - `0004_rls_reference_tables.sql`: RLS برای سه جدولی که در 0001 جا مانده بود
+3. تنظیمات Auth (آدرس بازگشت `poolet://auth` و طول کد) در `supabase/config.toml` است:
+
+   ```bash
+   supabase config push --project-ref <REF>
+   ```
+
+   ورود با **لینک ایمیل** است: کاربر روی لینک داخل ایمیل در همان گوشی می‌زند و پولت باز و وارد می‌شود. روی پلن رایگان قالب ایمیل قابل تغییر نیست و سرویس ایمیل پیش‌فرض Supabase فقط به ایمیل اعضای تیم پروژه و با محدودیت تعداد در ساعت می‌فرستد. برای کاربران واقعی یک SMTP اختصاصی (مثلاً Resend) در Authentication → SMTP تنظیم کنید. با SMTP می‌توانید قالب‌های `supabase/templates/email_code.html` را هم در `config.toml` فعال کنید تا کنار لینک، کد ۶ رقمی هم فرستاده شود.
 4. `.env.example` را به `.env` کپی کنید و مقادیر Project Settings → API را بگذارید:
 
    ```

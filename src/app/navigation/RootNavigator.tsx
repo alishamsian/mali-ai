@@ -71,6 +71,7 @@ import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 import { setCloudAutoRefresh } from '../../services/supabase/client';
+import { useCloudAuthLinks } from './useCloudAuthLinks';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const NAV_STATE_KEY = 'mali.nav.state.v1';
@@ -99,6 +100,7 @@ const STATIC_NAV_THEME = {
 };
 
 export function RootNavigator() {
+  useCloudAuthLinks();
   const { stackAnimation } = useAppMotion();
   const completed = useFinanceStore(s => s.snapshot.settings.onboardingCompleted);
   const ingestSms = useFinanceStore(s => s.ingestSms);

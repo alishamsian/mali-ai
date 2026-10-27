@@ -3,6 +3,8 @@
  */
 // Must be first: crypto-js and our key/salt code read crypto.getRandomValues at load.
 import 'react-native-get-random-values';
+// Supabase builds request URLs with the WHATWG URL API; React Native's URL is read-only.
+import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import { AppRegistry, I18nManager } from 'react-native';
 import App from './src/app/App';

@@ -1,7 +1,13 @@
 import { transformSync } from '@babel/core';
 import type { FinancialAccount, Transaction } from '../../types/finance';
 import { getSupabase } from '../supabase/client';
-import { sendEmailCode, verifyEmailCode } from '../supabase/auth';
+import {
+  AUTH_REDIRECT_URL,
+  completeSignInFromUrl,
+  isAuthRedirect,
+  sendEmailCode,
+  verifyEmailCode,
+} from '../supabase/auth';
 import { cloudIdFor, cloudTransactionPayload, flushSyncQueue } from './flush';
 import { accountFromRow, pullCloudRecords, transactionFromRow } from './pull';
 import { createQueueItem } from './queue';
@@ -58,6 +64,10 @@ function fakeCloud() {
     getUser: async () => ({ data: { user: { id: USER } } }),
     getSession: async () => ({ data: { session: { user: { id: USER } } } }),
     signInWithOtp: jest.fn(async () => ({ error: null })),
+    exchangeCodeForSession: jest.fn(async (code: string) =>
+      code === 'good-code' ? { error: null } : { error: { message: 'invalid flow state' } },
+    ),
+    setSession: jest.fn(async () => ({ error: null })),
     verifyOtp: jest.fn(async ({ token }: { token: string }) =>
       token === '123456'
         ? { data: { session: { user: { id: USER } } }, error: null }
@@ -192,6 +202,55 @@ describe('email sign-in', () => {
     });
     const wrong = await verifyEmailCode('ali@example.com', '000000');
     expect(wrong.ok).toBe(false);
+  });
+});
+
+describe('email link sign-in', () => {
+  it('asks Supabase to send the link back to the app', async () => {
+    const { auth } = fakeCloud();
+    await sendEmailCode('ali@example.com');
+    expect(auth.signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ emailRedirectTo: 'poolet://auth' }),
+      }),
+    );
+  });
+
+  it('recognizes only its own redirect', () => {
+    expect(isAuthRedirect(`${AUTH_REDIRECT_URL}?code=x`)).toBe(true);
+    expect(isAuthRedirect('https://evil.example/poolet://auth?code=x')).toBe(false);
+    expect(isAuthRedirect(null)).toBe(false);
+  });
+
+  it('exchanges the PKCE code from the link for a session', async () => {
+    const { auth } = fakeCloud();
+    await expect(completeSignInFromUrl('poolet://auth?code=good-code')).resolves.toEqual({
+      ok: true,
+    });
+    expect(auth.exchangeCodeForSession).toHaveBeenCalledWith('good-code');
+  });
+
+  it('reports an expired or reused link', async () => {
+    fakeCloud();
+    await expect(completeSignInFromUrl('poolet://auth?code=stale')).resolves.toEqual({
+      ok: false,
+      error: 'invalid flow state',
+    });
+    await expect(
+      completeSignInFromUrl(
+        'poolet://auth#error=access_denied&error_description=Email+link+is+invalid+or+has+expired',
+      ),
+    ).resolves.toEqual({ ok: false, error: 'Email link is invalid or has expired' });
+    await expect(completeSignInFromUrl('poolet://auth')).resolves.toEqual({
+      ok: false,
+      error: 'no-code',
+    });
+  });
+
+  it('accepts tokens in the fragment (implicit flow)', async () => {
+    const { auth } = fakeCloud();
+    await completeSignInFromUrl('poolet://auth#access_token=a&refresh_token=r&type=magiclink');
+    expect(auth.setSession).toHaveBeenCalledWith({ access_token: 'a', refresh_token: 'r' });
   });
 });
 
