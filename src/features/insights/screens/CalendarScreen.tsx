@@ -40,7 +40,9 @@ export function CalendarScreen({
   refreshControl?: React.ReactElement<RefreshControlProps>;
 } = {}) {
   const insets = useSafeAreaInsets();
-  const navigation = navigationProp ?? useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Always call the hook (rules of hooks); the prop wins when a parent passes one.
+  const contextNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navigationProp ?? contextNavigation;
   const { colors } = useAppTheme();
   const snapshot = useFinanceStore(s => s.snapshot);
   const hidden = snapshot.settings.hideBalances;

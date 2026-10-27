@@ -2,7 +2,10 @@ import type { FinanceSnapshot } from '../../database/schema/snapshot';
 import type { CategoryId, Transaction } from '../../types/finance';
 import { detectRecurring as detectRecurringTransactions } from '../recurring/detect';
 import { isExpenseLike, isIncomeLike } from './analytics';
-import { financialMonthStart, financialMonthTransactions } from './monthPeriod';
+import { financialMonthStart, financialMonthTransactions, type MonthWindowInput } from './monthPeriod';
+
+/** Snapshot fields buildProIntel reads. */
+export type ProIntelInput = MonthWindowInput & Pick<FinanceSnapshot, 'profile'>;
 
 function median(values: number[]): number {
   if (values.length === 0) {
@@ -221,7 +224,7 @@ function weekdaySpend(transactions: Transaction[], now: Date): number[] {
 
 function resolveMonthWindow(
   transactions: Transaction[],
-  snapshot: FinanceSnapshot | undefined,
+  snapshot: MonthWindowInput | undefined,
   now: Date,
 ) {
   if (snapshot) {
@@ -260,7 +263,7 @@ export function buildProIntel(
   transactions: Transaction[],
   totalBalanceRial: number,
   now = new Date(),
-  snapshot?: FinanceSnapshot,
+  snapshot?: ProIntelInput,
 ): ProIntel {
   const { monthTx, prevTx, dayOfMonth, daysInMonth, prevDays } = resolveMonthWindow(
     transactions,

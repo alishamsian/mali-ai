@@ -38,7 +38,9 @@ export function InsightsScreen({
   refreshControl?: React.ReactElement<RefreshControlProps>;
 } = {}) {
   const insets = useSafeAreaInsets();
-  const navigation = navigationProp ?? useNavigation<InsightsNav>();
+  // Always call the hook (rules of hooks); the prop wins when a parent passes one.
+  const contextNavigation = useNavigation<InsightsNav>();
+  const navigation = navigationProp ?? contextNavigation;
   const { colors } = useAppTheme();
   const styles = useThemedStyles((c, _t) => ({
     stats: { flexDirection: 'row-reverse' as const, gap: 10 },
@@ -79,10 +81,14 @@ export function InsightsScreen({
   const dict = t();
   const insightsOn = snapshot.settings.insightsEnabled !== false;
   const total = snapshot.accounts.reduce((s, a) => s + a.balanceRial, 0);
-  const monthTx = useMemo(() => financialMonthTransactions(snapshot), [snapshot.transactions, snapshot.settings]);
+  const { transactions, settings, profile } = snapshot;
+  const monthTx = useMemo(
+    () => financialMonthTransactions({ transactions, settings }),
+    [transactions, settings],
+  );
   const intel = useMemo(
-    () => buildProIntel(snapshot.transactions, total, new Date(), snapshot),
-    [snapshot.transactions, snapshot.settings, total],
+    () => buildProIntel(transactions, total, new Date(), { transactions, settings, profile }),
+    [transactions, settings, profile, total],
   );
   const pinnedIds = useMemo(
     () => new Set(snapshot.recurring.map(item => item.id)),

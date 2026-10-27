@@ -64,7 +64,7 @@ import { findCrossSourceDuplicate } from '../../engine/duplicate/crossSource';
 import { appendNetWorthPoint } from '../../features/wealth/migration/migrateAccounts';
 import { revalueFromDetails } from '../../features/wealth/engine/portfolio';
 import { refreshPricesFromHoldings } from '../../features/wealth/pricing/providers';
-import { startOfJalaliMonth } from '../../utils/dates/jalali';
+import { financialMonthTransactions, type MonthWindowInput } from '../../engine/insights/monthPeriod';
 import { applyUserTheme } from '../../theme/runtime';
 import { SCHEMA_VERSION } from '../../database/schema/snapshot';
 
@@ -133,6 +133,62 @@ function reverseBalance(accounts: FinancialAccount[], tx: Transaction): Financia
       updatedAt: new Date().toISOString(),
     };
   });
+}
+
+function hasSmsBalance(tx: Transaction): boolean {
+  return tx.source === 'android_sms' && typeof tx.balanceAfterRial === 'number';
+}
+
+/**
+ * Re-reads the bank-reported balance for just these accounts. Other accounts keep
+ * their manual adjustments, as they would until their own next SMS.
+ */
+function recomputeSmsBalancesFor(
+  accounts: FinancialAccount[],
+  transactions: Transaction[],
+  accountIds: string[],
+): FinancialAccount[] {
+  const ids = new Set(accountIds);
+  const recomputed = recomputeAccountBalancesFromSms(
+    accounts.filter(a => ids.has(a.id)),
+    transactions,
+  );
+  const byId = new Map(recomputed.map(a => [a.id, a]));
+  return accounts.map(a => byId.get(a.id) ?? a);
+}
+
+/**
+ * Balances after removing `tx`. An SMS that carried the bank's balance is not undone by
+ * its amount: the account falls back to the latest remaining SMS balance, and only when
+ * none is left to the balance before that SMS.
+ */
+function balancesAfterRemoving(
+  accounts: FinancialAccount[],
+  tx: Transaction,
+  remaining: Transaction[],
+): FinancialAccount[] {
+  const reversed = reverseBalance(accounts, tx);
+  return hasSmsBalance(tx) ? recomputeSmsBalancesFor(reversed, remaining, [tx.accountId]) : reversed;
+}
+
+/** Balances after `before` is edited into `after` (amount, direction or account changed). */
+function balancesAfterEditing(
+  accounts: FinancialAccount[],
+  before: Transaction,
+  after: Transaction,
+  transactions: Transaction[],
+): FinancialAccount[] {
+  if (
+    before.amountRial === after.amountRial &&
+    before.direction === after.direction &&
+    before.accountId === after.accountId
+  ) {
+    return accounts;
+  }
+  const moved = applyBalance(reverseBalance(accounts, before), after);
+  return hasSmsBalance(before) || hasSmsBalance(after)
+    ? recomputeSmsBalancesFor(moved, transactions, [before.accountId, after.accountId])
+    : moved;
 }
 
 function syncDisplayCurrency(settings: UserSettings) {
@@ -345,7 +401,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     requireDb().save(liveSnapshot(get));
   },
   wipeAllData: async () => {
-    await clearPinHash();
+    try {
+      await clearPinHash();
+    } catch {
+      // Keep wiping: the data matters more than a PIN record the reset settings no longer use.
+    }
     await clearVaultToken();
     try {
       getStorageDriver().set(NAV_STATE_KEY, '');
@@ -424,7 +484,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const nextTxs = snapshot.transactions.filter(item => item.id !== id);
     persistSet(set, {
       ...relink(snapshot, nextTxs),
-      accounts: reverseBalance(snapshot.accounts, tx),
+      accounts: balancesAfterRemoving(snapshot.accounts, tx, nextTxs),
       syncQueue: enqueueSync(
         snapshot.syncQueue,
         createQueueItem('transactions', id, 'delete', { id }),
@@ -433,19 +493,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
   updateTransaction: (id, patch) => {
     const snapshot = liveSnapshot(get);
-    let updated: Transaction | undefined;
-    const transactions = snapshot.transactions.map(tx => {
-      if (tx.id !== id) {
-        return tx;
-      }
-      updated = { ...tx, ...patch, updatedAt: new Date().toISOString() };
-      return updated;
-    });
-    if (!updated) {
+    const before = snapshot.transactions.find(tx => tx.id === id);
+    if (!before) {
       return;
     }
+    const updated: Transaction = { ...before, ...patch, updatedAt: new Date().toISOString() };
+    const transactions = snapshot.transactions.map(tx => (tx.id === id ? updated : tx));
     persistSet(set, {
       ...relink(snapshot, transactions),
+      accounts: balancesAfterEditing(snapshot.accounts, before, updated, transactions),
       syncQueue: enqueueSync(
         snapshot.syncQueue,
         createQueueItem('transactions', id, 'upsert', updated),
@@ -1021,36 +1077,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
 }));
 
-export function selectMonthStats(snapshot: FinanceSnapshot) {
-  const settings = withSettingsDefaults(snapshot.settings);
-  const startDay = Math.min(28, Math.max(1, settings.financialMonthStartDay ?? 1));
-  const now = new Date();
-
-  let start: Date;
-  if (settings.calendar === 'gregorian') {
-    start = new Date(now.getFullYear(), now.getMonth(), startDay, 0, 0, 0, 0);
-    if (start.getTime() > now.getTime()) {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, startDay, 0, 0, 0, 0);
-    }
-  } else {
-    const monthStart = startOfJalaliMonth(now.toISOString());
-    start = new Date(monthStart);
-    if (startDay > 1) {
-      start.setDate(start.getDate() + (startDay - 1));
-    }
-    start.setHours(0, 0, 0, 0);
-    if (start.getTime() > now.getTime()) {
-      start.setMonth(start.getMonth() - 1);
-    }
-  }
-
-  const monthTx = snapshot.transactions.filter(
-    t => Date.parse(t.transactionDate) >= start.getTime(),
-  );
-  return monthlyTotals(monthTx);
+export function selectMonthStats(snapshot: MonthWindowInput, now = new Date()) {
+  return monthlyTotals(financialMonthTransactions(snapshot, 0, now));
 }
 
-export function selectReviewItems(snapshot: FinanceSnapshot): {
+export function selectReviewItems(snapshot: Pick<FinanceSnapshot, 'transactions' | 'unknownSms'>): {
   transactions: Transaction[];
   unknown: UnknownSmsRecord[];
 } {

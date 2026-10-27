@@ -50,10 +50,14 @@ export function RecapScreen({
   const heroBorder = isLight ? 'rgba(18,155,134,0.22)' : 'rgba(212,180,131,0.2)';
   const mask = (value: string) => (hidden ? '••••' : value);
   const total = snapshot.accounts.reduce((s, a) => s + a.balanceRial, 0);
-  const monthTx = useMemo(() => financialMonthTransactions(snapshot), [snapshot.transactions, snapshot.settings]);
+  const { transactions, settings, profile } = snapshot;
+  const monthTx = useMemo(
+    () => financialMonthTransactions({ transactions, settings }),
+    [transactions, settings],
+  );
   const intel = useMemo(
-    () => buildProIntel(snapshot.transactions, total, new Date(), snapshot),
-    [snapshot.transactions, snapshot.settings, total],
+    () => buildProIntel(transactions, total, new Date(), { transactions, settings, profile }),
+    [transactions, settings, profile, total],
   );
   const period = toJalaliMonthYear(new Date().toISOString());
   const report = buildRecapShareMessage(dict, intel, stats, total, hidden, period);

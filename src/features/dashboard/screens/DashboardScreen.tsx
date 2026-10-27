@@ -60,22 +60,24 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
   const dismissWin = useFinanceStore(s => s.dismissFirstSmsWin);
   const runSmsSync = useFinanceStore(s => s.runIncrementalSmsSync);
   const dict = t();
-  const hidden = snapshot.settings.hideBalances;
+  const { transactions, settings, profile, unknownSms, budgetCategories } = snapshot;
+  const hidden = settings.hideBalances;
+  // Memos take only the slices they read, so unrelated writes (sync queue, etc.) skip them.
   const stats = useMemo(
-    () => selectMonthStats(snapshot),
-    [snapshot.transactions, snapshot.settings],
+    () => selectMonthStats({ transactions, settings }),
+    [transactions, settings],
   );
   const prevStats = useMemo(
-    () => monthlyTotals(financialMonthTransactions(snapshot, -1)),
-    [snapshot.transactions, snapshot.settings],
+    () => monthlyTotals(financialMonthTransactions({ transactions, settings }, -1)),
+    [transactions, settings],
   );
   const total = useMemo(
     () => snapshot.accounts.reduce((s, a) => s + a.balanceRial, 0),
     [snapshot.accounts],
   );
   const intel = useMemo(
-    () => buildProIntel(snapshot.transactions, total, new Date(), snapshot),
-    [snapshot.transactions, snapshot.settings, total],
+    () => buildProIntel(transactions, total, new Date(), { transactions, settings, profile }),
+    [transactions, settings, profile, total],
   );
   const brief = useMemo(
     () => dailyBrief(snapshot.transactions, intel, snapshot.recurring),
@@ -86,12 +88,13 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
     [snapshot.transactions],
   );
   const reviewCount = useMemo(() => {
-    const items = selectReviewItems(snapshot);
+    const items = selectReviewItems({ transactions, unknownSms });
     return items.transactions.length + items.unknown.length;
-  }, [snapshot.transactions, snapshot.unknownSms]);
+  }, [transactions, unknownSms]);
+  // settings is a dependency now: toggling budget alerts used to leave stale alerts up.
   const alerts = useMemo(
-    () => budgetAlerts(snapshot),
-    [snapshot.transactions, snapshot.budgets, snapshot.budgetCategories],
+    () => budgetAlerts({ transactions, budgetCategories, settings }),
+    [transactions, budgetCategories, settings],
   );
   const smsOn = snapshot.settings.smsProcessingEnabled;
   const recent = useMemo(

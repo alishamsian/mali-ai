@@ -1,38 +1,68 @@
 import type { FinanceSnapshot } from '../../database/schema/snapshot';
 import { withSettingsDefaults } from '../../features/settings/lib/settingsDefaults';
-import { startOfJalaliMonth } from '../../utils/dates/jalali';
+import { toJalaliYmd } from '../../utils/dates/jalali';
 import type { Transaction } from '../../types/finance';
 
-export function financialMonthStart(snapshot: FinanceSnapshot, now = new Date(), offsetMonths = 0): Date {
+/** The only snapshot fields the month window reads (keeps memo dependencies exact). */
+export type MonthWindowInput = Pick<FinanceSnapshot, 'transactions' | 'settings'>;
+
+/** Day of the month (1-based) of a local date in some calendar. */
+export type DayOfMonth = (date: Date) => number;
+
+const gregorianDay: DayOfMonth = date => date.getDate();
+const jalaliDay: DayOfMonth = date => toJalaliYmd(date.toISOString()).day;
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** Local midnight of the first day of the calendar month containing `date`. */
+function monthStartOf(date: Date, dayOfMonth: DayOfMonth): Date {
+  // Noon keeps the calendar conversion away from midnight/timezone edges.
+  const noon = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  return addDays(noon, -(dayOfMonth(noon) - 1));
+}
+
+/**
+ * Steps whole calendar months by walking day boundaries, so Jalali months (29–31 days)
+ * are never approximated with Gregorian setMonth arithmetic.
+ */
+function shiftMonthStart(monthStart: Date, months: number, dayOfMonth: DayOfMonth): Date {
+  let cursor = monthStart;
+  for (let i = 0; i < Math.abs(months); i += 1) {
+    // Every month has 29–31 days: +35 always lands inside the next month, -1 inside the previous.
+    cursor = monthStartOf(addDays(cursor, months > 0 ? 35 : -1), dayOfMonth);
+  }
+  return cursor;
+}
+
+/**
+ * Start (local midnight) of the financial month that contains `now`, shifted by
+ * `offsetMonths`. A financial month runs from `startDay` of one calendar month to the
+ * day before `startDay` of the next.
+ */
+export function financialPeriodStart(
+  now: Date,
+  startDay: number,
+  offsetMonths: number,
+  dayOfMonth: DayOfMonth,
+): Date {
+  let monthStart = monthStartOf(now, dayOfMonth);
+  if (addDays(monthStart, startDay - 1).getTime() > now.getTime()) {
+    monthStart = shiftMonthStart(monthStart, -1, dayOfMonth);
+  }
+  return addDays(shiftMonthStart(monthStart, offsetMonths, dayOfMonth), startDay - 1);
+}
+
+export function financialMonthStart(snapshot: MonthWindowInput, now = new Date(), offsetMonths = 0): Date {
   const settings = withSettingsDefaults(snapshot.settings);
   const startDay = Math.min(28, Math.max(1, settings.financialMonthStartDay ?? 1));
-
-  let start: Date;
-  if (settings.calendar === 'gregorian') {
-    start = new Date(now.getFullYear(), now.getMonth(), startDay, 0, 0, 0, 0);
-    if (start.getTime() > now.getTime()) {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, startDay, 0, 0, 0, 0);
-    }
-  } else {
-    const monthStart = startOfJalaliMonth(now.toISOString());
-    start = new Date(monthStart);
-    if (startDay > 1) {
-      start.setDate(start.getDate() + (startDay - 1));
-    }
-    start.setHours(0, 0, 0, 0);
-    if (start.getTime() > now.getTime()) {
-      start.setMonth(start.getMonth() - 1);
-    }
-  }
-
-  if (offsetMonths !== 0) {
-    start.setMonth(start.getMonth() + offsetMonths);
-  }
-  return start;
+  const dayOfMonth = settings.calendar === 'gregorian' ? gregorianDay : jalaliDay;
+  return financialPeriodStart(now, startDay, offsetMonths, dayOfMonth);
 }
 
 export function financialMonthTransactions(
-  snapshot: FinanceSnapshot,
+  snapshot: MonthWindowInput,
   offsetMonths = 0,
   now = new Date(),
 ): Transaction[] {

@@ -15,7 +15,6 @@ export type PinRecord = { hash: string; salt: string; fails: number; until: numb
 
 let keychain: typeof import('react-native-keychain') | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   keychain = require('react-native-keychain');
 } catch {
   keychain = null;
@@ -55,14 +54,14 @@ function parseRecord(raw: string): PinRecord | null {
   return null;
 }
 
-function useMemoryFallback(): boolean {
+function shouldUseMemoryFallback(): boolean {
   const jestWorker = (globalThis as { process?: { env?: { JEST_WORKER_ID?: string } } }).process?.env
     ?.JEST_WORKER_ID;
   return Boolean(jestWorker) || !keychain;
 }
 
 async function readKeychain(): Promise<PinRecord | null> {
-  if (useMemoryFallback()) {
+  if (shouldUseMemoryFallback()) {
     return memoryRecord;
   }
   try {
@@ -76,8 +75,13 @@ async function readKeychain(): Promise<PinRecord | null> {
   return null;
 }
 
+/**
+ * Throws `pin-store-failed` when the Keychain write fails. It used to fall back to an
+ * in-memory record that production reads never consult, so a "saved" PIN or a failure
+ * count could silently vanish.
+ */
 async function writeKeychain(record: PinRecord | null): Promise<void> {
-  if (useMemoryFallback()) {
+  if (shouldUseMemoryFallback()) {
     memoryRecord = record;
     return;
   }
@@ -86,15 +90,18 @@ async function writeKeychain(record: PinRecord | null): Promise<void> {
       await keychain!.resetGenericPassword({ service: PIN_SERVICE });
       return;
     }
-    await keychain!.setGenericPassword('pin', JSON.stringify(record), {
+    const ok = await keychain!.setGenericPassword('pin', JSON.stringify(record), {
       service: PIN_SERVICE,
       accessible: keychain!.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       ...(Platform.OS === 'android'
         ? { securityLevel: keychain!.SECURITY_LEVEL.SECURE_HARDWARE }
         : {}),
     });
+    if (ok === false) {
+      throw new Error('keychain-write-false');
+    }
   } catch {
-    memoryRecord = record;
+    throw new Error('pin-store-failed');
   }
 }
 
@@ -123,15 +130,19 @@ export async function hasStoredPin(): Promise<boolean> {
 
 export async function clearPinHash(): Promise<void> {
   memoryRecord = null;
+  sessionFails = 0;
+  sessionLockUntil = 0;
   await writeKeychain(null);
 }
 
+/** Lockout kept in memory when the Keychain could not record a failure. */
+let sessionLockUntil = 0;
+let sessionFails = 0;
+
 export async function pinLockRemainingMs(): Promise<number> {
   const record = await readKeychain();
-  if (!record) {
-    return 0;
-  }
-  return Math.max(0, record.until - Date.now());
+  const until = Math.max(record?.until ?? 0, sessionLockUntil);
+  return Math.max(0, until - Date.now());
 }
 
 export async function pinMatches(pin: string): Promise<boolean> {
@@ -149,11 +160,22 @@ export async function pinMatches(pin: string): Promise<boolean> {
 }
 
 export async function recordPinSuccess(): Promise<void> {
+  sessionFails = 0;
+  sessionLockUntil = 0;
   const record = await readKeychain();
   if (!record) {
     return;
   }
-  await writeKeychain({ ...record, fails: 0, until: 0 });
+  try {
+    await writeKeychain({ ...record, fails: 0, until: 0 });
+  } catch {
+    // The unlock already succeeded; a stale counter only means a stricter next lockout.
+  }
+}
+
+function lockUntilFor(fails: number): number {
+  const extra = Math.max(0, fails - MAX_FAILS);
+  return fails >= MAX_FAILS ? Date.now() + BASE_LOCK_MS * 2 ** extra : 0;
 }
 
 export async function recordPinFailure(): Promise<number> {
@@ -161,13 +183,21 @@ export async function recordPinFailure(): Promise<number> {
   if (!record) {
     return 0;
   }
-  const fails = record.fails + 1;
-  const extra = Math.max(0, fails - MAX_FAILS);
-  const until = fails >= MAX_FAILS ? Date.now() + BASE_LOCK_MS * 2 ** extra : 0;
-  await writeKeychain({ ...record, fails, until });
+  // Count from whichever is further along, so a failed write can't reset the counter.
+  const fails = Math.max(record.fails, sessionFails) + 1;
+  const until = lockUntilFor(fails);
+  sessionFails = fails;
+  sessionLockUntil = until;
+  try {
+    await writeKeychain({ ...record, fails, until });
+  } catch {
+    // Keychain unavailable: the in-memory lockout above still applies for this session.
+  }
   return Math.max(0, until - Date.now());
 }
 
 export function __resetPinMemoryForTests(): void {
   memoryRecord = null;
+  sessionFails = 0;
+  sessionLockUntil = 0;
 }

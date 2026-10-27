@@ -22,25 +22,25 @@ export type BackupPayload = {
 };
 
 export function buildSanitizedBackup(snapshot: FinanceSnapshot): BackupPayload {
-  const { unknownSms: _unknown, syncQueue: _sync, ...rest } = snapshot;
+  // Fields are listed one by one: unknownSms (raw SMS text) and syncQueue never leave the device.
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
-    profile: rest.profile,
+    profile: snapshot.profile,
     settings: {
-      ...rest.settings,
+      ...snapshot.settings,
       pinHash: undefined,
     },
-    accounts: rest.accounts,
-    transactions: rest.transactions.map(({ sourceSmsPreview: _preview, ...tx }) => tx),
-    budgets: rest.budgets,
-    budgetCategories: rest.budgetCategories,
-    goals: rest.goals ?? [],
-    recurring: rest.recurring ?? [],
-    rules: rest.rules,
-    transfers: rest.transfers,
-    netWorthHistory: rest.netWorthHistory,
+    accounts: snapshot.accounts,
+    transactions: snapshot.transactions.map(({ sourceSmsPreview: _preview, ...tx }) => tx),
+    budgets: snapshot.budgets,
+    budgetCategories: snapshot.budgetCategories,
+    goals: snapshot.goals ?? [],
+    recurring: snapshot.recurring ?? [],
+    rules: snapshot.rules,
+    transfers: snapshot.transfers,
+    netWorthHistory: snapshot.netWorthHistory,
   };
 }
 

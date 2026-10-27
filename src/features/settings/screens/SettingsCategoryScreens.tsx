@@ -736,7 +736,14 @@ export function SettingsSecurityScreen() {
               return;
             }
             void (async () => {
-              await storePin(pin);
+              try {
+                await storePin(pin);
+              } catch {
+                // The old PIN is still the one in the Keychain; say so instead of "changed".
+                hapticWarn();
+                Alert.alert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
+                return;
+              }
               setPin('');
               hapticSuccess();
               Alert.alert(dict.profile.pinChangedTitle, dict.profile.pinChangedBody);
@@ -1005,7 +1012,8 @@ export function SettingsDataScreen() {
                 text: dict.common.confirm,
                 style: 'destructive',
                 onPress: () => {
-                  void clearPinHash();
+                  // The lock is turned off below either way; a leftover record is unused.
+                  clearPinHash().catch(() => undefined);
                   void clearVaultToken();
                   update({ appLockEnabled: false, biometricUnlock: false });
                   unlockVault();
