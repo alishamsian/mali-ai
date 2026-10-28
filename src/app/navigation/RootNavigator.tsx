@@ -73,6 +73,7 @@ import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 import { setCloudAutoRefresh } from '../../services/supabase/client';
+import { runSmartAlerts, watchSmartAlerts } from '../../services/notifications/smartAlerts';
 import { useCloudAuthLinks } from './useCloudAuthLinks';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -147,6 +148,7 @@ export function RootNavigator() {
   useEffect(() => {
     // Initial app entry sync (once navigator mounts)
     triggerIncrementalSync();
+    void runSmartAlerts();
 
     const onChange = (next: AppStateStatus) => {
       const prev = appState.current;
@@ -154,10 +156,15 @@ export function RootNavigator() {
       setCloudAutoRefresh(next === 'active');
       if (prev.match(/inactive|background/) && next === 'active') {
         triggerIncrementalSync();
+        void runSmartAlerts();
       }
     };
     const sub = AppState.addEventListener('change', onChange);
-    return () => sub.remove();
+    const stopWatching = watchSmartAlerts();
+    return () => {
+      sub.remove();
+      stopWatching();
+    };
   }, [triggerIncrementalSync]);
 
   useEffect(() => {

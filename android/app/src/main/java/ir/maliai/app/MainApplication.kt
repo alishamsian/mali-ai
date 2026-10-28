@@ -17,6 +17,7 @@ class MainApplication : Application(), ReactApplication {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
               add(ir.maliai.app.sms.SmsPackage())
+              add(ir.maliai.app.notify.NotifyPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

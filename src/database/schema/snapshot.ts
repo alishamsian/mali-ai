@@ -34,6 +34,8 @@ export interface FinanceSnapshot {
   installmentPlans: InstallmentPlan[];
   cheques: Cheque[];
   debts: PersonalDebt[];
+  /** Keys of smart notifications already sent (device-only, capped). */
+  alertLog?: string[];
 }
 
 export const SCHEMA_VERSION = 2;

@@ -215,6 +215,8 @@ function isSmsBatching(): boolean {
   return smsBatchDepth > 0 && smsBatchWorking != null;
 }
 
+const ALERT_LOG_LIMIT = 400;
+
 function liveSnapshot(get: () => FinanceState): FinanceSnapshot {
   return smsBatchWorking ?? get().snapshot;
 }
@@ -318,6 +320,7 @@ interface FinanceState {
   upsertDebt: (debt: PersonalDebt) => void;
   settleDebt: (id: string, amountRial: number) => void;
   deleteDebt: (id: string) => void;
+  recordAlerts: (keys: string[]) => void;
   deleteRecurring: (id: string) => void;
   ingestSms: (
     payload: RawSmsPayload,
@@ -763,6 +766,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           : d,
       ),
     });
+  },
+  recordAlerts: keys => {
+    if (keys.length === 0) {
+      return;
+    }
+    const snapshot = liveSnapshot(get);
+    const log = [...(snapshot.alertLog ?? []).filter(k => !keys.includes(k)), ...keys];
+    persistSet(set, { ...snapshot, alertLog: log.slice(-ALERT_LOG_LIMIT) });
   },
   deleteDebt: id => {
     const snapshot = liveSnapshot(get);
