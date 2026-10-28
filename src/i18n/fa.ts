@@ -144,6 +144,13 @@ export const fa = {
     homeOverdue: '{{n}} مورد عقب‌افتاده',
     homeNext: 'نزدیک‌ترین: {{title}} · {{when}}',
   },
+  moneyFlow: {
+    kicker: 'جریان پول این ماه',
+    sub: 'از کجا آمد، کجا رفت',
+    other: 'سایر',
+    savings: 'پس‌انداز',
+    balance: 'از موجودی',
+  },
   habits: {
     merchantsKicker: 'جاهایی که بیشتر خرج می‌کنی',
     merchantsSub: '۹۰ روز اخیر',

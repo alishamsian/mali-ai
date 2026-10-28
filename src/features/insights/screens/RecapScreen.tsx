@@ -18,6 +18,8 @@ import { useFinanceStore, selectMonthStats } from '../../../store/finance/store'
 import { buildProIntel } from '../../../engine/insights/pro';
 import { buildRecapShareMessage } from '../../../engine/insights/recapShare';
 import { financialMonthTransactions } from '../../../engine/insights/monthPeriod';
+import { toPersianDigits } from '../../../utils/numbers/digits';
+import { MoneyFlowCard } from '../../analytics/components/MoneyFlowCard';
 import { hapticSuccess } from '../../../utils/haptics';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
@@ -144,10 +146,11 @@ export function RecapScreen({
             {intel.runwayDays != null ? (
               <Row
                 k={dict.insights.runway}
-                v={hidden ? '••••' : interpolate(dict.insights.days, { n: intel.runwayDays })}
+                v={hidden ? '••••' : interpolate(dict.insights.days, { n: toPersianDigits(intel.runwayDays) })}
               />
             ) : null}
           </GlassCard>
+          <MoneyFlowCard transactions={monthTx} hidden={hidden} />
           <PrimaryButton
             label={dict.insights.share}
             onPress={() => {
