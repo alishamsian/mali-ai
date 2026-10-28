@@ -62,6 +62,7 @@ import {
   syncSelectedBankIdsFromConnections,
 } from '../../features/sms/senders/verified';
 import type { SenderVerificationMethod } from '../../types/finance';
+import type { Cheque, ChequeStatus, InstallmentPlan, PersonalDebt } from '../../types/obligations';
 import { flushSyncQueue } from '../../services/sync/flush';
 import { findCrossSourceDuplicate } from '../../engine/duplicate/crossSource';
 import { appendNetWorthPoint } from '../../features/wealth/migration/migrateAccounts';
@@ -307,6 +308,16 @@ interface FinanceState {
   deleteGoal: (id: string) => void;
   contributeGoal: (id: string, amountRial: number) => void;
   upsertRecurring: (item: RecurringTransaction) => void;
+  upsertInstallmentPlan: (plan: InstallmentPlan) => void;
+  deleteInstallmentPlan: (id: string) => void;
+  /** Records installment #index as paid today at the plan's amount. */
+  markInstallmentPaid: (planId: string, index: number) => void;
+  upsertCheque: (cheque: Cheque) => void;
+  setChequeStatus: (id: string, status: ChequeStatus) => void;
+  deleteCheque: (id: string) => void;
+  upsertDebt: (debt: PersonalDebt) => void;
+  settleDebt: (id: string, amountRial: number) => void;
+  deleteDebt: (id: string) => void;
   deleteRecurring: (id: string) => void;
   ingestSms: (
     payload: RawSmsPayload,
@@ -392,6 +403,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           {
             ...cleaned,
             goals: cleaned.goals ?? [],
+            installmentPlans: cleaned.installmentPlans ?? [],
+            cheques: cleaned.cheques ?? [],
+            debts: cleaned.debts ?? [],
             recurring: cleaned.recurring ?? [],
             // Older builds kept every synced item and every edit; shrink that on load.
             syncQueue: compactSyncQueue(cleaned.syncQueue ?? []),
@@ -672,6 +686,87 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           : g,
       ),
     });
+  },
+  upsertInstallmentPlan: plan => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, {
+      ...snapshot,
+      installmentPlans: [...snapshot.installmentPlans.filter(p => p.id !== plan.id), plan],
+    });
+  },
+  deleteInstallmentPlan: id => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, {
+      ...snapshot,
+      installmentPlans: snapshot.installmentPlans.filter(p => p.id !== id),
+    });
+  },
+  markInstallmentPaid: (planId, index) => {
+    const snapshot = liveSnapshot(get);
+    const now = new Date().toISOString();
+    persistSet(set, {
+      ...snapshot,
+      installmentPlans: snapshot.installmentPlans.map(p =>
+        p.id !== planId || p.payments.some(pay => pay.index === index)
+          ? p
+          : {
+              ...p,
+              payments: [...p.payments, { index, paidAt: now, amountRial: p.installmentRial }],
+              updatedAt: now,
+            },
+      ),
+    });
+  },
+  upsertCheque: cheque => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, {
+      ...snapshot,
+      cheques: [...snapshot.cheques.filter(c => c.id !== cheque.id), cheque],
+    });
+  },
+  setChequeStatus: (id, status) => {
+    const snapshot = liveSnapshot(get);
+    const now = new Date().toISOString();
+    persistSet(set, {
+      ...snapshot,
+      cheques: snapshot.cheques.map(c =>
+        c.id === id ? { ...c, status, statusAt: now, updatedAt: now } : c,
+      ),
+    });
+  },
+  deleteCheque: id => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, { ...snapshot, cheques: snapshot.cheques.filter(c => c.id !== id) });
+  },
+  upsertDebt: debt => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, {
+      ...snapshot,
+      debts: [...snapshot.debts.filter(d => d.id !== debt.id), debt],
+    });
+  },
+  settleDebt: (id, amountRial) => {
+    const snapshot = liveSnapshot(get);
+    const now = new Date().toISOString();
+    persistSet(set, {
+      ...snapshot,
+      debts: snapshot.debts.map(d =>
+        d.id === id
+          ? {
+              ...d,
+              settlements: [
+                ...d.settlements,
+                { id: `stl_${Date.now().toString(36)}`, amountRial, date: now },
+              ],
+              updatedAt: now,
+            }
+          : d,
+      ),
+    });
+  },
+  deleteDebt: id => {
+    const snapshot = liveSnapshot(get);
+    persistSet(set, { ...snapshot, debts: snapshot.debts.filter(d => d.id !== id) });
   },
   upsertRecurring: item => {
     const snapshot = liveSnapshot(get);
@@ -1046,6 +1141,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           : current.budgetCategories,
         goals: Array.isArray(parsed.goals) ? parsed.goals : current.goals ?? [],
         recurring: Array.isArray(parsed.recurring) ? parsed.recurring : current.recurring ?? [],
+        installmentPlans: Array.isArray(parsed.installmentPlans)
+          ? parsed.installmentPlans
+          : current.installmentPlans ?? [],
+        cheques: Array.isArray(parsed.cheques) ? parsed.cheques : current.cheques ?? [],
+        debts: Array.isArray(parsed.debts) ? parsed.debts : current.debts ?? [],
         rules: Array.isArray(parsed.rules) ? parsed.rules : current.rules,
         transfers: Array.isArray(parsed.transfers) ? parsed.transfers : current.transfers,
         unknownSms: current.unknownSms,

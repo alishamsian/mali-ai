@@ -331,6 +331,8 @@ export interface UserSettings {
   calendar?: 'jalali' | 'gregorian';
   /** 1–28 */
   financialMonthStartDay?: number;
+  /** Yearly inflation % the user assumes for real-value figures (default 35). */
+  annualInflationPct?: number;
   defaultAccountId?: string;
   insightsEnabled?: boolean;
   autoPriceUpdates?: boolean;

@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeftRight,
-  CalendarDays,
+  CalendarClock,
   Eye,
   EyeOff,
   FileBarChart,
@@ -45,6 +45,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
+import { DuesSummaryCard } from '../../obligations/components/DuesSummaryCard';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -239,10 +240,10 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
 
   const quick = [
     {
-      key: 'daily',
-      label: dict.dashboard.quickDaily,
-      Icon: CalendarDays,
-      go: () => navigation.navigate('Daily'),
+      key: 'obligations',
+      label: dict.obligations.title,
+      Icon: CalendarClock,
+      go: () => navigation.navigate('Obligations'),
     },
     {
       key: 'recap',
@@ -405,6 +406,8 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
             </PressScale>
           </GlassPanel>
         ) : null}
+
+        <DuesSummaryCard hidden={hidden} />
 
         <GlassPanel radius={30} style={styles.monthPanel}>
           <View style={styles.pillLabelWrap} pointerEvents="none">

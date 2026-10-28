@@ -13,6 +13,7 @@ import type {
   MoneyGoal,
 } from '../../types/finance';
 import type { NetWorthSnapshot } from '../../types/wealth';
+import type { Cheque, InstallmentPlan, PersonalDebt } from '../../types/obligations';
 
 export interface FinanceSnapshot {
   version: number;
@@ -30,6 +31,9 @@ export interface FinanceSnapshot {
   goals: MoneyGoal[];
   /** Daily-ish net worth samples for wealth charts */
   netWorthHistory?: NetWorthSnapshot[];
+  installmentPlans: InstallmentPlan[];
+  cheques: Cheque[];
+  debts: PersonalDebt[];
 }
 
 export const SCHEMA_VERSION = 2;
@@ -77,5 +81,8 @@ export function emptySnapshot(userId = 'local-user'): FinanceSnapshot {
     syncQueue: [],
     goals: [],
     netWorthHistory: [],
+    installmentPlans: [],
+    cheques: [],
+    debts: [],
   };
 }

@@ -26,6 +26,9 @@ export class LocalFinanceDb {
         goals: parsed.goals ?? [],
         recurring: parsed.recurring ?? [],
         netWorthHistory: parsed.netWorthHistory ?? [],
+        installmentPlans: parsed.installmentPlans ?? [],
+        cheques: parsed.cheques ?? [],
+        debts: parsed.debts ?? [],
         settings: withSettingsDefaults({
           ...emptySnapshot().settings,
           ...parsed.settings,

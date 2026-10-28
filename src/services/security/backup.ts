@@ -19,6 +19,9 @@ export type BackupPayload = {
   rules: FinanceSnapshot['rules'];
   transfers: FinanceSnapshot['transfers'];
   netWorthHistory?: FinanceSnapshot['netWorthHistory'];
+  installmentPlans?: FinanceSnapshot['installmentPlans'];
+  cheques?: FinanceSnapshot['cheques'];
+  debts?: FinanceSnapshot['debts'];
 };
 
 export function buildSanitizedBackup(snapshot: FinanceSnapshot): BackupPayload {
@@ -41,6 +44,9 @@ export function buildSanitizedBackup(snapshot: FinanceSnapshot): BackupPayload {
     rules: snapshot.rules,
     transfers: snapshot.transfers,
     netWorthHistory: snapshot.netWorthHistory,
+    installmentPlans: snapshot.installmentPlans ?? [],
+    cheques: snapshot.cheques ?? [],
+    debts: snapshot.debts ?? [],
   };
 }
 

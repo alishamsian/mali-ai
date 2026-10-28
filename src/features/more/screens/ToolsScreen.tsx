@@ -6,6 +6,7 @@ import {
   Landmark,
   MessageSquareText,
   Receipt,
+  CalendarClock,
   Settings2,
   Wallet,
 } from 'lucide-react-native';
@@ -109,6 +110,12 @@ export function ToolsScreen() {
       label: dict.budgets.hubTitle,
       Icon: Wallet,
       onPress: () => navigateRoot(navigation, 'Budgets'),
+    },
+    {
+      id: 'obligations',
+      label: dict.obligations.toolsLabel,
+      Icon: CalendarClock,
+      onPress: () => navigateRoot(navigation, 'Obligations'),
     },
   ];
 

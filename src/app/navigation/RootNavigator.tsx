@@ -24,6 +24,8 @@ import { TransactionDetailsScreen } from '../../features/transactions/screens/Tr
 import { AddTransactionScreen } from '../../features/transactions/screens/AddTransactionScreen';
 import { BudgetsScreen } from '../../features/budgets/screens/BudgetsScreen';
 import { ToolsScreen } from '../../features/more/screens/ToolsScreen';
+import { ObligationsScreen } from '../../features/obligations/screens/ObligationsScreen';
+import { AddObligationScreen } from '../../features/obligations/screens/AddObligationScreen';
 import {
   AnalyticsRedirect,
   AssistantRedirect,
@@ -232,6 +234,8 @@ export function RootNavigator() {
           <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
           <Stack.Screen name="Budgets" component={BudgetsScreen} />
           <Stack.Screen name="Tools" component={ToolsScreen} />
+          <Stack.Screen name="Obligations" component={ObligationsScreen} />
+          <Stack.Screen name="AddObligation" component={AddObligationScreen} />
           <Stack.Screen name="Insights" component={InsightsRedirect} />
           <Stack.Screen name="Analytics" component={AnalyticsRedirect} />
           <Stack.Screen name="Recap" component={RecapRedirect} />

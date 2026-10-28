@@ -29,6 +29,7 @@ import { NetWorthHero } from '../components/NetWorthHero';
 import { AllocationPanel } from '../components/AllocationPanel';
 import { WealthHoldingCard } from '../components/WealthHoldingCard';
 import { ASSET_CLASS_ORDER } from '../catalog/classes';
+import { InflationCard } from '../../obligations/components/InflationCard';
 
 export function AccountsScreen() {
   const insets = useSafeAreaInsets();
@@ -339,6 +340,8 @@ export function AccountsScreen() {
           onFilterChange={setAllocFilter}
           hidden={hidden}
         />
+
+        <InflationCard hidden={hidden} />
 
         {snapshot.accounts.length > 0 ? (
           <View style={styles.perfRow}>

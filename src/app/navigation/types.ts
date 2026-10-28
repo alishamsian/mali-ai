@@ -71,6 +71,8 @@ export type RootStackParamList = {
   SmsParserLab: undefined;
   Recurring: undefined;
   Goals: undefined;
+  Obligations: undefined;
+  AddObligation: undefined;
   CinematicBalance: undefined;
   Privacy: undefined;
   Notifications: undefined;
