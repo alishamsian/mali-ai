@@ -40,6 +40,10 @@ export async function runSmartAlerts(now = new Date()): Promise<void> {
   const store = useFinanceStore.getState();
   const snapshot = store.snapshot;
   const settings = withSettingsDefaults(snapshot.settings);
+  // No permission prompt over the onboarding screens; the first run after it asks.
+  if (!settings.onboardingCompleted) {
+    return;
+  }
   if (!settings.notificationsEnabled) {
     await notifier.replaceScheduled([]);
     return;
