@@ -15,6 +15,7 @@ import {
   CURRENT_LINE,
   PREVIOUS_LINE,
 } from '../../../components/charts/CompareLineChart';
+import { MonthOutlook } from '../components/MonthOutlook';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
 import { t, interpolate } from '../../../i18n';
 import { formatTomanFromRial } from '../../../utils/currency/money';
@@ -193,6 +194,8 @@ export function AnalyticsScreen({
           </View>
         </View>
       </View>
+
+      <MonthOutlook hidden={hidden} />
 
       <GlassPanel radius={30} style={styles.listPanel}>
         <View style={styles.pillWrap} pointerEvents="none">
