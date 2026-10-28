@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Share,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -149,14 +142,7 @@ function createCategoryStyles(colors: ThemeSnapshot['colors'], th: typeof theme)
   };
 }
 
-
-function Shell({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const dict = t();
@@ -221,14 +207,10 @@ export function SettingsFinancialScreen() {
             <Pressable
               key={d}
               onPress={() => update({ financialMonthStartDay: d })}
-              style={[
-                styles.dayChip,
-                settings.financialMonthStartDay === d && styles.dayChipOn,
-              ]}>
+              style={[styles.dayChip, settings.financialMonthStartDay === d && styles.dayChipOn]}>
               <AppText
                 style={{
-                  color:
-                    settings.financialMonthStartDay === d ? colors.primary : colors.text,
+                  color: settings.financialMonthStartDay === d ? colors.primary : colors.text,
                 }}>
                 {toPersianDigits(String(d))}
               </AppText>
@@ -262,7 +244,9 @@ export function SettingsBanksSmsScreen() {
       <SettingsSection title={dict.settings.sections.smsStatus}>
         <SettingsNavRow
           title={dict.settings.smsAccess}
-          subtitle={settings.smsProcessingEnabled ? dict.settings.status.on : dict.settings.status.off}
+          subtitle={
+            settings.smsProcessingEnabled ? dict.settings.status.on : dict.settings.status.off
+          }
           onPress={() => navigateSmsHub(navigation, settings.smsProcessingEnabled)}
         />
         <SettingsNavRow
@@ -331,10 +315,7 @@ export function SettingsBanksSmsScreen() {
           onPress={() => navigateRoot(navigation, 'SmsOnboarding')}
         />
         {settings.smsProcessingEnabled ? (
-          <PrimaryButton
-            label={dict.sms.scanInbox}
-            onPress={() => void runSmsSync()}
-          />
+          <PrimaryButton label={dict.sms.scanInbox} onPress={() => void runSmsSync()} />
         ) : null}
         {APP_FEATURES.devTools ? (
           <>
@@ -370,17 +351,13 @@ export function SettingsAccountsScreen() {
       navigateRoot(navigation, 'Main', { screen: 'Vault' });
       return;
     }
-    Alert.alert(
-      dict.settings.defaultAccount,
-      dict.settings.pickDefaultAccount,
-      [
-        ...accounts.map(a => ({
-          text: a.id === settings.defaultAccountId ? `✓ ${a.name}` : a.name,
-          onPress: () => update({ defaultAccountId: a.id }),
-        })),
-        { text: dict.common.cancel, style: 'cancel' as const },
-      ],
-    );
+    Alert.alert(dict.settings.defaultAccount, dict.settings.pickDefaultAccount, [
+      ...accounts.map(a => ({
+        text: a.id === settings.defaultAccountId ? `✓ ${a.name}` : a.name,
+        onPress: () => update({ defaultAccountId: a.id }),
+      })),
+      { text: dict.common.cancel, style: 'cancel' as const },
+    ]);
   };
 
   return (
@@ -388,7 +365,9 @@ export function SettingsAccountsScreen() {
       <SettingsSection title={dict.settings.sections.accounts}>
         <SettingsNavRow
           title={dict.settings.manageAccounts}
-          subtitle={`${toPersianDigits(String(snapshot.accounts.length))} ${dict.settings.itemUnit}`}
+          subtitle={`${toPersianDigits(String(snapshot.accounts.length))} ${
+            dict.settings.itemUnit
+          }`}
           onPress={() => navigateRoot(navigation, 'Main', { screen: 'Vault' })}
         />
         <SettingsNavRow
@@ -431,7 +410,11 @@ export function SettingsBudgetsScreen() {
         />
       </SettingsSection>
       <SettingsSection title={dict.settings.sections.open}>
-        <SettingsNavRow title={dict.budgets.hubTitle} onPress={() => navigateRoot(navigation, 'Budgets')} last />
+        <SettingsNavRow
+          title={dict.budgets.hubTitle}
+          onPress={() => navigateRoot(navigation, 'Budgets')}
+          last
+        />
       </SettingsSection>
     </Shell>
   );
@@ -871,14 +854,20 @@ export function SettingsCloudScreen() {
         return;
       }
       hapticSuccess();
-      Alert.alert(
-        copy.restore,
+      const summary =
         result.addedTransactions + result.addedAccounts === 0
           ? copy.restoreNothing
           : interpolate(copy.restoreDone, {
               transactions: toPersianDigits(result.addedTransactions),
               accounts: toPersianDigits(result.addedAccounts),
-            }),
+            });
+      Alert.alert(
+        copy.restore,
+        result.skipped > 0
+          ? `${summary}\n${interpolate(copy.restoreSkipped, {
+              n: toPersianDigits(result.skipped),
+            })}`
+          : summary,
       );
     });
 
@@ -941,10 +930,9 @@ export function SettingsCloudScreen() {
       <SettingsSection title={dict.settings.sections.sync}>
         <SettingsNavRow
           title={copy.syncNow}
-          subtitle={`${lastFlush ? toJalaliLabel(lastFlush) : dict.settings.syncNever} · ${interpolate(
-            copy.pending,
-            { count: toPersianDigits(pending) },
-          )}`}
+          subtitle={`${
+            lastFlush ? toJalaliLabel(lastFlush) : dict.settings.syncNever
+          } · ${interpolate(copy.pending, { count: toPersianDigits(pending) })}`}
           onPress={() => void run(flushCloud)}
         />
         <SettingsNavRow
@@ -1120,7 +1108,7 @@ export function SettingsBackupScreen() {
           last
         />
       </SettingsSection>
-          {restoreOpen ? (
+      {restoreOpen ? (
         <View style={{ marginBottom: 12 }}>
           <AppText style={styles.hint}>{dict.settings.restorePasteBody}</AppText>
           <TextInput
@@ -1210,12 +1198,16 @@ export function SettingsDataScreen() {
       <SettingsSection title={dict.settings.sections.actions}>
         <SettingsNavRow
           title={dict.settings.exportCsv}
-          subtitle={`${toPersianDigits(String(snapshot.transactions.length))} ${dict.settings.itemUnit}`}
+          subtitle={`${toPersianDigits(String(snapshot.transactions.length))} ${
+            dict.settings.itemUnit
+          }`}
           onPress={() => void exportCsv()}
         />
         <SettingsNavRow
           title={dict.settings.clearUnknown}
-          subtitle={`${toPersianDigits(String(snapshot.unknownSms.length))} ${dict.settings.itemUnit}`}
+          subtitle={`${toPersianDigits(String(snapshot.unknownSms.length))} ${
+            dict.settings.itemUnit
+          }`}
           onPress={clearUnknown}
         />
         <SettingsNavRow
@@ -1332,8 +1324,7 @@ export function SettingsAppearanceScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}>
                 <View style={[styles.accentDot, { backgroundColor: preset.primary }]} />
-                <AppText
-                  style={[styles.accentLabel, selected && { color: colors.primary }]}>
+                <AppText style={[styles.accentLabel, selected && { color: colors.primary }]}>
                   {dict.settings.accents[preset.id]}
                 </AppText>
               </Pressable>
@@ -1389,14 +1380,10 @@ export function SettingsAppearanceScreen() {
             <Pressable
               key={d}
               onPress={() => update({ financialMonthStartDay: d })}
-              style={[
-                styles.dayChip,
-                settings.financialMonthStartDay === d && styles.dayChipOn,
-              ]}>
+              style={[styles.dayChip, settings.financialMonthStartDay === d && styles.dayChipOn]}>
               <AppText
                 style={{
-                  color:
-                    settings.financialMonthStartDay === d ? colors.primary : colors.text,
+                  color: settings.financialMonthStartDay === d ? colors.primary : colors.text,
                 }}>
                 {toPersianDigits(String(d))}
               </AppText>
@@ -1517,7 +1504,10 @@ export function SettingsSupportScreen() {
         <SettingsNavRow
           title={dict.settings.feedback}
           onPress={() => {
-            void Share.share({ message: dict.settings.feedbackDraft, title: dict.settings.feedback });
+            void Share.share({
+              message: dict.settings.feedbackDraft,
+              title: dict.settings.feedback,
+            });
           }}
         />
         <SettingsNavRow
@@ -1586,4 +1576,3 @@ export function SettingsAboutScreen() {
     </Shell>
   );
 }
-

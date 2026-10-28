@@ -101,18 +101,16 @@ export async function completeSignInFromUrl(url: string): Promise<AuthResult> {
     return { ok: false, error: linkError };
   }
   try {
+    // Only the PKCE code is accepted: exchanging it needs the verifier this phone stored when
+    // it asked for the link. A link carrying ready-made tokens could come from anyone (any
+    // web page can open poolet://) and would sign the app into *their* account, after which
+    // everything on the phone is uploaded to it.
+    if (params.has('access_token') || params.has('refresh_token')) {
+      return { ok: false, error: 'tokens-in-link' };
+    }
     const code = params.get('code');
     if (code) {
       const { error } = await client.auth.exchangeCodeForSession(code);
-      return error ? failure(error) : { ok: true };
-    }
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    if (accessToken && refreshToken) {
-      const { error } = await client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
       return error ? failure(error) : { ok: true };
     }
     return { ok: false, error: 'no-code' };

@@ -56,6 +56,7 @@ describe('restoreFromCloud', () => {
     pullMock.mockResolvedValueOnce({
       ok: true,
       records: {
+        skipped: 0,
         accounts: [account('acc_local', 1), account('acc_cloud', 0)],
         transactions: [
           tx('tx_local', 'acc_local', { amountRial: 1_111, notes: 'cloud version' }),
@@ -73,6 +74,7 @@ describe('restoreFromCloud', () => {
       ok: true,
       addedTransactions: 1,
       addedAccounts: 1,
+      skipped: 0,
     });
     const snap = state().snapshot;
     expect(snap.transactions.find(t => t.id === 'tx_local')?.notes).toBe('local edit');
@@ -84,11 +86,16 @@ describe('restoreFromCloud', () => {
   it('skips a cloud row whose SMS is already on the device under another id', async () => {
     state().upsertAccount(account('acc_sms_dup', 0));
     state().addTransaction(
-      tx('tx_device_sms', 'acc_sms_dup', { source: 'android_sms', sourceSmsId: 'sms_88', amountRial: 640 }),
+      tx('tx_device_sms', 'acc_sms_dup', {
+        source: 'android_sms',
+        sourceSmsId: 'sms_88',
+        amountRial: 640,
+      }),
     );
     pullMock.mockResolvedValueOnce({
       ok: true,
       records: {
+        skipped: 0,
         accounts: [],
         transactions: [
           tx('tx_other_id', 'acc_sms_dup', { source: 'android_sms', sourceSmsId: 'sms_88' }),
@@ -101,7 +108,11 @@ describe('restoreFromCloud', () => {
   it('does not queue restored rows for upload again', async () => {
     pullMock.mockResolvedValueOnce({
       ok: true,
-      records: { accounts: [], transactions: [tx('tx_restored_only', 'acc_cloud', { amountRial: 9 })] },
+      records: {
+        skipped: 0,
+        accounts: [],
+        transactions: [tx('tx_restored_only', 'acc_cloud', { amountRial: 9 })],
+      },
     });
     await state().restoreFromCloud();
     expect(state().snapshot.syncQueue.some(i => i.entityId === 'tx_restored_only')).toBe(false);

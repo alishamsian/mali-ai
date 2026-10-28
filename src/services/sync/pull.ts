@@ -1,12 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FinancialAccount, Transaction } from '../../types/finance';
 import { getSupabase } from '../supabase/client';
+import { accountLooksValid, transactionLooksValid } from '../security/backup';
 
 const PAGE = 1000;
 
 type Row = Record<string, unknown>;
 
-export type CloudRecords = { accounts: FinancialAccount[]; transactions: Transaction[] };
+export type CloudRecords = {
+  accounts: FinancialAccount[];
+  transactions: Transaction[];
+  /** Rows dropped because they were malformed (missing id, non-numeric amount, bad date…). */
+  skipped: number;
+};
 
 export type PullResult =
   | { ok: true; records: CloudRecords }
@@ -103,11 +109,19 @@ export async function pullCloudRecords(): Promise<PullResult> {
     const localAccountId = new Map(
       accountRows.map(row => [String(row.id), str(row.local_id) ?? String(row.id)]),
     );
+    // Cloud rows are not trusted blindly: a malformed payload would otherwise put NaN
+    // balances or crashing records into the store. Same checks as backup restore.
+    const accounts = accountRows.map(accountFromRow);
+    const transactions = txRows.map(row => transactionFromRow(row, localAccountId));
+    const validAccounts = accounts.filter(accountLooksValid);
+    const validTransactions = transactions.filter(transactionLooksValid);
     return {
       ok: true,
       records: {
-        accounts: accountRows.map(accountFromRow),
-        transactions: txRows.map(row => transactionFromRow(row, localAccountId)),
+        accounts: validAccounts,
+        transactions: validTransactions,
+        skipped:
+          accounts.length - validAccounts.length + transactions.length - validTransactions.length,
       },
     };
   } catch (err) {

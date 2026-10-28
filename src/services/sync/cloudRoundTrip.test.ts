@@ -129,6 +129,28 @@ describe('cloud round trip', () => {
     });
   });
 
+  it('drops malformed cloud rows instead of importing them', async () => {
+    const { tables } = fakeCloud();
+    tables.transactions.set('ok', { id: 'ok', payload: tx });
+    tables.transactions.set('nan', {
+      id: 'nan',
+      payload: { ...tx, id: 'tx_nan', amountRial: 'x' },
+    });
+    tables.transactions.set('date', {
+      id: 'date',
+      payload: { ...tx, id: 'tx_date', transactionDate: 'soon' },
+    });
+    tables.financial_accounts.set('acc', { id: 'acc', payload: { ...account, balanceRial: null } });
+    const pulled = await pullCloudRecords();
+    expect(pulled.ok).toBe(true);
+    if (!pulled.ok) {
+      return;
+    }
+    expect(pulled.records.transactions.map(t => t.id)).toEqual([tx.id]);
+    expect(pulled.records.accounts).toEqual([]);
+    expect(pulled.records.skipped).toBe(3);
+  });
+
   it('reads every page of a large table', async () => {
     const { tables } = fakeCloud();
     for (let i = 0; i < 2_345; i += 1) {
@@ -247,10 +269,17 @@ describe('email link sign-in', () => {
     });
   });
 
-  it('accepts tokens in the fragment (implicit flow)', async () => {
+  it('rejects links that carry ready-made tokens (session fixation)', async () => {
     const { auth } = fakeCloud();
-    await completeSignInFromUrl('poolet://auth#access_token=a&refresh_token=r&type=magiclink');
-    expect(auth.setSession).toHaveBeenCalledWith({ access_token: 'a', refresh_token: 'r' });
+    await expect(
+      completeSignInFromUrl('poolet://auth#access_token=a&refresh_token=r&type=magiclink'),
+    ).resolves.toEqual({ ok: false, error: 'tokens-in-link' });
+    // Even a valid-looking code next to injected tokens is refused.
+    await expect(
+      completeSignInFromUrl('poolet://auth?code=good-code#access_token=a&refresh_token=r'),
+    ).resolves.toEqual({ ok: false, error: 'tokens-in-link' });
+    expect(auth.setSession).not.toHaveBeenCalled();
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 });
 
@@ -283,7 +312,10 @@ describe('build-time env inlining', () => {
     const os = require('os');
     const path = require('path');
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'env-')), '.env');
-    fs.writeFileSync(file, '# comment\nSUPABASE_URL="https://x.supabase.co"\nSUPABASE_ANON_KEY=abc123\n');
+    fs.writeFileSync(
+      file,
+      '# comment\nSUPABASE_URL="https://x.supabase.co"\nSUPABASE_ANON_KEY=abc123\n',
+    );
     expect(plugin.parseDotEnv(file)).toEqual({
       SUPABASE_URL: 'https://x.supabase.co',
       SUPABASE_ANON_KEY: 'abc123',

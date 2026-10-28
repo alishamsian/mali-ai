@@ -103,7 +103,8 @@ const DIRECTIONS = new Set(['in', 'out', 'internal']);
 const isText = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isAmount = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-function transactionLooksValid(tx: unknown): boolean {
+/** Shared with cloud restore: the minimum a record needs before it may enter the store. */
+export function transactionLooksValid(tx: unknown): boolean {
   if (!tx || typeof tx !== 'object') {
     return false;
   }
@@ -119,7 +120,7 @@ function transactionLooksValid(tx: unknown): boolean {
   );
 }
 
-function accountLooksValid(account: unknown): boolean {
+export function accountLooksValid(account: unknown): boolean {
   if (!account || typeof account !== 'object') {
     return false;
   }

@@ -343,7 +343,8 @@ interface FinanceState {
   enqueueFullUpload: () => void;
   /** Adds cloud accounts and transactions missing on this device; never overwrites local rows. */
   restoreFromCloud: () => Promise<
-    { ok: true; addedTransactions: number; addedAccounts: number } | { ok: false; error: string }
+    | { ok: true; addedTransactions: number; addedAccounts: number; skipped: number }
+    | { ok: false; error: string }
   >;
 }
 
@@ -1099,7 +1100,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       tx => !txIds.has(tx.id) && !(tx.sourceSmsId && smsIds.has(tx.sourceSmsId)),
     );
     if (newAccounts.length === 0 && newTxs.length === 0) {
-      return { ok: true, addedTransactions: 0, addedAccounts: 0 };
+      return { ok: true, addedTransactions: 0, addedAccounts: 0, skipped: pulled.records.skipped };
     }
     const transactions = [...newTxs, ...live.transactions].sort(
       (a, b) => Date.parse(b.transactionDate) - Date.parse(a.transactionDate),
@@ -1111,7 +1112,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       touched,
     );
     persistSet(set, appendNetWorthPoint({ ...relink(live, transactions), accounts }));
-    return { ok: true, addedTransactions: newTxs.length, addedAccounts: newAccounts.length };
+    return {
+      ok: true,
+      addedTransactions: newTxs.length,
+      addedAccounts: newAccounts.length,
+      skipped: pulled.records.skipped,
+    };
   },
   refreshWealthPrices: async () => {
     const priced = liveSnapshot(get).accounts;
