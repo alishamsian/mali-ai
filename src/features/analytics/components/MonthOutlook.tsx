@@ -11,6 +11,7 @@ import { formatTomanFromRial } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { changeBreakdown, monthForecast } from '../../../engine/insights/forecast';
 import { upcomingDues } from '../../../engine/obligations/dues';
+import { realMonthOverMonth } from '../../../engine/insights/inflation';
 
 /** Below this the forecast is noise: a few days of data in a brand-new app. */
 const MIN_SPENT_RIAL = 10_000;
@@ -28,6 +29,7 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
   const cheques = useFinanceStore(s => s.snapshot.cheques);
   const debts = useFinanceStore(s => s.snapshot.debts);
   const calendar = useFinanceStore(s => s.snapshot.settings.calendar) ?? 'jalali';
+  const inflationPct = useFinanceStore(s => s.snapshot.settings.annualInflationPct) ?? 35;
 
   const { forecast, breakdown, budgetRial } = useMemo(() => {
     const now = new Date();
@@ -88,6 +90,16 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
           : { text: dict.withinBudget, warn: false }
         : { text: interpolate(vsRef > 0 ? dict.moreThanLast : dict.lessThanLast, { pct: pct(vsRef) }), warn: vsRef > 0 };
 
+  // Projected month vs last month after removing a month of inflation.
+  const real = realMonthOverMonth(forecast.projectedRial, forecast.lastMonthRial, inflationPct);
+  const realLine =
+    real && Math.abs(real.realPct) >= 1
+      ? interpolate(dict.realChange, {
+          pct: toPersianDigits(inflationPct),
+          change: interpolate(real.realPct > 0 ? dict.realMore : dict.realLess, { pct: pct(real.realPct) }),
+        })
+      : null;
+
   const maxDelta = Math.max(1, ...breakdown.rows.map(r => Math.abs(r.deltaRial)));
   const summary =
     Math.abs(breakdown.deltaRial) < breakdown.previousRial * 0.03
@@ -146,6 +158,7 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
             .filter(Boolean)
             .join(' · ')}
         </AppText>
+        {realLine && !hidden ? <AppText style={styles.sub}>{realLine}</AppText> : null}
         {forecast.scheduledRial > 0 && !hidden ? (
           <AppText style={styles.sub}>{interpolate(dict.scheduled, { amount: money(forecast.scheduledRial) })}</AppText>
         ) : null}

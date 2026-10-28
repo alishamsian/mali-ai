@@ -144,6 +144,18 @@ export const fa = {
     homeOverdue: '{{n}} مورد عقب‌افتاده',
     homeNext: 'نزدیک‌ترین: {{title}} · {{when}}',
   },
+  habits: {
+    merchantsKicker: 'جاهایی که بیشتر خرج می‌کنی',
+    merchantsSub: '۹۰ روز اخیر',
+    perWeek: 'هفته‌ای {{n}} بار',
+    avg: 'میانگین {{amount}}',
+    monthly: 'ماهی حدود {{amount}}',
+    heatKicker: 'کِی خرج می‌کنی',
+    peak: 'بیشترین خرجت {{day}} {{band}} است.',
+    bands: ['صبح', 'ظهر', 'عصر', 'شب'],
+    days: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'],
+    daysShort: ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'],
+  },
   outlook: {
     forecastKicker: 'پیش‌بینی پایان ماه',
     range: 'احتمالاً بین {{low}} تا {{high}}',
@@ -162,6 +174,9 @@ export const fa = {
     whyLess: 'تا امروز {{amount}} تومان کمتر از همین روزهای ماه قبل',
     whySame: 'تا امروز تقریباً هم‌اندازه‌ی ماه قبل',
     notEnough: 'برای پیش‌بینی هنوز داده کافی نیست.',
+    realChange: 'با تورم {{pct}}٪، خرج واقعی {{change}} ماه قبل است.',
+    realMore: '{{pct}}٪ بیشتر از',
+    realLess: '{{pct}}٪ کمتر از',
   },
   smartAlerts: {
     budgetNearTitle: 'نزدیک سقف بودجه',

@@ -22,6 +22,7 @@ import type { MainTabParamList, RootStackParamList } from '../../../app/navigati
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { hapticSuccess } from '../../../utils/haptics';
+import { HabitsPanel } from '../../analytics/components/HabitsPanel';
 
 type InsightsNav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Analytics'>,
@@ -246,6 +247,7 @@ export function InsightsScreen({
           </GlassCard>
         </>
       ) : null}
+      {insightsOn ? <HabitsPanel hidden={hidden} /> : null}
     </ScrollView>
   );
 
