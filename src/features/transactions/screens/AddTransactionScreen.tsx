@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Mic, X } from 'lucide-react-native';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
 import { AppText } from '../../../components/ui/AppText';
 import { GlassPanel } from '../../../components/ui/GlassPanel';
@@ -81,9 +81,9 @@ export function AddTransactionScreen({
   const isReceipt = route.params?.mode === 'receipt';
   const initialMode = (route.params?.mode ?? 'expense') as Mode;
   const [mode, setMode] = useState<Mode>(initialMode === 'receipt' ? 'expense' : initialMode);
-  const [merchant, setMerchant] = useState('');
-  const [amount, setAmount] = useState('');
-  const [notes, setNotes] = useState('');
+  const [merchant, setMerchant] = useState(route.params?.merchant ?? '');
+  const [amount, setAmount] = useState(route.params?.amountToman ? String(route.params.amountToman) : '');
+  const [notes, setNotes] = useState(route.params?.notes ?? '');
   const [dayKey, setDayKey] = useState(route.params?.dayKey ?? todayJalaliKey());
   const [formError, setFormError] = useState<string | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
@@ -394,9 +394,14 @@ export function AddTransactionScreen({
               </GlassPanel>
             </PressScale>
             <AppText style={[styles.title, { color: colors.text }]}>{dict.add.screenTitle}</AppText>
-            <View style={[styles.brandTile, { backgroundColor: colors.primary }]}>
-              <AppText style={[styles.brandGlyph, { color: colors.onPrimary }]}>پ</AppText>
-            </View>
+            <PressScale
+              onPress={() => navigation.replace('VoiceEntry')}
+              accessibilityRole="button"
+              accessibilityLabel={dict.voiceEntry.a11yMic}>
+              <View style={[styles.brandTile, { backgroundColor: colors.primary }]}>
+                <Mic color={colors.onPrimary} size={20} strokeWidth={2} />
+              </View>
+            </PressScale>
           </View>
 
           {isReceipt ? <AlertBanner tone="info" message={dict.add.receiptHint} /> : null}
@@ -739,7 +744,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: theme.typography.fontFamily.bold },
   segment: { alignSelf: 'center', flexDirection: 'row-reverse', padding: 4, gap: 4 },
   segmentItem: {
     height: 40,

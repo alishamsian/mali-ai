@@ -23,7 +23,12 @@ export function MainTabBar({
   state,
   navigation,
   onAdd,
-}: BottomTabBarProps & { onAdd: () => void }) {
+  onVoice,
+}: BottomTabBarProps & {
+  onAdd: () => void;
+  /** Long-press on the add button opens voice entry. */
+  onVoice?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const dict = t();
   const { colors, mode } = useAppTheme();
@@ -121,7 +126,11 @@ export function MainTabBar({
         accessibilityRole="button"
         accessibilityState={{ selected: focused }}>
         <View style={[styles.iconWrap, focused && { backgroundColor: colors.primary }]}>
-          <meta.Icon color={focused ? colors.onPrimary : color} size={20} strokeWidth={focused ? 2.2 : 1.8} />
+          <meta.Icon
+            color={focused ? colors.onPrimary : color}
+            size={20}
+            strokeWidth={focused ? 2.2 : 1.8}
+          />
         </View>
         <AppText style={[styles.label, { color }]} numberOfLines={1}>
           {meta.label()}
@@ -138,7 +147,9 @@ export function MainTabBar({
         <View style={styles.fabSlot}>
           <PressScale
             accessibilityLabel={dict.a11y.addTransaction}
+            accessibilityHint={onVoice ? dict.voiceEntry.a11yMic : undefined}
             onPress={onAdd}
+            onLongPress={onVoice}
             style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
             <Plus color={colors.onPrimary} size={24} strokeWidth={2.6} />
           </PressScale>

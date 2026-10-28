@@ -22,8 +22,10 @@ import { ReviewInboxScreen } from '../../features/sms/screens/ReviewInboxScreen'
 import { TransactionsScreen } from '../../features/transactions/screens/TransactionsScreen';
 import { TransactionDetailsScreen } from '../../features/transactions/screens/TransactionDetailsScreen';
 import { AddTransactionScreen } from '../../features/transactions/screens/AddTransactionScreen';
+import { VoiceEntryScreen } from '../../features/transactions/screens/VoiceEntryScreen';
 import { BudgetsScreen } from '../../features/budgets/screens/BudgetsScreen';
 import { ToolsScreen } from '../../features/more/screens/ToolsScreen';
+import { SmsSetupScreen } from '../../features/sms/screens/SmsSetupScreen';
 import { withCanvas } from '../../components/ui/withCanvas';
 import { ObligationsScreen } from '../../features/obligations/screens/ObligationsScreen';
 import { AddObligationScreen } from '../../features/obligations/screens/AddObligationScreen';
@@ -91,7 +93,10 @@ type MainProps = NativeStackScreenProps<RootStackParamList, 'Main'>;
 /** کامپوننت پایدار — تابع ناشناس داخل Screen با هر رندر تم ریمونت می‌کرد */
 function MainScreen({ navigation }: MainProps) {
   return (
-    <TabNavigator onAdd={() => navigation.navigate('AddTransaction', { mode: 'expense' })} />
+    <TabNavigator
+      onAdd={() => navigation.navigate('AddTransaction', { mode: 'expense' })}
+      onVoice={() => navigation.navigate('VoiceEntry')}
+    />
   );
 }
 
@@ -232,6 +237,7 @@ export function RootNavigator() {
           screenLayout={screenErrorLayout}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="SmsSetup" component={SmsSetupScreen} />
           <Stack.Screen name="SmsOnboarding" component={SmsOnboardingCanvas} />
           <Stack.Screen name="SmsSenderPicker" component={SmsSenderPickerScreen} />
           <Stack.Screen name="SmsSenderConfirm" component={SmsSenderConfirmCanvas} />
@@ -246,6 +252,7 @@ export function RootNavigator() {
           <Stack.Screen name="Transactions" component={TransactionsScreen} />
           <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
           <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
+          <Stack.Screen name="VoiceEntry" component={VoiceEntryScreen} />
           <Stack.Screen name="Budgets" component={BudgetsScreen} />
           <Stack.Screen name="Tools" component={ToolsScreen} />
           <Stack.Screen name="Obligations" component={ObligationsScreen} />

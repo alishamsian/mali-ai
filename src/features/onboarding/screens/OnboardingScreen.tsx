@@ -140,8 +140,9 @@ export function OnboardingScreen({
       goTo(index + 1);
       return;
     }
-    complete();
-    navigation.replace('SmsOnboarding');
+    // Onboarding completes when the SMS setup is left, so nothing (e.g. the notification
+    // prompt) interrupts the setup, and a restart midway starts the setup again.
+    navigation.replace('SmsSetup');
   };
 
   return (

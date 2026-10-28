@@ -47,6 +47,10 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>پولت برای ثبت تراکنش با صدا به میکروفون نیاز دارد.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>صدای شما با سرویس تشخیص گفتار اپل به متن تبدیل می‌شود تا تراکنش ثبت شود.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Vazirmatn-Bold.ttf</string>

@@ -274,7 +274,7 @@ export function SettingsBanksSmsScreen() {
         <SettingsNavRow
           title={dict.settings.connectedBanks}
           subtitle={`${toPersianDigits(String(bankCount))} ${dict.settings.bankUnit}`}
-          onPress={() => navigateRoot(navigation, 'SmsOnboarding')}
+          onPress={() => navigateRoot(navigation, 'SmsSetup')}
         />
         <SettingsNavRow
           title={dict.settings.unknownSms}
@@ -305,14 +305,14 @@ export function SettingsBanksSmsScreen() {
         <SettingsNavRow
           title={dict.sms.addBankConnection}
           subtitle={dict.sms.connectBankHint}
-          onPress={() => navigateRoot(navigation, 'SmsOnboarding')}
+          onPress={() => navigateRoot(navigation, 'SmsSetup')}
           last
         />
       </SettingsSection>
       <SettingsSection title={dict.settings.sections.actions}>
         <SettingsNavRow
           title={dict.settings.openSmsSetup}
-          onPress={() => navigateRoot(navigation, 'SmsOnboarding')}
+          onPress={() => navigateRoot(navigation, 'SmsSetup')}
         />
         {settings.smsProcessingEnabled ? (
           <PrimaryButton label={dict.sms.scanInbox} onPress={() => void runSmsSync()} />

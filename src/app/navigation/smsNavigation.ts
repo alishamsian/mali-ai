@@ -12,7 +12,7 @@ type Nav = NavigationProp<ParamListBase> & {
 
 /** User-facing SMS hub — not the dev test lab. */
 export function navigateSmsHub(navigation: Nav, smsEnabled: boolean) {
-  navigation.navigate(smsEnabled ? 'SettingsBanksSms' : 'SmsOnboarding');
+  navigation.navigate(smsEnabled ? 'SettingsBanksSms' : 'SmsSetup');
 }
 
 /** Dev-only parser / inject lab. */

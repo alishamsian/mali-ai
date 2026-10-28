@@ -16,11 +16,16 @@ export type AddTransactionParams = {
   mode?: 'expense' | 'income' | 'transfer' | 'receipt';
   /** Jalali day key YYYY-MM-DD — ثبت برای همان روز */
   dayKey?: string;
+  /** Prefill from a voice draft. */
+  amountToman?: number;
+  merchant?: string;
+  notes?: string;
 };
 
 export type RootStackParamList = {
   Onboarding: undefined;
   SmsOnboarding: undefined;
+  SmsSetup: undefined;
   SmsSenderPicker: { bankId: string };
   SmsSenderConfirm: {
     bankId: string;
@@ -38,6 +43,7 @@ export type RootStackParamList = {
   Transactions: undefined;
   TransactionDetails: { id: string };
   AddTransaction: AddTransactionParams | undefined;
+  VoiceEntry: undefined;
   Budgets: { section?: BudgetHubSection } | undefined;
   Insights: undefined;
   Analytics: { section?: AnalyticsHubSection; calendarDayKey?: string } | undefined;

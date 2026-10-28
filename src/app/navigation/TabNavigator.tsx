@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const hiddenTab = { tabBarButton: () => null };
 
-export function TabNavigator({ onAdd }: { onAdd: () => void }) {
+export function TabNavigator({ onAdd, onVoice }: { onAdd: () => void; onVoice?: () => void }) {
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -22,7 +22,7 @@ export function TabNavigator({ onAdd }: { onAdd: () => void }) {
       // all five tab screens. They catch up when focused again.
       screenOptions={{ headerShown: false, freezeOnBlur: true }}
       screenLayout={screenErrorLayout}
-      tabBar={props => <MainTabBar {...props} onAdd={onAdd} />}>
+      tabBar={props => <MainTabBar {...props} onAdd={onAdd} onVoice={onVoice} />}>
       <Tab.Screen name="Home" component={DashboardScreen} />
       <Tab.Screen name="Daily" component={DailyLedgerScreen} />
       <Tab.Screen name="AddTab" component={AddPlaceholderScreen} />
