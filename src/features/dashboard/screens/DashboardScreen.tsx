@@ -1,3 +1,5 @@
+import { toPersianDigits } from '../../../utils/numbers/digits';
+import { SwipeTxRow } from '../../../components/lists/SwipeTxRow';
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +12,7 @@ import {
   MessageSquareText,
   PieChart,
   Plus,
+  Search,
   Settings2,
   Wallet,
 } from 'lucide-react-native';
@@ -45,7 +48,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
-import { DuesSummaryCard } from '../../obligations/components/DuesSummaryCard';
+import { DuesSummaryCard, useHomeDues } from '../../obligations/components/DuesSummaryCard';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
@@ -188,6 +191,20 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
     : dict.dashboard.helloAnon;
   const topAlert = alerts[0];
   const guestPreview = snapshot.settings.guestPreviewActive;
+  const homeDues = useHomeDues();
+  // One focus card instead of a stack of banners: the most pressing thing wins.
+  const focus: 'review' | 'budget' | 'dues' | 'guest' | null =
+    reviewCount > 0
+      ? 'review'
+      : topAlert && topAlert.ratio >= 1
+      ? 'budget'
+      : homeDues.length > 0
+      ? 'dues'
+      : topAlert
+      ? 'budget'
+      : guestPreview
+      ? 'guest'
+      : null;
   const smsSyncStatus = useFinanceStore(s => s.smsSync.status);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -294,6 +311,13 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
                 <AppText style={[styles.brandGlyph, { color: colors.onPrimary }]}>پ</AppText>
               </View>
               <PressScale
+                onPress={() => navigation.navigate('Search')}
+                accessibilityLabel={dict.search.a11y}>
+                <GlassPanel strong radius={16} style={styles.iconBtn}>
+                  <Search color={colors.text} size={19} strokeWidth={1.8} />
+                </GlassPanel>
+              </PressScale>
+              <PressScale
                 onPress={() => navigation.navigate('Settings')}
                 accessibilityLabel={dict.a11y.settings}>
                 <GlassPanel strong radius={16} style={styles.iconBtn}>
@@ -387,11 +411,11 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
           </PressScale>
         </View>
 
-        {reviewCount > 0 ? (
+        {focus === 'review' ? (
           <GlassPanel radius={24} style={styles.reviewRow}>
             <View style={styles.reviewText}>
               <AppText style={[styles.rowTitle, { color: colors.text }]}>
-                {interpolate(dict.dashboard.reviewTitle, { n: reviewCount })}
+                {interpolate(dict.dashboard.reviewTitle, { n: toPersianDigits(reviewCount) })}
               </AppText>
               <AppText style={[styles.rowSub, { color: colors.textMuted }]}>
                 {dict.dashboard.reviewSub}
@@ -407,7 +431,24 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
           </GlassPanel>
         ) : null}
 
-        <DuesSummaryCard hidden={hidden} />
+        {focus === 'dues' ? <DuesSummaryCard hidden={hidden} /> : null}
+        {focus === 'budget' && topAlert ? (
+          <AlertBanner
+            tone="warn"
+            message={interpolate(topAlert.ratio >= 1 ? dict.budgets.over : dict.budgets.warn, {
+              name: dict.categories[topAlert.categoryId],
+              pct: Math.round(topAlert.ratio * 100),
+            })}
+            onPress={() => navigation.navigate('Budgets')}
+          />
+        ) : null}
+        {focus === 'guest' ? (
+          <AlertBanner
+            tone="info"
+            message={dict.dashboard.guestPreviewHint}
+            onPress={() => navigateSmsHub(navigation, false)}
+          />
+        ) : null}
 
         <GlassPanel radius={30} style={styles.monthPanel}>
           <View style={styles.pillLabelWrap} pointerEvents="none">
@@ -494,14 +535,6 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
           </GlassPanel>
         ) : null}
 
-        {guestPreview ? (
-          <AlertBanner
-            tone="info"
-            message={dict.dashboard.guestPreviewHint}
-            onPress={() => navigateSmsHub(navigation, false)}
-          />
-        ) : null}
-
         {showFirstWin && firstSms ? (
           <GlassPanel radius={28} style={{ padding: 16, gap: 10 }}>
             <AppText variant="kicker" style={{ textAlign: 'right', color: colors.income }}>
@@ -523,17 +556,6 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
           </GlassPanel>
         ) : null}
 
-        {topAlert ? (
-          <AlertBanner
-            tone="warn"
-            message={interpolate(topAlert.ratio >= 1 ? dict.budgets.over : dict.budgets.warn, {
-              name: dict.categories[topAlert.categoryId],
-              pct: Math.round(topAlert.ratio * 100),
-            })}
-            onPress={() => navigation.navigate('Budgets')}
-          />
-        ) : null}
-
         <Section
           title={dict.dashboard.recent}
           actionLabel={dict.dashboard.seeAll}
@@ -545,14 +567,15 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
               </AppText>
             ) : (
               recent.map((tx, index) => (
-                <TransactionRow
-                  key={tx.id}
-                  tx={tx}
-                  compact
-                  grouped
-                  isLast={index === recent.length - 1}
-                  onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
-                />
+                <SwipeTxRow key={tx.id} tx={tx}>
+                  <TransactionRow
+                    tx={tx}
+                    compact
+                    grouped
+                    isLast={index === recent.length - 1}
+                    onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
+                  />
+                </SwipeTxRow>
               ))
             )}
           </GlassPanel>

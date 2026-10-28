@@ -1,5 +1,6 @@
+import { appAlert } from '../../components/ui/AppAlert';
 import { useEffect } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import { completeSignInFromUrl, isAuthRedirect } from '../../services/supabase/auth';
 import { useFinanceStore } from '../../store/finance/store';
 import { hapticSuccess, hapticWarn } from '../../utils/haptics';
@@ -23,7 +24,7 @@ export function useCloudAuthLinks(): void {
       }
       if (!result.ok) {
         hapticWarn();
-        Alert.alert(copy.failedTitle, copy.linkFailed);
+        appAlert(copy.failedTitle, copy.linkFailed);
         return;
       }
       const store = useFinanceStore.getState();
@@ -31,7 +32,7 @@ export function useCloudAuthLinks(): void {
       store.enqueueFullUpload();
       void store.flushCloud();
       hapticSuccess();
-      Alert.alert(copy.signedInTitle, copy.signedInBody);
+      appAlert(copy.signedInTitle, copy.signedInBody);
     };
     void Linking.getInitialURL().then(handle);
     const sub = Linking.addEventListener('url', event => void handle(event.url));

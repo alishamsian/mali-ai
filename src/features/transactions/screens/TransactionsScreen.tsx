@@ -1,3 +1,4 @@
+import { SwipeTxRow } from '../../../components/lists/SwipeTxRow';
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, Share, TextInput, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -223,7 +224,14 @@ export function TransactionsScreen({
         titleColor={colors.textMuted}
       />
     ),
-    [refreshing, smsSyncStatus, onRefresh, colors.primary, colors.textMuted, dict.sms.syncRefreshing],
+    [
+      refreshing,
+      smsSyncStatus,
+      onRefresh,
+      colors.primary,
+      colors.textMuted,
+      dict.sms.syncRefreshing,
+    ],
   );
 
   const renderSection = useCallback(
@@ -234,15 +242,16 @@ export function TransactionsScreen({
         </AppText>
         <Surface level="raised" style={styles.sectionCard}>
           {item.transactions.map((tx, index) => (
-            <TransactionRow
-              key={tx.id}
-              tx={tx}
-              compact
-              grouped
-              isLast={index === item.transactions.length - 1}
-              showDate={index === 0}
-              onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
-            />
+            <SwipeTxRow key={tx.id} tx={tx}>
+              <TransactionRow
+                tx={tx}
+                compact
+                grouped
+                isLast={index === item.transactions.length - 1}
+                showDate={index === 0}
+                onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
+              />
+            </SwipeTxRow>
           ))}
         </Surface>
       </View>
@@ -325,7 +334,11 @@ export function TransactionsScreen({
               renderItem={() => null}
               refreshControl={refreshControl}
               ListEmptyComponent={<EmptyState title={dict.transactions.empty} />}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: embedded ? 24 : 40, flexGrow: 1 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingBottom: embedded ? 24 : 40,
+                flexGrow: 1,
+              }}
             />
           </View>
         ) : (

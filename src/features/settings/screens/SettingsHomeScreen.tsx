@@ -151,11 +151,9 @@ export function SettingsHomeScreen() {
   };
 
   const groups: Array<{ key: string; title: string; ids: string[] }> = [
-    { key: 'sms', title: dict.settings.groups.sms, ids: ['banksSms'] },
-    { key: 'wealth', title: dict.settings.groups.wealthHub, ids: ['accounts'] },
-    { key: 'plan', title: dict.settings.groups.plan, ids: ['budgets'] },
-    { key: 'safe', title: dict.settings.groups.safe, ids: ['security', 'notifications'] },
-    { key: 'prefs', title: dict.settings.groups.prefs, ids: ['appearance'] },
+    // Three cards instead of six one-row cards.
+    { key: 'money', title: dict.settings.groups.money, ids: ['banksSms', 'accounts', 'budgets'] },
+    { key: 'app', title: dict.settings.groups.appPrefs, ids: ['security', 'notifications', 'appearance'] },
     { key: 'data', title: dict.settings.groups.dataHelp, ids: ['backup', 'about'] },
   ];
 

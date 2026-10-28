@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useMemo } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -267,7 +268,7 @@ export function AssetDetailScreen() {
       linkedTxCount > 0
         ? interpolate(dict.wealth.deleteWithTx, { n: linkedTxCount })
         : dict.accounts.deleteBody;
-    Alert.alert(dict.accounts.deleteTitle, body, [
+    appAlert(dict.accounts.deleteTitle, body, [
       { text: dict.common.cancel, style: 'cancel' },
       {
         text: dict.transactions.delete,

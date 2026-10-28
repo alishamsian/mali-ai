@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -50,7 +51,7 @@ export function BankSendersManageScreen({
 
   const onRemove = (sender: string) => {
     const isLast = (conn?.verifiedSenders.length ?? 0) <= 1;
-    Alert.alert(
+    appAlert(
       dict.sms.removeSenderTitle,
       isLast ? dict.sms.removeLastSenderBody : dict.sms.removeSenderBody,
       [

@@ -114,6 +114,8 @@ export function TransactionRow({
     },
     meta: { flex: 1, alignItems: 'flex-end', minWidth: 0, gap: 4 },
     title: {
+      // Full width: a shrink-wrapped RTL title in a flex-end column was cut to «سا…».
+      alignSelf: 'stretch',
       textAlign: 'right',
       writingDirection: 'rtl',
       fontFamily: th.typography.fontFamily.semibold,

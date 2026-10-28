@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -351,7 +352,7 @@ export function SettingsAccountsScreen() {
       navigateRoot(navigation, 'Main', { screen: 'Vault' });
       return;
     }
-    Alert.alert(dict.settings.defaultAccount, dict.settings.pickDefaultAccount, [
+    appAlert(dict.settings.defaultAccount, dict.settings.pickDefaultAccount, [
       ...accounts.map(a => ({
         text: a.id === settings.defaultAccountId ? `✓ ${a.name}` : a.name,
         onPress: () => update({ defaultAccountId: a.id }),
@@ -480,7 +481,7 @@ export function SettingsPricesScreen() {
   const onRefresh = async () => {
     const count = await refreshWealthPrices();
     hapticSuccess();
-    Alert.alert(
+    appAlert(
       dict.settings.refreshPrices,
       count > 0
         ? interpolate(dict.settings.refreshPricesDone, { count })
@@ -510,7 +511,7 @@ export function SettingsPricesScreen() {
               title={dict.wealth.classes[cls]}
               subtitle={`${dict.settings.provider}: ${provider.id} · ${dict.settings.sourceLive}`}
               onPress={() => {
-                Alert.alert(dict.settings.providerTitle, dict.settings.providerBody);
+                appAlert(dict.settings.providerTitle, dict.settings.providerBody);
               }}
               last={i === arr.length - 1}
             />
@@ -639,12 +640,12 @@ export function SettingsSecurityScreen() {
       }
       if (!pinLooksValid(pin)) {
         hapticWarn();
-        Alert.alert(dict.profile.pinNeededTitle, dict.profile.pinNeededBody);
+        appAlert(dict.profile.pinNeededTitle, dict.profile.pinNeededBody);
         return;
       }
       await storePin(pin);
       if (!(await hasStoredPin())) {
-        Alert.alert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
+        appAlert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
         return;
       }
       update({ appLockEnabled: true, biometricUnlock: false });
@@ -653,7 +654,7 @@ export function SettingsSecurityScreen() {
       hapticSuccess();
     } catch {
       update({ appLockEnabled: false });
-      Alert.alert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
+      appAlert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
     } finally {
       setBusy(false);
     }
@@ -671,14 +672,14 @@ export function SettingsSecurityScreen() {
         return;
       }
       if (!(await biometricAvailable())) {
-        Alert.alert(dict.profile.bioUnavailableTitle, dict.profile.bioUnavailableBody);
+        appAlert(dict.profile.bioUnavailableTitle, dict.profile.bioUnavailableBody);
         update({ biometricUnlock: false });
         return;
       }
       const ok = await enrollVaultToken();
       update({ biometricUnlock: ok });
       if (!ok) {
-        Alert.alert(dict.profile.bioFailedTitle, dict.profile.bioFailedBody);
+        appAlert(dict.profile.bioFailedTitle, dict.profile.bioFailedBody);
       } else {
         hapticSuccess();
       }
@@ -727,7 +728,7 @@ export function SettingsSecurityScreen() {
           onPress={() => {
             if (!pinLooksValid(pin)) {
               hapticWarn();
-              Alert.alert(dict.profile.pinNeededTitle, dict.profile.pinNeededBody);
+              appAlert(dict.profile.pinNeededTitle, dict.profile.pinNeededBody);
               return;
             }
             void (async () => {
@@ -736,12 +737,12 @@ export function SettingsSecurityScreen() {
               } catch {
                 // The old PIN is still the one in the Keychain; say so instead of "changed".
                 hapticWarn();
-                Alert.alert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
+                appAlert(dict.profile.lockErrorTitle, dict.profile.lockErrorBody);
                 return;
               }
               setPin('');
               hapticSuccess();
-              Alert.alert(dict.profile.pinChangedTitle, dict.profile.pinChangedBody);
+              appAlert(dict.profile.pinChangedTitle, dict.profile.pinChangedBody);
             })();
           }}
         />
@@ -807,13 +808,13 @@ export function SettingsCloudScreen() {
     run(async () => {
       if (!emailLooksValid(email)) {
         hapticWarn();
-        Alert.alert(copy.invalidEmail);
+        appAlert(copy.invalidEmail);
         return;
       }
       const result = await sendEmailCode(email);
       if (!result.ok) {
         hapticWarn();
-        Alert.alert(copy.failedTitle, copy.failedBody);
+        appAlert(copy.failedTitle, copy.failedBody);
         return;
       }
       setCodeSentTo(email.trim().toLowerCase());
@@ -827,13 +828,13 @@ export function SettingsCloudScreen() {
       }
       if (code.replace(/\D/g, '').length < 6) {
         hapticWarn();
-        Alert.alert(copy.invalidCode);
+        appAlert(copy.invalidCode);
         return;
       }
       const result = await verifyEmailCode(codeSentTo, code);
       if (!result.ok) {
         hapticWarn();
-        Alert.alert(copy.failedTitle, copy.failedBody);
+        appAlert(copy.failedTitle, copy.failedBody);
         return;
       }
       setCodeSentTo(null);
@@ -842,7 +843,7 @@ export function SettingsCloudScreen() {
       enqueueFullUpload();
       void flushCloud();
       hapticSuccess();
-      Alert.alert(copy.signedInTitle, copy.signedInBody);
+      appAlert(copy.signedInTitle, copy.signedInBody);
     });
 
   const restore = () =>
@@ -850,7 +851,7 @@ export function SettingsCloudScreen() {
       const result = await restoreFromCloud();
       if (!result.ok) {
         hapticWarn();
-        Alert.alert(copy.restore, copy.restoreFailed);
+        appAlert(copy.restore, copy.restoreFailed);
         return;
       }
       hapticSuccess();
@@ -861,7 +862,7 @@ export function SettingsCloudScreen() {
               transactions: toPersianDigits(result.addedTransactions),
               accounts: toPersianDigits(result.addedAccounts),
             });
-      Alert.alert(
+      appAlert(
         copy.restore,
         result.skipped > 0
           ? `${summary}\n${interpolate(copy.restoreSkipped, {
@@ -955,7 +956,7 @@ export function SettingsCloudScreen() {
           title={copy.signOut}
           subtitle={copy.signOutConfirm}
           onPress={() =>
-            Alert.alert(copy.signOut, copy.signOutConfirm, [
+            appAlert(copy.signOut, copy.signOutConfirm, [
               { text: dict.common.cancel, style: 'cancel' },
               {
                 text: dict.common.confirm,
@@ -992,12 +993,12 @@ export function SettingsBackupScreen() {
   const exportFull = async () => {
     if (!backupPasswordValid(exportPassword)) {
       hapticWarn();
-      Alert.alert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordShort);
+      appAlert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordShort);
       return;
     }
     if (exportPassword !== exportPasswordConfirm) {
       hapticWarn();
-      Alert.alert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordMismatch);
+      appAlert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordMismatch);
       return;
     }
     const payload = encryptSnapshotBackup(snapshot, exportPassword);
@@ -1033,7 +1034,7 @@ export function SettingsBackupScreen() {
     const needsPassword = isEncryptedBackupJson(restoreText.trim());
     if (needsPassword && !backupPasswordValid(restorePassword)) {
       hapticWarn();
-      Alert.alert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordRequired);
+      appAlert(dict.settings.backupPasswordTitle, dict.settings.backupPasswordRequired);
       return;
     }
     const result = importBackupJson(
@@ -1045,15 +1046,15 @@ export function SettingsBackupScreen() {
       setRestoreOpen(false);
       setRestoreText('');
       setRestorePassword('');
-      Alert.alert(dict.settings.restoreOk);
+      appAlert(dict.settings.restoreOk);
       return;
     }
     hapticWarn();
     if (result.error === 'mac' || result.error === 'decrypt') {
-      Alert.alert(dict.settings.restoreFail, dict.settings.backupPasswordWrong);
+      appAlert(dict.settings.restoreFail, dict.settings.backupPasswordWrong);
       return;
     }
-    Alert.alert(dict.settings.restoreFail);
+    appAlert(dict.settings.restoreFail);
   };
 
   return (
@@ -1160,7 +1161,7 @@ export function SettingsDataScreen() {
   const unlockVault = useAuthStore(s => s.unlockVault);
 
   const clearUnknown = () => {
-    Alert.alert(dict.settings.clearUnknownTitle, dict.settings.clearUnknownBody, [
+    appAlert(dict.settings.clearUnknownTitle, dict.settings.clearUnknownBody, [
       { text: dict.common.cancel, style: 'cancel' },
       {
         text: dict.common.confirm,
@@ -1214,7 +1215,7 @@ export function SettingsDataScreen() {
           title={dict.settings.resetLocks}
           subtitle={dict.settings.resetLocksHint}
           onPress={() => {
-            Alert.alert(dict.settings.resetLocksTitle, dict.settings.resetLocksBody, [
+            appAlert(dict.settings.resetLocksTitle, dict.settings.resetLocksBody, [
               { text: dict.common.cancel, style: 'cancel' },
               {
                 text: dict.common.confirm,
@@ -1235,7 +1236,7 @@ export function SettingsDataScreen() {
           title={dict.settings.wipeAllData}
           subtitle={dict.settings.wipeAllDataHint}
           onPress={() => {
-            Alert.alert(dict.settings.wipeAllDataTitle, dict.settings.wipeAllDataBody, [
+            appAlert(dict.settings.wipeAllDataTitle, dict.settings.wipeAllDataBody, [
               { text: dict.common.cancel, style: 'cancel' },
               {
                 text: dict.common.confirm,
@@ -1246,7 +1247,7 @@ export function SettingsDataScreen() {
                     unlockVault();
                     update({ appLockEnabled: false, biometricUnlock: false });
                     hapticSuccess();
-                    Alert.alert(dict.settings.wipeAllDataDone);
+                    appAlert(dict.settings.wipeAllDataDone);
                   })();
                 },
               },
@@ -1485,7 +1486,7 @@ export function SettingsSupportScreen() {
             if (!joined) {
               joinProWaitlist();
             }
-            Alert.alert(dict.settings.proWaitlist, dict.settings.proWaitlistOk);
+            appAlert(dict.settings.proWaitlist, dict.settings.proWaitlistOk);
             void Share.share({
               message: dict.settings.inviteProDraft,
               title: dict.settings.inviteFriend,
@@ -1516,7 +1517,7 @@ export function SettingsSupportScreen() {
           onPress={() => {
             const entries = getCrashLog();
             if (entries.length === 0) {
-              Alert.alert(dict.crash.report, dict.crash.reportEmpty);
+              appAlert(dict.crash.report, dict.crash.reportEmpty);
               return;
             }
             void Share.share({

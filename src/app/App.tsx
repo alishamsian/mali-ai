@@ -1,3 +1,4 @@
+import { AppAlertHost } from '../components/ui/AppAlert';
 import React, { useEffect } from 'react';
 import { I18nManager, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -63,6 +64,7 @@ function AppShell() {
               <LockGate>
                 <RootNavigator />
               </LockGate>
+              <AppAlertHost />
             </AppMotionBridge>
           </QueryClientProvider>
         </SafeAreaProvider>

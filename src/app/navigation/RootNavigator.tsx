@@ -22,6 +22,7 @@ import { ReviewInboxScreen } from '../../features/sms/screens/ReviewInboxScreen'
 import { TransactionsScreen } from '../../features/transactions/screens/TransactionsScreen';
 import { TransactionDetailsScreen } from '../../features/transactions/screens/TransactionDetailsScreen';
 import { AddTransactionScreen } from '../../features/transactions/screens/AddTransactionScreen';
+import { SearchScreen } from '../../features/transactions/screens/SearchScreen';
 import { VoiceEntryScreen } from '../../features/transactions/screens/VoiceEntryScreen';
 import { BudgetsScreen } from '../../features/budgets/screens/BudgetsScreen';
 import { ToolsScreen } from '../../features/more/screens/ToolsScreen';
@@ -253,6 +254,7 @@ export function RootNavigator() {
           <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
           <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
           <Stack.Screen name="VoiceEntry" component={VoiceEntryScreen} />
+          <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Budgets" component={BudgetsScreen} />
           <Stack.Screen name="Tools" component={ToolsScreen} />
           <Stack.Screen name="Obligations" component={ObligationsScreen} />

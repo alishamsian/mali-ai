@@ -44,6 +44,7 @@ export type RootStackParamList = {
   TransactionDetails: { id: string };
   AddTransaction: AddTransactionParams | undefined;
   VoiceEntry: undefined;
+  Search: undefined;
   Budgets: { section?: BudgetHubSection } | undefined;
   Insights: undefined;
   Analytics: { section?: AnalyticsHubSection; calendarDayKey?: string } | undefined;

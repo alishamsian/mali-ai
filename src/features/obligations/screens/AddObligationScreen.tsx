@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useState } from 'react';
-import { Alert, ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -147,7 +148,7 @@ export function AddObligationScreen() {
     const name = (kind === 'installment' ? title : party).trim();
     const total = Number(count) || 0;
     if (amountRial <= 0 || !name || (kind === 'installment' && total <= 0)) {
-      Alert.alert(dict.invalid);
+      appAlert(dict.invalid);
       return;
     }
     const now = new Date().toISOString();

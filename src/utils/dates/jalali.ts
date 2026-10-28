@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import jalaliday from 'jalaliday';
 import 'dayjs/locale/fa';
+import { toPersianDigits } from '../numbers/digits';
 
 dayjs.extend(jalaliday);
 
@@ -9,20 +10,20 @@ export function nowIso(): string {
 }
 
 export function toJalaliLabel(iso: string): string {
-  return dayjs(iso).calendar('jalali').locale('fa').format('D MMMM YYYY');
+  return toPersianDigits(dayjs(iso).calendar('jalali').locale('fa').format('D MMMM YYYY'));
 }
 
 export function toJalaliMonthYear(iso: string): string {
-  return dayjs(iso).calendar('jalali').locale('fa').format('MMMM YYYY');
+  return toPersianDigits(dayjs(iso).calendar('jalali').locale('fa').format('MMMM YYYY'));
 }
 
 /** e.g. چهارشنبه ۲۶ مرداد */
 export function toJalaliWeekdayDate(iso = nowIso()): string {
-  return dayjs(iso).calendar('jalali').locale('fa').format('dddd D MMMM');
+  return toPersianDigits(dayjs(iso).calendar('jalali').locale('fa').format('dddd D MMMM'));
 }
 
 export function toTimeLabel(iso: string): string {
-  return dayjs(iso).locale('fa').format('HH:mm');
+  return toPersianDigits(dayjs(iso).locale('fa').format('HH:mm'));
 }
 
 export function startOfJalaliMonth(iso = nowIso()): Date {

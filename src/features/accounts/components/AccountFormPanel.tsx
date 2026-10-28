@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { AppText } from '../../../components/ui/AppText';
@@ -230,7 +231,7 @@ export function AccountFormPanel({
     const q = parseDecimal(quantity);
     const priceToman = parseIntegerAmount(unitPrice);
     if (q == null || q <= 0 || priceToman == null || priceToman < 0) {
-      Alert.alert(dict.accounts.assetInvalidTitle, dict.accounts.assetInvalidBody);
+      appAlert(dict.accounts.assetInvalidTitle, dict.accounts.assetInvalidBody);
       return;
     }
     const unitPriceRial = tomanToRial(priceToman);
@@ -249,7 +250,7 @@ export function AccountFormPanel({
     if (!onDelete) {
       return;
     }
-    Alert.alert(dict.accounts.deleteTitle, dict.accounts.deleteBody, [
+    appAlert(dict.accounts.deleteTitle, dict.accounts.deleteBody, [
       { text: dict.common.cancel, style: 'cancel' },
       { text: dict.transactions.delete, style: 'destructive', onPress: onDelete },
     ]);

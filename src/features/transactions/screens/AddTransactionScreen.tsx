@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Mic, X } from 'lucide-react-native';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
@@ -337,7 +338,7 @@ export function AddTransactionScreen({
       return;
     }
     hapticWarn();
-    Alert.alert(
+    appAlert(
       dict.add.duplicateTitle,
       interpolate(dict.add.duplicateBody, {
         amount: formatTomanFromRial(duplicate.amountRial),

@@ -18,19 +18,24 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 
 const HOME_HORIZON_DAYS = 30;
 
+/** Open cheques, installments and debts due in the next 30 days (overdue first). */
+export function useHomeDues() {
+  const plans = useFinanceStore(s => s.snapshot.installmentPlans);
+  const cheques = useFinanceStore(s => s.snapshot.cheques);
+  const debts = useFinanceStore(s => s.snapshot.debts);
+  const calendar = useFinanceStore(s => s.snapshot.settings.calendar) ?? 'jalali';
+  return useMemo(
+    () => upcomingDues({ plans, cheques, debts }, new Date(), HOME_HORIZON_DAYS, calendar),
+    [plans, cheques, debts, calendar],
+  );
+}
+
 /** Home: what is due in the next 30 days. Renders nothing when there is nothing due. */
 export function DuesSummaryCard({ hidden }: { hidden: boolean }) {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useAppTheme();
   const dict = t().obligations;
-  const plans = useFinanceStore(s => s.snapshot.installmentPlans);
-  const cheques = useFinanceStore(s => s.snapshot.cheques);
-  const debts = useFinanceStore(s => s.snapshot.debts);
-  const calendar = useFinanceStore(s => s.snapshot.settings.calendar) ?? 'jalali';
-  const dues = useMemo(
-    () => upcomingDues({ plans, cheques, debts }, new Date(), HOME_HORIZON_DAYS, calendar),
-    [plans, cheques, debts, calendar],
-  );
+  const dues = useHomeDues();
   const styles = useThemedStyles((c, th) => ({
     row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, padding: 14 },
     icon: {

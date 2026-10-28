@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import * as AppAlert from '../../../components/ui/AppAlert';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddTransactionScreen } from './AddTransactionScreen';
@@ -100,7 +100,7 @@ describe('AddTransactionScreen', () => {
       updatedAt: new Date().toISOString(),
     };
     state().addTransaction(sms);
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const alert = jest.spyOn(AppAlert, 'appAlert').mockImplementation(() => undefined);
 
     renderScreen();
     const before = manualTxs().length;

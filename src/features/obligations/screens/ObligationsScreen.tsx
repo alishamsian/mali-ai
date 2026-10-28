@@ -1,5 +1,6 @@
+import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Check, Plus } from 'lucide-react-native';
@@ -110,13 +111,13 @@ export function ObligationsScreen() {
   };
 
   const confirmDelete = (onDelete: () => void) =>
-    Alert.alert(dict.deleteConfirm, undefined, [
+    appAlert(dict.deleteConfirm, undefined, [
       { text: dict.cancel, style: 'cancel' },
       { text: dict.delete, style: 'destructive', onPress: onDelete },
     ]);
 
   const chequeActions = (id: string) =>
-    Alert.alert(dict.actions, undefined, [
+    appAlert(dict.actions, undefined, [
       { text: dict.statusCleared, onPress: () => store().setChequeStatus(id, 'cleared') },
       { text: dict.bounce, onPress: () => store().setChequeStatus(id, 'bounced') },
       { text: dict.delete, style: 'destructive', onPress: () => confirmDelete(() => store().deleteCheque(id)) },
@@ -124,7 +125,7 @@ export function ObligationsScreen() {
     ]);
 
   const debtActions = (id: string, remaining: number) =>
-    Alert.alert(dict.actions, undefined, [
+    appAlert(dict.actions, undefined, [
       ...(remaining > 0 ? [{ text: dict.settle, onPress: () => store().settleDebt(id, remaining) }] : []),
       { text: dict.delete, style: 'destructive', onPress: () => confirmDelete(() => store().deleteDebt(id)) },
       { text: dict.cancel, style: 'cancel' },
