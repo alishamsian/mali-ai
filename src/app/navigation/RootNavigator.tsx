@@ -24,6 +24,7 @@ import { TransactionDetailsScreen } from '../../features/transactions/screens/Tr
 import { AddTransactionScreen } from '../../features/transactions/screens/AddTransactionScreen';
 import { BudgetsScreen } from '../../features/budgets/screens/BudgetsScreen';
 import { ToolsScreen } from '../../features/more/screens/ToolsScreen';
+import { withCanvas } from '../../components/ui/withCanvas';
 import { ObligationsScreen } from '../../features/obligations/screens/ObligationsScreen';
 import { AddObligationScreen } from '../../features/obligations/screens/AddObligationScreen';
 import {
@@ -75,6 +76,12 @@ import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 import { setCloudAutoRefresh } from '../../services/supabase/client';
 import { runSmartAlerts, watchSmartAlerts } from '../../services/notifications/smartAlerts';
 import { useCloudAuthLinks } from './useCloudAuthLinks';
+
+const SmsOnboardingCanvas = withCanvas(SmsOnboardingScreen);
+const SmsSenderConfirmCanvas = withCanvas(SmsSenderConfirmScreen);
+const BankSendersManageCanvas = withCanvas(BankSendersManageScreen);
+const AuthCanvas = withCanvas(AuthScreen);
+const PrivacyCanvas = withCanvas(PrivacyScreen);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const NAV_STATE_KEY = 'mali.nav.state.v1';
@@ -225,16 +232,16 @@ export function RootNavigator() {
           screenLayout={screenErrorLayout}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="SmsOnboarding" component={SmsOnboardingScreen} />
+          <Stack.Screen name="SmsOnboarding" component={SmsOnboardingCanvas} />
           <Stack.Screen name="SmsSenderPicker" component={SmsSenderPickerScreen} />
-          <Stack.Screen name="SmsSenderConfirm" component={SmsSenderConfirmScreen} />
-          <Stack.Screen name="BankSendersManage" component={BankSendersManageScreen} />
+          <Stack.Screen name="SmsSenderConfirm" component={SmsSenderConfirmCanvas} />
+          <Stack.Screen name="BankSendersManage" component={BankSendersManageCanvas} />
           <Stack.Screen name="SmsTest" component={SmsTestGateScreen} />
           <Stack.Screen
             name="SmsParserLab"
             component={__DEV__ ? SmsParserLabScreen : SettingsBanksSmsScreen}
           />
-          <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="Auth" component={AuthCanvas} />
           <Stack.Screen name="Main" component={MainScreen} />
           <Stack.Screen name="Transactions" component={TransactionsScreen} />
           <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
@@ -278,7 +285,7 @@ export function RootNavigator() {
             component={CinematicBalanceScreen}
             options={{ animation: stackAnimation === 'none' ? 'none' : 'fade' }}
           />
-          <Stack.Screen name="Privacy" component={PrivacyScreen} />
+          <Stack.Screen name="Privacy" component={PrivacyCanvas} />
           <Stack.Screen name="AssetDetail" component={AssetDetailScreen} />
           <Stack.Screen name="AddWealthAsset" component={AddWealthAssetScreen} />
         </Stack.Navigator>

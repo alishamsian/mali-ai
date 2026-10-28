@@ -19,7 +19,7 @@ export function AuthScreen({
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useThemedStyles((c, th) => ({
-    screen: { flex: 1, backgroundColor: c.background },
+    screen: { flex: 1, backgroundColor: 'transparent' },
     input: {
       minHeight: 52,
       borderRadius: 16,

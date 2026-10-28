@@ -13,6 +13,7 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { interpolate, t } from '../../../i18n';
 import { formatTomanFromRial, tomanToRial, rialToToman } from '../../../utils/currency/money';
 import { AmountField } from '../../../components/ui/AmountInput';
+import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import {
   parseIntegerAmount,
   sanitizeAmountDigits,
@@ -114,16 +115,10 @@ export function AddWealthAssetScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AddWealthAsset'>>();
-  const { colors, mode } = useAppTheme();
+  const { mode } = useAppTheme();
   const isLight = mode === 'light';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.04)';
   const styles = useThemedStyles((c, th) => ({
-    header: {
-      flexDirection: 'row-reverse',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
     prompt: {
       textAlign: 'right',
       fontSize: 20,
@@ -759,15 +754,10 @@ export function AddWealthAssetScreen() {
           paddingHorizontal: 16,
         }}
         keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Pressable onPress={() => (step === 'form' && !editing ? setStep('pick') : nav.goBack())}>
-            <AppText style={{ color: colors.textMuted }}>{dict.common.back}</AppText>
-          </Pressable>
-          <AppText variant="label">
-            {editing ? dict.wealth.editAsset : dict.wealth.addAsset}
-          </AppText>
-          <View style={{ width: 48 }} />
-        </View>
+        <ScreenHeader
+          title={editing ? dict.wealth.editAsset : dict.wealth.addAsset}
+          onBack={() => (step === 'form' && !editing ? setStep('pick') : nav.goBack())}
+        />
 
         {step === 'pick' ? (
           <>

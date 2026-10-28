@@ -39,7 +39,7 @@ export function SmsSenderConfirmScreen({
   const styles = useThemedStyles(c => ({
     screen: {
       flex: 1,
-      backgroundColor: c.background,
+      backgroundColor: 'transparent',
       paddingTop: insets.top + 16,
       paddingHorizontal: 20,
     },

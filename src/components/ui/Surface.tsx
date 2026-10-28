@@ -17,28 +17,28 @@ export function Surface({
 }) {
   const styles = useThemedStyles((c, th) => ({
     base: {
-      backgroundColor: c.backgroundElevated,
+      backgroundColor: c.glass,
       borderRadius: th.radii.lg,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.glassBorder,
     },
     raised: {
-      backgroundColor: c.surfaceSolid,
+      backgroundColor: c.glassStrong,
       borderRadius: th.radii.lg,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.glassBorder,
     },
     interactive: {
-      backgroundColor: th.palette.surfaceElevated,
+      backgroundColor: c.glassStrong,
       borderRadius: th.radii.md,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.glassBorder,
     },
     glass: {
-      backgroundColor: c.surface,
+      backgroundColor: c.glass,
       borderRadius: th.radii.lg,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.glassBorder,
     },
     pad: { padding: th.spacing.lg },
   }));

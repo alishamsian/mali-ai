@@ -98,7 +98,7 @@ export function VaultHealthCard({
       </View>
       {intel.runwayDays != null && !hidden ? (
         <AppText variant="caption" style={{ marginTop: 12, textAlign: 'right' }}>
-          {interpolate(dict.insights.daysLeft, { n: intel.runwayDays })}
+          {interpolate(dict.insights.daysLeft, { n: toPersianDigits(intel.runwayDays) })}
         </AppText>
       ) : null}
       {!compact ? (

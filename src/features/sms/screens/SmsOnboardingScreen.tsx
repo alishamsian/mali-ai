@@ -20,7 +20,7 @@ export function SmsOnboardingScreen({
 }) {
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles((c, _th) => ({
-    screen: { flex: 1, backgroundColor: c.background },
+    screen: { flex: 1, backgroundColor: 'transparent' },
     body: { textAlign: 'right' as const, marginTop: 12, lineHeight: 24 },
     card: {
       marginTop: 16,

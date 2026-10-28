@@ -121,7 +121,7 @@ export function RecurringScreen({ embedded = false }: { embedded?: boolean } = {
           <AmountInput
             value={amount}
             onChangeValue={setAmount}
-            placeholder={dict.goals.target}
+            placeholder={dict.obligations.amount}
             style={{ marginTop: 10 }}
             inputStyle={{ marginTop: 0, backgroundColor: 'transparent', borderColor: colors.border }}
           />

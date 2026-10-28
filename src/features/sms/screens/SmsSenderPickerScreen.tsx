@@ -50,7 +50,7 @@ export function SmsSenderPickerScreen({
       gap: th.spacing.sm,
       borderTopWidth: 1,
       borderTopColor: c.border,
-      backgroundColor: c.backgroundElevated,
+      backgroundColor: c.glassStrong,
     },
     toggle: { textAlign: 'center' as const, color: c.primary },
   }));

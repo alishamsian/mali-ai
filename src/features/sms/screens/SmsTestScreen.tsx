@@ -19,7 +19,7 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 
 function createSmsTestStyles(c: { background: string; border: string; text: string; surfaceSolid: string }, th: { typography: { fontFamily: { regular: string } } }) {
   return {
-    screen: { flex: 1, backgroundColor: c.background },
+    screen: { flex: 1, backgroundColor: 'transparent' },
     sectionLabel: { textAlign: 'right' as const, marginTop: 4 },
     chips: { flexDirection: 'row-reverse' as const, flexWrap: 'wrap' as const, gap: 8 },
     chip: {

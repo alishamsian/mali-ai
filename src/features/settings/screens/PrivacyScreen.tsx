@@ -11,8 +11,8 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 export function PrivacyScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
-  const styles = useThemedStyles(c => ({
-    screen: { flex: 1, backgroundColor: c.background },
+  const styles = useThemedStyles(() => ({
+    screen: { flex: 1, backgroundColor: 'transparent' },
     hero: { alignItems: 'center', gap: 10, marginBottom: 16 },
     bullet: {
       flexDirection: 'row-reverse',

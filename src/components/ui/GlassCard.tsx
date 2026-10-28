@@ -4,19 +4,22 @@ import { theme } from '../../theme';
 import { useAppTheme } from '../../theme/ThemeBridge';
 
 export function GlassCard({ children, style, ...rest }: ViewProps) {
-  const { colors } = useAppTheme();
+  const { colors, mode } = useAppTheme();
+  // Glass daylight: plain frosted panel; the vault corners and ink slit belong to the dark theme.
+  const light = mode === 'light';
   return (
     <View
       style={[
         styles.card,
+        light && styles.cardLight,
         {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
+          backgroundColor: light ? colors.glass : colors.surface,
+          borderColor: light ? colors.glassBorder : colors.border,
         },
         style,
       ]}
       {...rest}>
-      <View style={[styles.slit, { backgroundColor: colors.primary }]} />
+      {light ? null : <View style={[styles.slit, { backgroundColor: colors.primary }]} />}
       {children}
     </View>
   );
@@ -32,6 +35,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     overflow: 'hidden',
   },
+  cardLight: { borderRadius: 24 },
   slit: {
     position: 'absolute',
     top: 18,

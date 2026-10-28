@@ -43,7 +43,9 @@ export function CalendarScreen({
   // Always call the hook (rules of hooks); the prop wins when a parent passes one.
   const contextNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const navigation = navigationProp ?? contextNavigation;
-  const { colors } = useAppTheme();
+  const { colors, mode } = useAppTheme();
+  // Glass daylight heat is the highlight amber; mint belongs to the dark theme.
+  const heatRgb = mode === 'light' ? '246,194,91' : '59,232,197';
   const snapshot = useFinanceStore(s => s.snapshot);
   const hidden = snapshot.settings.hideBalances;
   const dict = t();
@@ -69,7 +71,7 @@ export function CalendarScreen({
     }
   }, [initialDayKey, monthOffset, flow.day]);
 
-  const styles = useThemedStyles((c, _t) => ({
+  const styles = useThemedStyles((c, th) => ({
     monthNav: {
       flexDirection: 'row-reverse' as const,
       alignItems: 'center' as const,
@@ -89,7 +91,7 @@ export function CalendarScreen({
     },
     monthTitle: { flex: 1, textAlign: 'center' as const },
     legend: { flexDirection: 'row-reverse' as const, alignItems: 'center' as const, gap: 8, justifyContent: 'center' as const },
-    swatchOut: { width: 12, height: 12, borderRadius: 4, backgroundColor: 'rgba(59,232,197,0.55)' },
+    swatchOut: { width: 12, height: 12, borderRadius: 4, backgroundColor: th.mode === 'light' ? 'rgba(246,194,91,0.7)' : 'rgba(59,232,197,0.55)' },
     swatchIn: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.filament },
     week: { flexDirection: 'row-reverse' as const, marginBottom: 8 },
     grid: { flexDirection: 'row-reverse' as const, flexWrap: 'wrap' as const },
@@ -193,7 +195,7 @@ export function CalendarScreen({
                 onPress={() => day && setSelected(day)}
                 style={[
                   styles.cell,
-                  day ? { backgroundColor: `rgba(59,232,197,${heat})` } : undefined,
+                  day ? { backgroundColor: `rgba(${heatRgb},${heat})` } : undefined,
                   isToday && styles.today,
                   isSel && styles.selected,
                 ]}>

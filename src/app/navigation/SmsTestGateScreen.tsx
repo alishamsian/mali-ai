@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { APP_FEATURES } from '../config/features';
 import type { RootStackParamList } from './types';
+import { NightCanvas } from '../../components/ui/NightCanvas';
 import { SmsTestScreen } from '../../features/sms/screens/SmsTestScreen';
 
 /** Dev-only SMS lab — redirects regular users to the SMS settings hub. */
@@ -20,5 +21,9 @@ export function SmsTestGateScreen({
     return null;
   }
 
-  return <SmsTestScreen navigation={navigation as never} />;
+  return (
+    <NightCanvas>
+      <SmsTestScreen navigation={navigation as never} />
+    </NightCanvas>
+  );
 }

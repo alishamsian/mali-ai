@@ -3,18 +3,23 @@ import { View } from 'react-native';
 import { AppText } from '../ui/AppText';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { useThemedStyles } from '../../theme/useThemedStyles';
+import { Inbox, type LucideIcon } from 'lucide-react-native';
+import { useAppTheme } from '../../theme/ThemeBridge';
 
 export function EmptyState({
   title,
   subtitle,
   actionLabel,
   onAction,
+  Icon = Inbox,
 }: {
   title: string;
   subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
+  Icon?: LucideIcon;
 }) {
+  const { colors } = useAppTheme();
   const styles = useThemedStyles((c, th) => ({
     wrap: { alignItems: 'center', padding: th.spacing.xxl, gap: th.spacing.sm },
     mark: {
@@ -28,14 +33,14 @@ export function EmptyState({
       alignItems: 'center',
       justifyContent: 'center',
     },
-    inner: {
-      width: 24,
-      height: 24,
-      borderRadius: 8,
-      backgroundColor: c.primary,
-      opacity: 0.85,
+    title: {
+      textAlign: 'center',
+      fontSize: 18,
+      lineHeight: 28,
+      fontFamily: th.typography.fontFamily.semibold,
+      color: c.text,
+      maxWidth: 300,
     },
-    title: { textAlign: 'center' },
     subtitle: { textAlign: 'center', color: c.textMuted, lineHeight: 22, maxWidth: 280 },
     action: { marginTop: th.spacing.md, alignSelf: 'stretch', maxWidth: 320 },
   }));
@@ -43,9 +48,9 @@ export function EmptyState({
   return (
     <View style={styles.wrap}>
       <View style={styles.mark}>
-        <View style={styles.inner} />
+        <Icon size={28} strokeWidth={1.6} color={colors.text} />
       </View>
-      <AppText variant="title" style={styles.title}>
+      <AppText style={styles.title}>
         {title}
       </AppText>
       {subtitle ? (
