@@ -1,5 +1,9 @@
 import type { CategoryId, Transaction } from '../../types/finance';
-import { addJalaliMonths, jalaliMonthMeta, startOfJalaliMonth } from '../../utils/dates/jalali';
+import type { UserSettings } from '../../types/finance';
+import { currentMonthWindow } from './monthPeriod';
+
+/** The user's financial-month settings; empty means the calendar month. */
+type MonthSettings = Pick<Partial<UserSettings>, 'financialMonthStartDay' | 'calendar'>;
 import { isExpenseLike } from './analytics';
 
 const DAY_MS = 86_400_000;
@@ -42,9 +46,10 @@ export function monthForecast(
   transactions: Transaction[],
   now: Date,
   scheduledRial = 0,
+  settings: MonthSettings = {},
 ): MonthForecast {
-  const meta = jalaliMonthMeta(now);
-  const start = startOfJalaliMonth(now.toISOString()).getTime();
+  const meta = currentMonthWindow(settings, now);
+  const start = meta.start.getTime();
   const end = now.getTime();
   const spentRial = sum(expensesBetween(transactions, start, end));
 
@@ -62,7 +67,7 @@ export function monthForecast(
   // Wider band when the two paces disagree, narrowing as the month runs out.
   const spread = Math.abs(monthPace - longPace) * daysLeft * 0.5 + ahead * 0.1;
 
-  const prevStart = new Date(addJalaliMonths(new Date(start).toISOString(), -1)).getTime();
+  const prevStart = meta.previousStart.getTime();
   return {
     spentRial,
     projectedRial: roundForecast(spentRial + ahead + scheduledRial),
@@ -91,9 +96,15 @@ export interface ChangeBreakdown {
 }
 
 /** This month so far vs last month over the same number of days, split by category. */
-export function changeBreakdown(transactions: Transaction[], now: Date, limit = 5): ChangeBreakdown {
-  const start = startOfJalaliMonth(now.toISOString()).getTime();
-  const prevStart = new Date(addJalaliMonths(new Date(start).toISOString(), -1)).getTime();
+export function changeBreakdown(
+  transactions: Transaction[],
+  now: Date,
+  limit = 5,
+  settings: MonthSettings = {},
+): ChangeBreakdown {
+  const window = currentMonthWindow(settings, now);
+  const start = window.start.getTime();
+  const prevStart = window.previousStart.getTime();
   const elapsed = now.getTime() - start;
   const byCat = (txs: Transaction[]) => {
     const map = new Map<CategoryId, number>();
@@ -103,7 +114,9 @@ export function changeBreakdown(transactions: Transaction[], now: Date, limit = 
     return map;
   };
   const cur = byCat(expensesBetween(transactions, start, now.getTime()));
-  const prev = byCat(expensesBetween(transactions, prevStart, Math.min(start, prevStart + elapsed)));
+  const prev = byCat(
+    expensesBetween(transactions, prevStart, Math.min(start, prevStart + elapsed)),
+  );
   const ids = new Set([...cur.keys(), ...prev.keys()]);
   const rows = [...ids]
     .map(id => {
@@ -115,5 +128,10 @@ export function changeBreakdown(transactions: Transaction[], now: Date, limit = 
     .sort((a, b) => Math.abs(b.deltaRial) - Math.abs(a.deltaRial));
   const currentRial = [...cur.values()].reduce((s, n) => s + n, 0);
   const previousRial = [...prev.values()].reduce((s, n) => s + n, 0);
-  return { currentRial, previousRial, deltaRial: currentRial - previousRial, rows: rows.slice(0, limit) };
+  return {
+    currentRial,
+    previousRial,
+    deltaRial: currentRial - previousRial,
+    rows: rows.slice(0, limit),
+  };
 }

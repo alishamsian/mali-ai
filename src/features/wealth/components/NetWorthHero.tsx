@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AppText } from '../../../components/ui/AppText';
 import { Sparkline } from '../../../components/charts/Charts';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { theme } from '../../../theme';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
@@ -173,7 +173,7 @@ export function NetWorthHero({
         <AppText style={styles.amount}>
           {hidden ? '••••••••' : formatTomanFromRial(summary.netWorthRial)}
         </AppText>
-        <AppText style={styles.currency}>{dict.common.toman}</AppText>
+        <AppText style={styles.currency}>{displayUnitLabel()}</AppText>
         {usdRateRial && !hidden && summary.netWorthRial > 0 ? (
           <AppText style={styles.currency}>
             {fill(dict.wealth.usdValue, {

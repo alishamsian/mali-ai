@@ -10,7 +10,7 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { upcomingDues } from '../../../engine/obligations/dues';
 import { daysLeftLabel } from '../format';
@@ -74,7 +74,7 @@ export function DuesSummaryCard({ hidden }: { hidden: boolean }) {
           </AppText>
         </View>
         <AppText style={styles.amount}>
-          {hidden ? '••••' : `${formatTomanFromRial(outRial)} ${t().common.toman}`}
+          {hidden ? '••••' : `${formatTomanFromRial(outRial)} ${displayUnitLabel()}`}
         </AppText>
       </GlassPanel>
     </PressScale>

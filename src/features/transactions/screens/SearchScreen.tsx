@@ -15,7 +15,7 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toEnglishDigits, toPersianDigits } from '../../../utils/numbers/digits';
 import { isExpenseLike, isIncomeLike } from '../../../engine/insights/analytics';
 import type { Transaction } from '../../../types/finance';
@@ -133,7 +133,7 @@ export function SearchScreen({ navigation }: Props) {
             </AppText>
             <AppText style={styles.muted}>
               {`${dict.search.total} ${hidden ? '••••' : formatTomanFromRial(total)} ${
-                dict.common.toman
+                displayUnitLabel()
               }`}
             </AppText>
           </View>

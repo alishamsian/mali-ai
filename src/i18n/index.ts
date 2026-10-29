@@ -1,3 +1,4 @@
+import { displayUnitLabel } from '../utils/currency/money';
 import { toPersianDigits } from '../utils/numbers/digits';
 import { fa } from './fa';
 
@@ -18,7 +19,8 @@ export function t(): typeof fa {
 /** Fills {{key}} slots; numbers come out in Persian digits like the rest of the UI. */
 export function interpolate(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
-    const value = vars[key];
+    // {{unit}} is the display currency unless the caller passes one.
+    const value = key === 'unit' && vars.unit === undefined ? displayUnitLabel() : vars[key];
     return typeof value === 'number' ? toPersianDigits(value) : String(value ?? '');
   });
 }

@@ -22,7 +22,7 @@ import { AppText } from '../ui/AppText';
 import { MoneyText } from '../ui/MoneyText';
 import { PressScale } from '../ui/PressScale';
 import { toTimeLabel } from '../../utils/dates/jalali';
-import { formatTomanFromRial, getDisplayCurrencyPreference } from '../../utils/currency/money';
+import { formatTomanFromRial, getDisplayCurrencyPreference, displayUnitLabel } from '../../utils/currency/money';
 import { t } from '../../i18n';
 import { BankEmblem } from '../../components/banks/BankEmblem';
 import { useFinanceStore } from '../../store/finance/store';
@@ -81,7 +81,7 @@ export function TransactionRow({
   const tint = flowTint(flow, colors);
   const iconSurface = flowIconSurface(flow, mode);
   const moneyUnit =
-    getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : dict.common.toman;
+    getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : displayUnitLabel();
   const styles = useThemedStyles((c, th) => ({
     row: {
       flexDirection: 'row-reverse',

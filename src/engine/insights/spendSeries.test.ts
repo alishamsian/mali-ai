@@ -47,7 +47,7 @@ describe('weekSpendSeries', () => {
 
   it('ignores income and transfers', () => {
     const s = weekSpendSeries(
-      [spend('2026-10-27', 500, { direction: 'in', type: 'deposit' }), spend('2026-10-27', 50, { type: 'transfer' })],
+      [spend('2026-10-27', 500, { direction: 'in', type: 'deposit' }), spend('2026-10-27', 50, { type: 'transfer', transferId: 'own' })],
       today,
     );
     expect(s.currentTotal).toBe(0);

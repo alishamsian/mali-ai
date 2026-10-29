@@ -9,9 +9,8 @@ import { interpolate, t } from '../../../i18n';
 import { formatCompactToman, tomanToRial } from '../../../utils/currency/money';
 import { parseIntegerAmount, sanitizeAmountDigits } from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
-import { categoryTotals, isExpenseLike } from '../../../engine/insights/analytics';
-import { monthStartMs } from '../../../engine/budget/alerts';
-import { jalaliMonthMeta } from '../../../utils/dates/jalali';
+import { categoryTotals } from '../../../engine/insights/analytics';
+import { currentMonthWindow } from '../../../engine/insights/monthPeriod';
 import { BUDGET_SETUP_CATEGORIES } from '../../../constants/categories';
 import { hapticSuccess } from '../../../utils/haptics';
 import type { Budget, BudgetCategory, CategoryId } from '../../../types/finance';
@@ -30,15 +29,14 @@ export function BudgetsPanel() {
   const cats = snapshot.budgetCategories.filter(c => !budget || c.budgetId === budget.id);
   const [editing, setEditing] = useState(false);
 
-  const { rows, used, limit, projected } = useMemo(() => {
+  const { rows, used, limit, projected, previousUsed } = useMemo(() => {
     // This month only: the old panel summed every expense ever recorded.
-    const start = monthStartMs();
+    const window = currentMonthWindow(snapshot.settings);
+    const start = window.start.getTime();
     const spent = categoryTotals(
-      snapshot.transactions.filter(
-        tx => isExpenseLike(tx) && Date.parse(tx.transactionDate) >= start,
-      ),
+      snapshot.transactions.filter(tx => Date.parse(tx.transactionDate) >= start),
     );
-    const meta = jalaliMonthMeta();
+    const meta = window;
     const pace = (usedRial: number, limitRial: number): Pace => {
       if (usedRial >= limitRial) {
         return 'over';
@@ -58,6 +56,14 @@ export function BudgetsPanel() {
         };
       })
       .sort((a, b) => b.pct - a.pct);
+    // Last month against the same limits: a simple history without storing one budget per month.
+    const prevSpent = categoryTotals(
+      snapshot.transactions.filter(tx => {
+        const at = Date.parse(tx.transactionDate);
+        return at >= window.previousStart.getTime() && at < start;
+      }),
+    );
+    const prevUsed = cats.reduce((sum, c) => sum + (prevSpent[c.categoryId] ?? 0), 0);
     const totalUsed = list.reduce((s, r) => s + r.used, 0);
     const totalLimit = list.reduce((s, r) => s + r.limit, 0);
     return {
@@ -65,8 +71,9 @@ export function BudgetsPanel() {
       used: totalUsed,
       limit: totalLimit,
       projected: Math.round((totalUsed / Math.max(1, meta.day)) * meta.daysInMonth),
+      previousUsed: prevUsed,
     };
-  }, [cats, snapshot.transactions]);
+  }, [cats, snapshot.transactions, snapshot.settings]);
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const openEditor = () => {
@@ -202,6 +209,14 @@ export function BudgetsPanel() {
                 amount: formatCompactToman(projected),
               })}
         </AppText>
+        {previousUsed > 0 ? (
+          <AppText style={styles.amount}>
+            {interpolate(dict.budgets.lastMonth, {
+              used: formatCompactToman(previousUsed),
+              limit: formatCompactToman(limit),
+            })}
+          </AppText>
+        ) : null}
       </GlassPanel>
 
       <GlassPanel radius={26} style={styles.panel}>

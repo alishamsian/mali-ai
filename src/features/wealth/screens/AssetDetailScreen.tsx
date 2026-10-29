@@ -10,7 +10,7 @@ import { Sparkline } from '../../../components/charts/Charts';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { t, interpolate } from '../../../i18n';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
 import { EmptyState } from '../../../components/feedback/EmptyState';
@@ -315,7 +315,7 @@ export function AssetDetailScreen() {
           <AppText style={styles.value}>
             {hidden ? '••••••••' : formatTomanFromRial(perf.netValueRial)}
           </AppText>
-          <AppText style={styles.toman}>{dict.common.toman}</AppText>
+          <AppText style={styles.toman}>{displayUnitLabel()}</AppText>
           {perf.supportsPl && perf.unrealizedPlPct != null ? (
             <AppText style={{ color: plUp ? colors.income : colors.expense, marginTop: 10 }}>
               {plUp ? '+' : ''}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { useState } from 'react';
+import { TextInput, View } from 'react-native';
 import { TrendingDown } from 'lucide-react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { GlassPanel } from '../../../components/ui/GlassPanel';
@@ -8,8 +8,8 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
-import { toPersianDigits } from '../../../utils/numbers/digits';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
+import { toEnglishDigits, toPersianDigits } from '../../../utils/numbers/digits';
 import { liquidBalanceRial } from '../../../engine/obligations/dues';
 import { purchasingPowerAfter } from '../../../engine/insights/inflation';
 
@@ -23,6 +23,15 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
   const dict = t().inflation;
   const accounts = useFinanceStore(s => s.snapshot.accounts);
   const pct = useFinanceStore(s => s.snapshot.settings.annualInflationPct) ?? DEFAULT_RATE;
+  const [editing, setEditing] = useState(false);
+  const [custom, setCustom] = useState('');
+  const saveCustom = () => {
+    const value = Number(custom);
+    if (value >= 1 && value <= 200) {
+      useFinanceStore.getState().updateSettings({ annualInflationPct: value });
+    }
+    setEditing(false);
+  };
   const styles = useThemedStyles((c, th) => ({
     panel: { padding: 16, gap: 10 },
     head: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
@@ -35,7 +44,16 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
       color: c.text,
     },
     loss: { textAlign: 'right', color: c.warning, fontSize: 12 },
-    chips: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+    chips: { flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+    customInput: {
+      minWidth: 64,
+      height: 36,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      color: c.text,
+      paddingHorizontal: 10,
+    },
   }));
 
   const liquid = liquidBalanceRial(accounts);
@@ -44,7 +62,7 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
   }
   const after = purchasingPowerAfter(liquid, 12, pct);
   const money = (rial: number) =>
-    hidden ? '••••' : `${formatTomanFromRial(rial)} ${t().common.toman}`;
+    hidden ? '••••' : `${formatTomanFromRial(rial)} ${displayUnitLabel()}`;
   return (
     <GlassPanel radius={28} style={styles.panel}>
       <View style={styles.head}>
@@ -68,6 +86,30 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
             onPress={() => useFinanceStore.getState().updateSettings({ annualInflationPct: rate })}
           />
         ))}
+        {/* Any other rate the user believes in, 1–200%. */}
+        {editing ? (
+          <TextInput
+            autoFocus
+            value={custom}
+            onChangeText={v => setCustom(toEnglishDigits(v).replace(/\D/g, '').slice(0, 3))}
+            onSubmitEditing={saveCustom}
+            onBlur={saveCustom}
+            keyboardType="number-pad"
+            placeholder="٪"
+            placeholderTextColor={colors.textMuted}
+            textAlign="center"
+            style={styles.customInput}
+          />
+        ) : (
+          <FilterChip
+            label={RATES.includes(pct) ? dict.other : `${toPersianDigits(pct)}٪`}
+            active={!RATES.includes(pct)}
+            onPress={() => {
+              setCustom('');
+              setEditing(true);
+            }}
+          />
+        )}
       </View>
     </GlassPanel>
   );

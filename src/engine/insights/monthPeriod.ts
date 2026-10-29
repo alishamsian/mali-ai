@@ -1,7 +1,7 @@
 import type { FinanceSnapshot } from '../../database/schema/snapshot';
 import { withSettingsDefaults } from '../../features/settings/lib/settingsDefaults';
 import { toJalaliYmd } from '../../utils/dates/jalali';
-import type { Transaction } from '../../types/finance';
+import type { Transaction, UserSettings } from '../../types/finance';
 
 /** The only snapshot fields the month window reads (keeps memo dependencies exact). */
 export type MonthWindowInput = Pick<FinanceSnapshot, 'transactions' | 'settings'>;
@@ -75,4 +75,40 @@ export function financialMonthTransactions(
     const t = Date.parse(tx.transactionDate);
     return t >= startMs && t < endMs;
   });
+}
+
+const DAY_MS = 86_400_000;
+
+export interface MonthWindow {
+  start: Date;
+  /** Start of the next financial month (exclusive end). */
+  end: Date;
+  /** Start of the previous financial month. */
+  previousStart: Date;
+  /** 1-based day of the financial month. */
+  day: number;
+  daysInMonth: number;
+}
+
+/**
+ * The current financial month, honouring the user's start day and calendar. Budgets,
+ * alerts, forecasts and Home all use this, so «this month» means the same everywhere.
+ */
+export function currentMonthWindow(
+  settings: Pick<Partial<UserSettings>, 'financialMonthStartDay' | 'calendar'>,
+  now = new Date(),
+): MonthWindow {
+  const startDay = Math.min(28, Math.max(1, settings.financialMonthStartDay ?? 1));
+  const dayOfMonth = settings.calendar === 'gregorian' ? gregorianDay : jalaliDay;
+  const at = (offset: number) => financialPeriodStart(now, startDay, offset, dayOfMonth);
+  const start = at(0);
+  const end = at(1);
+  const previousStart = at(-1);
+  return {
+    start,
+    end,
+    previousStart,
+    day: Math.floor((now.getTime() - start.getTime()) / DAY_MS) + 1,
+    daysInMonth: Math.round((end.getTime() - start.getTime()) / DAY_MS),
+  };
 }

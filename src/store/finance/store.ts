@@ -315,12 +315,12 @@ interface FinanceState {
   upsertInstallmentPlan: (plan: InstallmentPlan) => void;
   deleteInstallmentPlan: (id: string) => void;
   /** Records installment #index as paid today at the plan's amount. */
-  markInstallmentPaid: (planId: string, index: number) => void;
+  markInstallmentPaid: (planId: string, index: number, transactionId?: string) => void;
   upsertCheque: (cheque: Cheque) => void;
-  setChequeStatus: (id: string, status: ChequeStatus) => void;
+  setChequeStatus: (id: string, status: ChequeStatus, transactionId?: string) => void;
   deleteCheque: (id: string) => void;
   upsertDebt: (debt: PersonalDebt) => void;
-  settleDebt: (id: string, amountRial: number) => void;
+  settleDebt: (id: string, amountRial: number, transactionId?: string) => void;
   deleteDebt: (id: string) => void;
   recordAlerts: (keys: string[]) => void;
   /** Today's net-worth point, so the Vault chart grows a point a day. */
@@ -710,7 +710,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       installmentPlans: snapshot.installmentPlans.filter(p => p.id !== id),
     });
   },
-  markInstallmentPaid: (planId, index) => {
+  markInstallmentPaid: (planId, index, transactionId) => {
     const snapshot = liveSnapshot(get);
     const now = new Date().toISOString();
     persistSet(set, {
@@ -720,7 +720,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           ? p
           : {
               ...p,
-              payments: [...p.payments, { index, paidAt: now, amountRial: p.installmentRial }],
+              payments: [
+                ...p.payments,
+                { index, paidAt: now, amountRial: p.installmentRial, transactionId },
+              ],
               updatedAt: now,
             },
       ),
@@ -733,13 +736,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       cheques: [...snapshot.cheques.filter(c => c.id !== cheque.id), cheque],
     });
   },
-  setChequeStatus: (id, status) => {
+  setChequeStatus: (id, status, transactionId) => {
     const snapshot = liveSnapshot(get);
     const now = new Date().toISOString();
     persistSet(set, {
       ...snapshot,
       cheques: snapshot.cheques.map(c =>
-        c.id === id ? { ...c, status, statusAt: now, updatedAt: now } : c,
+        c.id === id
+          ? {
+              ...c,
+              status,
+              statusAt: now,
+              updatedAt: now,
+              transactionId: transactionId ?? c.transactionId,
+            }
+          : c,
       ),
     });
   },
@@ -754,7 +765,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       debts: [...snapshot.debts.filter(d => d.id !== debt.id), debt],
     });
   },
-  settleDebt: (id, amountRial) => {
+  settleDebt: (id, amountRial, transactionId) => {
     const snapshot = liveSnapshot(get);
     const now = new Date().toISOString();
     persistSet(set, {
@@ -765,7 +776,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
               ...d,
               settlements: [
                 ...d.settlements,
-                { id: `stl_${Date.now().toString(36)}`, amountRial, date: now },
+                { id: `stl_${Date.now().toString(36)}`, amountRial, date: now, transactionId },
               ],
               updatedAt: now,
             }

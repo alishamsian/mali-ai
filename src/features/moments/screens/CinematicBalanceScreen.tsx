@@ -1,3 +1,4 @@
+import { displayUnitLabel } from '../../../utils/currency/money';
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -73,7 +74,7 @@ export function CinematicBalanceScreen({
           }}
         />
         <AppText variant="caption" style={{ textAlign: 'center', marginTop: 12, color: colors.textMuted }}>
-          {dict.common.toman}
+          {displayUnitLabel()}
         </AppText>
         <AppText variant="caption" style={styles.tap}>
           {dict.moments.cinematicTap}

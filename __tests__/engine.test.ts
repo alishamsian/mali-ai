@@ -69,7 +69,7 @@ describe('daily ledger', () => {
     const txDate = '2026-08-25T12:00:00.000Z';
     const key = jalaliDayKey(txDate);
     const txs = [
-      base({ id: '1', direction: 'out', type: 'transfer', amountRial: 1_000_000, transactionDate: txDate }),
+      base({ id: '1', direction: 'out', type: 'transfer', transferId: 'own', amountRial: 1_000_000, transactionDate: txDate }),
       base({ id: '2', direction: 'out', type: 'purchase', amountRial: 50_000, transactionDate: '2026-08-25T13:00:00.000Z' }),
     ];
     const s = summarizeDay(txs, key);

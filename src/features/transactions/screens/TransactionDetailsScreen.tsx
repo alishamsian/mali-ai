@@ -14,7 +14,7 @@ import { CategoryPickerField } from '../components/CategoryPickerField';
 import { EXPENSE_CATEGORIES } from '../../../constants/categories';
 import { t } from '../../../i18n';
 import { toJalaliLabel, toTimeLabel } from '../../../utils/dates/jalali';
-import { getDisplayCurrencyPreference, formatTomanFromRial } from '../../../utils/currency/money';
+import { getDisplayCurrencyPreference, formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { useFinanceStore } from '../../../store/finance/store';
 import { flowIconSurface, flowKindForTransaction, flowTint } from '../../../components/ui/FlowAmount';
 import { useAppTheme } from '../../../theme/ThemeBridge';
@@ -297,7 +297,7 @@ export function TransactionDetailsScreen({
   const isSms = tx.source === 'android_sms';
   const bankLabel = account?.bankId ? resolveBankName(account.bankId) : dict.banks.generic;
   const moneyUnit =
-    getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : dict.common.toman;
+    getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : displayUnitLabel();
   const title = tx.merchant ?? dict.categories[tx.categoryId];
   const sign = flow === 'income' ? '+' : flow === 'expense' ? '−' : '';
   const parserLabel = tx.parserVersion ? `v${tx.parserVersion}` : dict.transactions.parserUnknown;

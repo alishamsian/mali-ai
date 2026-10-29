@@ -32,10 +32,20 @@ import { EmptyState } from '../../../components/feedback/EmptyState';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { Skeleton, SkeletonRow } from '../../../components/ui/Skeleton';
 import { t, interpolate } from '../../../i18n';
-import { formatTomanFromRial, getDisplayCurrencyPreference } from '../../../utils/currency/money';
-import { toJalaliWeekdayDate, toJalaliMonthYear } from '../../../utils/dates/jalali';
+import {
+  formatTomanFromRial,
+  getDisplayCurrencyPreference,
+  displayUnitLabel,
+} from '../../../utils/currency/money';
+import {
+  toJalaliWeekdayDate,
+  toJalaliMonthYear,
+  jalaliDayKey,
+  toJalaliLabel,
+} from '../../../utils/dates/jalali';
 import { hapticSuccess } from '../../../utils/haptics';
 import { selectMonthStats, selectReviewItems, useFinanceStore } from '../../../store/finance/store';
+import { findBalanceGaps } from '../../../engine/reconcile/balanceGaps';
 import { budgetAlerts } from '../../../engine/budget/alerts';
 import { monthlyTotals, percentChange } from '../../../engine/insights/analytics';
 import { dailyBrief } from '../../../engine/insights/dailyBrief';
@@ -54,6 +64,9 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Home'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+/** Dismissal key for a balance-gap card. */
+const gapKey = (g: { accountId: string; toDate: string }) => `gap:${g.accountId}:${g.toDate}`;
 
 export function DashboardScreen({ navigation }: { navigation: Nav }) {
   const insets = useSafeAreaInsets();
@@ -126,7 +139,8 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
   const firstAccount = snapshot.accounts.find(a => a.id === firstSms?.accountId);
   const todayLabel = useMemo(() => toJalaliWeekdayDate(), []);
   const monthLabel = useMemo(() => toJalaliMonthYear(new Date().toISOString()), []);
-  const moneyUnit = getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : dict.common.toman;
+  const moneyUnit =
+    getDisplayCurrencyPreference() === 'IRR' ? dict.common.rial : displayUnitLabel();
   const monthNetTone =
     stats.savingsRial > 0
       ? colors.income
@@ -142,9 +156,13 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
       return dict.dashboard.expenseFlat;
     }
     if (expenseDeltaPct > 0) {
-      return interpolate(dict.dashboard.expenseUp, { pct: toPersianDigits(Math.round(expenseDeltaPct)) });
+      return interpolate(dict.dashboard.expenseUp, {
+        pct: toPersianDigits(Math.round(expenseDeltaPct)),
+      });
     }
-    return interpolate(dict.dashboard.expenseDown, { pct: toPersianDigits(Math.round(Math.abs(expenseDeltaPct))) });
+    return interpolate(dict.dashboard.expenseDown, {
+      pct: toPersianDigits(Math.round(Math.abs(expenseDeltaPct))),
+    });
   }, [dict.dashboard, expenseDeltaPct, hidden]);
   const briefText = useMemo(() => {
     if (!brief) {
@@ -193,9 +211,16 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
   const guestPreview = snapshot.settings.guestPreviewActive;
   const homeDues = useHomeDues();
   // One focus card instead of a stack of banners: the most pressing thing wins.
-  const focus: 'review' | 'budget' | 'dues' | 'guest' | null =
+  // Newest unexplained jump in a bank balance that the user has not dismissed.
+  const gap = useMemo(() => {
+    const dismissed = new Set(snapshot.alertLog ?? []);
+    return findBalanceGaps(transactions).find(g => !dismissed.has(gapKey(g))) ?? null;
+  }, [transactions, snapshot.alertLog]);
+  const focus: 'review' | 'gap' | 'budget' | 'dues' | 'guest' | null =
     reviewCount > 0
       ? 'review'
+      : gap
+      ? 'gap'
       : topAlert && topAlert.ratio >= 1
       ? 'budget'
       : homeDues.length > 0
@@ -410,6 +435,40 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
             </GlassPanel>
           </PressScale>
         </View>
+
+        {focus === 'gap' && gap ? (
+          <GlassPanel radius={24} style={styles.reviewRow}>
+            <View style={styles.reviewText}>
+              <AppText style={[styles.rowTitle, { color: colors.text }]}>
+                {interpolate(dict.dashboard.gapTitle, {
+                  bank:
+                    snapshot.accounts.find(a => a.id === gap.accountId)?.name ?? dict.banks.generic,
+                })}
+              </AppText>
+              <AppText style={[styles.rowSub, { color: colors.textMuted }]}>
+                {interpolate(gap.gapRial < 0 ? dict.dashboard.gapOut : dict.dashboard.gapIn, {
+                  amount: formatTomanFromRial(Math.abs(gap.gapRial)),
+                  from: toJalaliLabel(gap.fromDate),
+                  to: toJalaliLabel(gap.toDate),
+                })}
+              </AppText>
+            </View>
+            <PressScale
+              onPress={() => {
+                useFinanceStore.getState().recordAlerts([gapKey(gap)]);
+                navigation.navigate('AddTransaction', {
+                  mode: gap.gapRial < 0 ? 'expense' : 'income',
+                  amountToman: Math.round(Math.abs(gap.gapRial) / 10),
+                  dayKey: jalaliDayKey(gap.toDate),
+                });
+              }}
+              style={[styles.inkBtn, { backgroundColor: colors.primary }]}>
+              <AppText style={[styles.inkBtnText, { color: colors.onPrimary }]}>
+                {dict.dashboard.gapCta}
+              </AppText>
+            </PressScale>
+          </GlassPanel>
+        ) : null}
 
         {focus === 'review' ? (
           <GlassPanel radius={24} style={styles.reviewRow}>

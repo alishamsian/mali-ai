@@ -1,4 +1,5 @@
-import type { BudgetCategory, CategoryId, Transaction } from '../../types/finance';
+import { currentMonthWindow } from '../insights/monthPeriod';
+import type { UserSettings, BudgetCategory, CategoryId, Transaction } from '../../types/finance';
 import { categoryTotals, isExpenseLike } from '../insights/analytics';
 import { startOfJalaliMonth } from '../../utils/dates/jalali';
 
@@ -12,22 +13,28 @@ export interface BudgetAlert {
 }
 
 /** شروع ماه مالی شمسی — هم‌تراز با داشبورد */
-export function monthStartMs(now = new Date()): number {
-  return startOfJalaliMonth(now.toISOString()).getTime();
+/** Start of the current financial month (the user's start day); calendar month without settings. */
+export function monthStartMs(
+  now = new Date(),
+  settings?: Pick<Partial<UserSettings>, 'financialMonthStartDay' | 'calendar'>,
+): number {
+  return settings
+    ? currentMonthWindow(settings, now).start.getTime()
+    : startOfJalaliMonth(now.toISOString()).getTime();
 }
 
 export function budgetAlerts(
   input: {
     transactions: Transaction[];
     budgetCategories: BudgetCategory[];
-    settings: { budgetAlertsEnabled: boolean };
+    settings: { budgetAlertsEnabled: boolean } & Pick<Partial<UserSettings>, 'financialMonthStartDay' | 'calendar'>;
   },
   now = new Date(),
 ): BudgetAlert[] {
   if (!input.settings.budgetAlertsEnabled) {
     return [];
   }
-  const start = monthStartMs(now);
+  const start = monthStartMs(now, input.settings);
   const spent = categoryTotals(
     input.transactions.filter(tx => isExpenseLike(tx) && Date.parse(tx.transactionDate) >= start),
   );

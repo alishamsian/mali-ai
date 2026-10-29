@@ -44,3 +44,30 @@ describe('changeBreakdown', () => {
     expect(b.rows.map(r => [r.id, r.deltaRial])).toEqual([['food', 600_000], ['transport', -300_000]]);
   });
 });
+
+describe('card-to-card', () => {
+  it('counts a transfer to someone else as spending, but not one between own accounts', () => {
+    const toFriend = { ...tx('k', 400_000, 1), type: 'transfer' as const };
+    const own = { ...tx('o', 900_000, 1), type: 'transfer' as const, transferId: 'pair' };
+    expect(changeBreakdown([toFriend, own], now).currentRial).toBe(400_000);
+  });
+});
+
+describe('financial month', () => {
+  it('starts the month on the user’s start day', () => {
+    const f = monthForecast([], now, 0, { financialMonthStartDay: 25, calendar: 'gregorian' });
+    // 15 Nov with a 25th start: the month began 25 Oct, so this is day 22 of 31.
+    expect(f.day).toBe(22);
+    expect(f.daysInMonth).toBe(31);
+  });
+});
+
+describe('refunds', () => {
+  it('lower spending in their category instead of counting as income', () => {
+    const { categoryTotals, monthlyTotals } = jest.requireActual('./analytics');
+    const buy = tx('b', 500_000, 2, 'shopping');
+    const back = { ...tx('r', 200_000, 1, 'shopping'), direction: 'in' as const, type: 'refund' as const };
+    expect(categoryTotals([back, buy]).shopping).toBe(300_000);
+    expect(monthlyTotals([buy, back])).toMatchObject({ incomeRial: 0, expenseRial: 300_000 });
+  });
+});

@@ -16,20 +16,24 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
-import { addJalaliMonths, startOfJalaliMonth, toJalaliLabel } from '../../../utils/dates/jalali';
+import { toJalaliLabel } from '../../../utils/dates/jalali';
+import { currentMonthWindow } from '../../../engine/insights/monthPeriod';
 import { monthEndForecast, upcomingDues, type DueItem } from '../../../engine/obligations/dues';
+import { suggestDueMatches } from '../../../engine/obligations/matching';
 import { debtRemainingRial, planStatus } from '../../../engine/obligations/schedule';
 import { chequeStatusLabel, daysLeftLabel } from '../format';
 import type { RootStackParamList } from '../../../app/navigation/types';
 
+/** Dismissed match suggestions live in the alert log under this prefix. */
+const DISMISS = 'match-dismiss:';
 type Tab = 'dues' | 'plans' | 'cheques' | 'debts';
 const TABS: Tab[] = ['dues', 'plans', 'cheques', 'debts'];
 const DUES_HORIZON_DAYS = 45;
 
 function money(rial: number) {
-  return `${formatTomanFromRial(rial)} ${t().common.toman}`;
+  return `${formatTomanFromRial(rial)} ${displayUnitLabel()}`;
 }
 
 export function ObligationsScreen() {
@@ -44,7 +48,11 @@ export function ObligationsScreen() {
   const debts = useFinanceStore(s => s.snapshot.debts);
   const accounts = useFinanceStore(s => s.snapshot.accounts);
   const calendar = useFinanceStore(s => s.snapshot.settings.calendar) ?? 'jalali';
+  const startDay = useFinanceStore(s => s.snapshot.settings.financialMonthStartDay);
+
   const store = useFinanceStore.getState;
+  const transactions = useFinanceStore(s => s.snapshot.transactions);
+  const alertLog = useFinanceStore(s => s.snapshot.alertLog);
 
   const now = useMemo(() => new Date(), []);
   const input = useMemo(() => ({ plans, cheques, debts }), [plans, cheques, debts]);
@@ -52,10 +60,23 @@ export function ObligationsScreen() {
     () => upcomingDues(input, now, DUES_HORIZON_DAYS, calendar),
     [input, now, calendar],
   );
+  // Bank SMS that look like a due being paid: one tap links and settles them.
+  const matches = useMemo(
+    () =>
+      suggestDueMatches(
+        { ...input, transactions },
+        now,
+        new Set(
+          (alertLog ?? []).filter(k => k.startsWith(DISMISS)).map(k => k.slice(DISMISS.length)),
+        ),
+        calendar,
+      ),
+    [input, transactions, now, alertLog, calendar],
+  );
   const forecast = useMemo(() => {
-    const until = new Date(addJalaliMonths(startOfJalaliMonth(now.toISOString()).toISOString(), 1));
+    const until = currentMonthWindow({ calendar, financialMonthStartDay: startDay }, now).end;
     return monthEndForecast({ ...input, accounts }, now, until, calendar);
-  }, [input, accounts, now, calendar]);
+  }, [input, accounts, now, calendar, startDay]);
 
   const styles = useThemedStyles((c, th) => ({
     body: { paddingHorizontal: th.spacing.lg, paddingBottom: 120 },
@@ -80,6 +101,12 @@ export function ObligationsScreen() {
     amount: { fontFamily: th.typography.fontFamily.semibold, color: c.text },
     amountIn: { color: c.income },
     late: { color: c.warning },
+    matchBtn: {
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
     checkBtn: {
       width: 40,
       height: 40,
@@ -100,13 +127,13 @@ export function ObligationsScreen() {
     fill: { height: 6, borderRadius: 3, backgroundColor: c.highlight },
   }));
 
-  const settleDue = (due: DueItem) => {
+  const settleDue = (due: DueItem, transactionId?: string) => {
     if (due.kind === 'installment' && due.index != null) {
-      store().markInstallmentPaid(due.refId, due.index);
+      store().markInstallmentPaid(due.refId, due.index, transactionId);
     } else if (due.kind === 'cheque') {
-      store().setChequeStatus(due.refId, 'cleared');
+      store().setChequeStatus(due.refId, 'cleared', transactionId);
     } else {
-      store().settleDebt(due.refId, due.amountRial);
+      store().settleDebt(due.refId, due.amountRial, transactionId);
     }
   };
 
@@ -120,19 +147,34 @@ export function ObligationsScreen() {
     appAlert(dict.actions, undefined, [
       { text: dict.statusCleared, onPress: () => store().setChequeStatus(id, 'cleared') },
       { text: dict.bounce, onPress: () => store().setChequeStatus(id, 'bounced') },
-      { text: dict.delete, style: 'destructive', onPress: () => confirmDelete(() => store().deleteCheque(id)) },
+      {
+        text: dict.delete,
+        style: 'destructive',
+        onPress: () => confirmDelete(() => store().deleteCheque(id)),
+      },
       { text: dict.cancel, style: 'cancel' },
     ]);
 
   const debtActions = (id: string, remaining: number) =>
     appAlert(dict.actions, undefined, [
-      ...(remaining > 0 ? [{ text: dict.settle, onPress: () => store().settleDebt(id, remaining) }] : []),
-      { text: dict.delete, style: 'destructive', onPress: () => confirmDelete(() => store().deleteDebt(id)) },
+      ...(remaining > 0
+        ? [{ text: dict.settle, onPress: () => store().settleDebt(id, remaining) }]
+        : []),
+      {
+        text: dict.delete,
+        style: 'destructive',
+        onPress: () => confirmDelete(() => store().deleteDebt(id)),
+      },
       { text: dict.cancel, style: 'cancel' },
     ]);
 
   const empty = (title: string) => (
-    <EmptyState title={title} subtitle={dict.emptyHint} actionLabel={dict.add} onAction={() => nav.navigate('AddObligation')} />
+    <EmptyState
+      title={title}
+      subtitle={dict.emptyHint}
+      actionLabel={dict.add}
+      onAction={() => nav.navigate('AddObligation')}
+    />
   );
 
   const renderDues = () =>
@@ -146,7 +188,9 @@ export function ObligationsScreen() {
                 {due.index != null ? ` · ${toPersianDigits(due.index + 1)}` : ''}
               </AppText>
               <AppText style={[styles.rowSub, due.overdue && styles.late]}>
-                {[due.party, toJalaliLabel(due.dueDate), daysLeftLabel(due.daysLeft)].filter(Boolean).join(' · ')}
+                {[due.party, toJalaliLabel(due.dueDate), daysLeftLabel(due.daysLeft)]
+                  .filter(Boolean)
+                  .join(' · ')}
               </AppText>
             </View>
             <AppText style={[styles.amount, due.flow === 'in' && styles.amountIn]}>
@@ -169,8 +213,12 @@ export function ObligationsScreen() {
       : plans.map(plan => {
           const status = planStatus(plan, now, calendar);
           return (
-            <PressScale key={plan.id} onLongPress={() => confirmDelete(() => store().deleteInstallmentPlan(plan.id))}>
-              <GlassPanel radius={20} style={[styles.row, { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <PressScale
+              key={plan.id}
+              onLongPress={() => confirmDelete(() => store().deleteInstallmentPlan(plan.id))}>
+              <GlassPanel
+                radius={20}
+                style={[styles.row, { flexDirection: 'column', alignItems: 'stretch' }]}>
                 <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
                   <AppText style={styles.rowTitle}>{plan.title}</AppText>
                   <AppText style={styles.amount}>{money(plan.installmentRial)}</AppText>
@@ -205,13 +253,15 @@ export function ObligationsScreen() {
               <GlassPanel radius={20} style={styles.row}>
                 <View style={styles.rowMain}>
                   <AppText style={styles.rowTitle}>
-                    {cheque.counterparty} · {cheque.direction === 'issued' ? dict.issued : dict.received}
+                    {cheque.counterparty} ·{' '}
+                    {cheque.direction === 'issued' ? dict.issued : dict.received}
                   </AppText>
                   <AppText style={[styles.rowSub, cheque.status === 'bounced' && styles.late]}>
                     {toJalaliLabel(cheque.dueDate)} · {chequeStatusLabel(cheque.status)}
                   </AppText>
                 </View>
-                <AppText style={[styles.amount, cheque.direction === 'received' && styles.amountIn]}>
+                <AppText
+                  style={[styles.amount, cheque.direction === 'received' && styles.amountIn]}>
                   {money(cheque.amountRial)}
                 </AppText>
               </GlassPanel>
@@ -234,8 +284,8 @@ export function ObligationsScreen() {
                     {remaining === 0
                       ? dict.done
                       : debt.dueDate
-                        ? `${dict.dueDate}: ${toJalaliLabel(debt.dueDate)}`
-                        : toJalaliLabel(debt.date)}
+                      ? `${dict.dueDate}: ${toJalaliLabel(debt.dueDate)}`
+                      : toJalaliLabel(debt.date)}
                   </AppText>
                 </View>
                 <AppText style={[styles.amount, debt.direction === 'lent' && styles.amountIn]}>
@@ -247,18 +297,30 @@ export function ObligationsScreen() {
         });
 
   const labelFor = (v: Tab) =>
-    v === 'dues' ? dict.tabDues : v === 'plans' ? dict.tabPlans : v === 'cheques' ? dict.tabCheques : dict.tabDebts;
+    v === 'dues'
+      ? dict.tabDues
+      : v === 'plans'
+      ? dict.tabPlans
+      : v === 'cheques'
+      ? dict.tabCheques
+      : dict.tabDebts;
 
   return (
     <NightCanvas>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 8 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + 8 }}>
         <View style={styles.body}>
           <ScreenHeader
             title={dict.title}
             subtitle={dict.subtitle}
             onBack={() => nav.goBack()}
             right={
-              <PressScale accessibilityRole="button" accessibilityLabel={dict.add} onPress={() => nav.navigate('AddObligation')} style={styles.addBtn}>
+              <PressScale
+                accessibilityRole="button"
+                accessibilityLabel={dict.add}
+                onPress={() => nav.navigate('AddObligation')}
+                style={styles.addBtn}>
                 <Plus size={20} color={colors.onPrimary} />
               </PressScale>
             }
@@ -273,7 +335,9 @@ export function ObligationsScreen() {
               </View>
               <View style={styles.stat}>
                 <AppText style={styles.kicker}>{dict.inLabel}</AppText>
-                <AppText style={[styles.statValue, styles.amountIn]}>{money(forecast.inRial)}</AppText>
+                <AppText style={[styles.statValue, styles.amountIn]}>
+                  {money(forecast.inRial)}
+                </AppText>
               </View>
             </View>
             {forecast.shortfall ? <AppText style={styles.warn}>{dict.shortfall}</AppText> : null}
@@ -282,6 +346,36 @@ export function ObligationsScreen() {
             <SegmentedControl options={TABS} value={tab} onChange={setTab} labelFor={labelFor} />
           </View>
           <View style={styles.list}>
+            {tab === 'dues'
+              ? matches.map(m => (
+                  <GlassPanel
+                    key={m.key}
+                    strong
+                    radius={20}
+                    style={[styles.row, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                    <AppText style={styles.rowTitle}>{dict.matchTitle}</AppText>
+                    <AppText style={styles.rowSub}>
+                      {interpolate(dict.matchBody, {
+                        amount: formatTomanFromRial(m.transaction.amountRial),
+                        date: toJalaliLabel(m.transaction.transactionDate),
+                        title: m.due.title,
+                      })}
+                    </AppText>
+                    <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+                      <PressScale
+                        onPress={() => settleDue(m.due, m.transaction.id)}
+                        style={[styles.matchBtn, { backgroundColor: colors.primary }]}>
+                        <AppText style={{ color: colors.onPrimary }}>{dict.matchYes}</AppText>
+                      </PressScale>
+                      <PressScale
+                        onPress={() => store().recordAlerts([`${DISMISS}${m.key}`])}
+                        style={styles.matchBtn}>
+                        <AppText style={{ color: colors.textMuted }}>{dict.matchNo}</AppText>
+                      </PressScale>
+                    </View>
+                  </GlassPanel>
+                ))
+              : null}
             {tab === 'dues' ? renderDues() : null}
             {tab === 'plans' ? renderPlans() : null}
             {tab === 'cheques' ? renderCheques() : null}

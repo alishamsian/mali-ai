@@ -15,7 +15,7 @@ import { parseVoiceTransaction } from '../../../services/voice/voiceParser';
 import { t } from '../../../i18n';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial, tomanToRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, tomanToRial, displayUnitLabel } from '../../../utils/currency/money';
 import type { RootStackParamList } from '../../../app/navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VoiceEntry'>;
@@ -154,7 +154,7 @@ export function VoiceEntryScreen({ navigation }: Props) {
                 </View>
                 <AppText style={styles.value}>
                   {draft.amountToman
-                    ? `${formatTomanFromRial(tomanToRial(draft.amountToman))} ${t().common.toman}`
+                    ? `${formatTomanFromRial(tomanToRial(draft.amountToman))} ${displayUnitLabel()}`
                     : '—'}
                 </AppText>
               </View>

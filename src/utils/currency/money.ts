@@ -67,7 +67,8 @@ export function formatTomanLabel(
 
 /** "۱۳٫۳ میلیون", "۸۵۰ هزار": for cards and charts where the exact figure is noise. */
 export function formatCompactToman(rial: number): string {
-  const toman = Math.abs(rialToToman(rial));
+  // «Toman» in the name is historical: the figure follows the display-currency setting.
+  const toman = displayCurrencyPreference === 'IRR' ? Math.abs(Math.trunc(rial)) : Math.abs(rialToToman(rial));
   const sign = rial < 0 ? '−' : '';
   const scaled = (value: number, unit: string) => {
     const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
@@ -83,4 +84,9 @@ export function formatCompactToman(rial: number): string {
     return `${sign}${toPersianDigits(Math.round(toman / 1e3))} هزار`;
   }
   return `${sign}${toPersianDigits(Math.round(toman))}`;
+}
+
+/** «تومان» or «ریال», whichever the user chose to see amounts in. */
+export function displayUnitLabel(): string {
+  return displayCurrencyPreference === 'IRR' ? 'ریال' : 'تومان';
 }

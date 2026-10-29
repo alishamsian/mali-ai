@@ -33,7 +33,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import { Sparkline } from '../../../components/charts/Charts';
 import { CATEGORY_COLOR } from '../../../theme/accents';
 import { t, interpolate } from '../../../i18n';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { jalaliDayLabel, jalaliWeekdayShort } from '../../../utils/dates/jalali';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -757,7 +757,7 @@ export function DailyLedgerScreen() {
                     : colors.expense,
                 }}
               />
-              <AppText style={styles.toman}>{dict.common.toman}</AppText>
+              <AppText style={styles.toman}>{displayUnitLabel()}</AppText>
             </View>
 
             {insightText ? (

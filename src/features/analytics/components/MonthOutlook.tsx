@@ -7,7 +7,7 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial, formatCompactToman } from '../../../utils/currency/money';
+import { formatTomanFromRial, formatCompactToman, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { changeBreakdown, monthForecast } from '../../../engine/insights/forecast';
 import { upcomingDues } from '../../../engine/obligations/dues';
@@ -29,21 +29,26 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
   const cheques = useFinanceStore(s => s.snapshot.cheques);
   const debts = useFinanceStore(s => s.snapshot.debts);
   const calendar = useFinanceStore(s => s.snapshot.settings.calendar) ?? 'jalali';
+  const startDay = useFinanceStore(s => s.snapshot.settings.financialMonthStartDay);
+  const monthSettings = useMemo(
+    () => ({ calendar, financialMonthStartDay: startDay }),
+    [calendar, startDay],
+  );
   const inflationPct = useFinanceStore(s => s.snapshot.settings.annualInflationPct) ?? 35;
 
   const { forecast, breakdown, budgetRial } = useMemo(() => {
     const now = new Date();
-    const first = monthForecast(transactions, now);
+    const first = monthForecast(transactions, now, 0, monthSettings);
     const daysLeft = first.daysInMonth - first.day;
     const scheduled = upcomingDues({ plans, cheques, debts }, now, daysLeft, calendar)
       .filter(d => d.flow === 'out')
       .reduce((s, d) => s + d.amountRial, 0);
     return {
-      forecast: monthForecast(transactions, now, scheduled),
-      breakdown: changeBreakdown(transactions, now),
+      forecast: monthForecast(transactions, now, scheduled, monthSettings),
+      breakdown: changeBreakdown(transactions, now, 5, monthSettings),
       budgetRial: budgetCategories.reduce((s, c) => s + (c.limitRial > 0 ? c.limitRial : 0), 0),
     };
-  }, [transactions, budgetCategories, plans, cheques, debts, calendar]);
+  }, [transactions, budgetCategories, plans, cheques, debts, calendar, monthSettings]);
 
   const styles = useThemedStyles((c, th) => ({
     panel: { padding: 18, gap: 10 },
@@ -152,7 +157,7 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
           ) : null}
         </View>
         <AppText style={styles.big}>{`${money(forecast.projectedRial)} ${
-          t().common.toman
+          displayUnitLabel()
         }`}</AppText>
         {hidden ? null : (
           <AppText style={styles.sub}>

@@ -18,7 +18,7 @@ import {
 import { MonthOutlook } from '../components/MonthOutlook';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
 import { t, interpolate } from '../../../i18n';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { jalaliDayKey, shiftJalaliDayKey, todayJalaliKey, toJalaliMonthYear } from '../../../utils/dates/jalali';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -169,7 +169,7 @@ export function AnalyticsScreen({
             : interpolate(dict.analytics.captionMonth, { month: monthName })}
         </AppText>
         <View style={styles.totalRow}>
-          <AppText style={[styles.unit, { color: colors.textSecondary }]}>{dict.common.toman}</AppText>
+          <AppText style={[styles.unit, { color: colors.textSecondary }]}>{displayUnitLabel()}</AppText>
           <AppText style={[styles.total, { color: colors.text }]} adjustsFontSizeToFit numberOfLines={1}>
             {money(headline.total)}
           </AppText>
