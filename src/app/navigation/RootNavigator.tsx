@@ -115,6 +115,30 @@ const STATIC_NAV_THEME = {
   },
 };
 
+/** One-off flows that should not reopen after a restart; the app comes back to where they started. */
+const TRANSIENT_ROUTES = new Set([
+  'VoiceEntry',
+  'Search',
+  'SmsSetup',
+  'AddTransaction',
+  'AddObligation',
+  'AddWealthAsset',
+  'SmsSenderPicker',
+  'SmsSenderConfirm',
+]);
+
+function withoutTransientRoutes(state: unknown): unknown {
+  const s = state as { routes?: { name: string }[]; index?: number } | null;
+  if (!s?.routes) {
+    return state;
+  }
+  const routes = s.routes.filter(r => !TRANSIENT_ROUTES.has(r.name));
+  if (routes.length === 0) {
+    return undefined;
+  }
+  return { ...s, routes, index: Math.min(s.index ?? routes.length - 1, routes.length - 1) };
+}
+
 export function RootNavigator() {
   useCloudAuthLinks();
   const { stackAnimation } = useAppMotion();
@@ -210,8 +234,9 @@ export function RootNavigator() {
     }
     saveTimer.current = setTimeout(() => {
       try {
-        if (state) {
-          getStorageDriver().set(NAV_STATE_KEY, JSON.stringify(state));
+        const kept = state ? withoutTransientRoutes(state) : undefined;
+        if (kept) {
+          getStorageDriver().set(NAV_STATE_KEY, JSON.stringify(kept));
         }
       } catch {
         // ignore

@@ -12,7 +12,7 @@ import { BankEmblem } from '../../../components/banks/BankEmblem';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
 import { CategoryPickerField } from '../components/CategoryPickerField';
 import { EXPENSE_CATEGORIES } from '../../../constants/categories';
-import { t, interpolate } from '../../../i18n';
+import { t } from '../../../i18n';
 import { toJalaliLabel, toTimeLabel } from '../../../utils/dates/jalali';
 import { getDisplayCurrencyPreference, formatTomanFromRial } from '../../../utils/currency/money';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -303,10 +303,15 @@ export function TransactionDetailsScreen({
   const parserLabel = tx.parserVersion ? `v${tx.parserVersion}` : dict.transactions.parserUnknown;
   const confidencePct = Math.round(tx.confidence * 100);
   const needsCategoryConfirm = tx.confidence < 1 || tx.needsReview;
+  // Plain words instead of a percentage nobody can act on.
   const confidenceLabel =
-    confidencePct >= 100
-      ? dict.transactions.confidenceFull
-      : interpolate(dict.transactions.confidenceLow, { pct: confidencePct });
+    tx.source === 'manual'
+      ? dict.transactions.confidenceManual
+      : confidencePct >= 90
+        ? dict.transactions.confidenceFull
+        : confidencePct >= 60
+          ? dict.transactions.confidenceLikely
+          : dict.transactions.confidenceLow;
 
   return (
     <NightCanvas>

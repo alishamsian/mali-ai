@@ -41,7 +41,7 @@ export function MomentCard({
           <Sparkles color={colors.primary} size={18} />
         )}
         <View style={{ flex: 1 }} />
-        <Pressable onPress={() => onDismiss(moment.id)} hitSlop={12}>
+        <Pressable onPress={() => onDismiss(moment.id)} hitSlop={12} accessibilityRole="button" accessibilityLabel="بستن">
           <X color={colors.textMuted} size={16} />
         </Pressable>
       </View>

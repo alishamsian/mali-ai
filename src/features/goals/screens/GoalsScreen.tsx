@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '../../../components/ui/AppText';
-import { GlassCard } from '../../../components/ui/GlassCard';
-import { EmptyState } from '../../../components/feedback/EmptyState';
+import { GlassPanel } from '../../../components/ui/GlassPanel';
+import { PressScale } from '../../../components/ui/PressScale';
+import { FilterChip } from '../../../components/ui/FilterChip';
+import { appAlert } from '../../../components/ui/AppAlert';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
 import { interpolate, t } from '../../../i18n';
-import { formatTomanFromRial, tomanToRial } from '../../../utils/currency/money';
+import { formatCompactToman, tomanToRial } from '../../../utils/currency/money';
 import { AmountInput } from '../../../components/ui/AmountInput';
 import { parseIntegerAmount } from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -22,22 +24,44 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useThemedStyles((c, th) => ({
+    head: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+    kicker: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
+    link: { color: c.text, fontSize: 13, fontFamily: th.typography.fontFamily.semibold },
+    card: { padding: 16, gap: 10 },
+    title: {
+      textAlign: 'right',
+      color: c.text,
+      fontSize: 15,
+      fontFamily: th.typography.fontFamily.semibold,
+    },
+    amount: { textAlign: 'right', color: c.textSecondary, fontSize: 13 },
+    track: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.glassBorder,
+      flexDirection: 'row-reverse',
+      overflow: 'hidden',
+    },
     input: {
       minHeight: 48,
       borderRadius: 14,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.glassBorder,
+      backgroundColor: c.glass,
       color: c.text,
       paddingHorizontal: 12,
-      marginTop: 10,
       fontFamily: th.typography.fontFamily.regular,
     },
-    chips: { flexDirection: 'row-reverse' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 10 },
-    chip: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-    chipOn: { borderColor: c.primary, backgroundColor: th.palette.primaryGlow },
-    barBg: { height: 8, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' as const, marginTop: 8 },
-    bar: { height: 8, backgroundColor: c.primary },
-    row: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, marginTop: 12 },
+    chips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+    addRow: { flexDirection: 'row-reverse', alignItems: 'flex-end', gap: 8 },
+    addLink: { alignSelf: 'flex-end', paddingVertical: 4 },
+    pill: {
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      minHeight: 46,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   }));
   const snapshot = useFinanceStore(s => s.snapshot);
   const upsertGoal = useFinanceStore(s => s.upsertGoal);
@@ -48,6 +72,8 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const [kind, setKind] = useState<GoalKind>('savings');
   const [target, setTarget] = useState('');
   const [extra, setExtra] = useState<Record<string, string>>({});
+  const [formOpen, setFormOpen] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
 
   const add = () => {
     const toman = parseIntegerAmount(target);
@@ -70,6 +96,7 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
     hapticSuccess();
     setTitle('');
     setTarget('');
+    setFormOpen(false);
   };
 
   const body = (
@@ -87,7 +114,16 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
           {dict.goals.title}
         </AppText>
       ) : null}
-        <GlassCard>
+      <View style={styles.head}>
+        <AppText style={styles.kicker}>{dict.goals.title}</AppText>
+        <Pressable onPress={() => setFormOpen(v => !v)} accessibilityRole="button" hitSlop={8}>
+          <AppText style={styles.link}>
+            {formOpen ? dict.common.cancel : dict.goals.newGoal}
+          </AppText>
+        </Pressable>
+      </View>
+      {formOpen || snapshot.goals.length === 0 ? (
+        <GlassPanel strong radius={24} style={styles.card}>
           <TextInput
             value={title}
             onChangeText={setTitle}
@@ -98,48 +134,65 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
           />
           <View style={styles.chips}>
             {KINDS.map(id => (
-              <Pressable key={id} onPress={() => setKind(id)} style={[styles.chip, kind === id && styles.chipOn]}>
-                <AppText variant="caption">{dict.goals[id]}</AppText>
-              </Pressable>
+              <FilterChip
+                key={id}
+                label={dict.goals[id]}
+                active={kind === id}
+                onPress={() => setKind(id)}
+              />
             ))}
           </View>
-          <AmountInput
-            value={target}
-            onChangeValue={setTarget}
-            placeholder={dict.goals.target}
-            style={{ marginTop: 10 }}
-            inputStyle={{ marginTop: 0, backgroundColor: 'transparent', borderColor: colors.border }}
-          />
+          <AmountInput value={target} onChangeValue={setTarget} placeholder={dict.goals.target} />
           <PrimaryButton label={dict.goals.add} onPress={add} />
-        </GlassCard>
-        {snapshot.goals.length === 0 ? (
-          <EmptyState title={dict.goals.empty} />
-        ) : (
-          snapshot.goals.map(goal => {
-            const pct = Math.min(100, Math.round((goal.savedRial / Math.max(1, goal.targetRial)) * 100));
-            return (
-              <GlassCard key={goal.id}>
-                <AppText>{goal.title}</AppText>
-                <AppText variant="caption">{dict.goals[goal.kind]}</AppText>
-                <AppText variant="caption" style={{ marginTop: 8 }}>
-                  {interpolate(dict.goals.progress, { pct })} · {formatTomanFromRial(goal.savedRial)} /{' '}
-                  {formatTomanFromRial(goal.targetRial)}
-                </AppText>
-                <View style={styles.barBg}>
-                  <View style={[styles.bar, { width: `${pct}%` }]} />
-                </View>
-                <AmountInput
-                  value={extra[goal.id] ?? ''}
-                  onChangeValue={v => setExtra(s => ({ ...s, [goal.id]: v }))}
-                  placeholder={dict.goals.addSaved}
-                  style={{ marginTop: 10 }}
-                  inputStyle={{ marginTop: 0, backgroundColor: 'transparent', borderColor: colors.border }}
+        </GlassPanel>
+      ) : null}
+      {snapshot.goals.map(goal => {
+        const share = Math.min(1, goal.savedRial / Math.max(1, goal.targetRial));
+        const open = adding === goal.id;
+        return (
+          <PressScale
+            key={goal.id}
+            onLongPress={() =>
+              appAlert(goal.title, undefined, [
+                {
+                  text: dict.transactions.delete,
+                  style: 'destructive',
+                  onPress: () => deleteGoal(goal.id),
+                },
+                { text: dict.common.cancel, style: 'cancel' },
+              ])
+            }>
+            <GlassPanel radius={24} style={styles.card}>
+              <View style={styles.head}>
+                <AppText style={styles.title}>{goal.title}</AppText>
+                <AppText style={styles.kicker}>{dict.goals[goal.kind]}</AppText>
+              </View>
+              <AppText style={styles.amount}>
+                {interpolate(dict.goals.savedOf, {
+                  saved: formatCompactToman(goal.savedRial),
+                  target: formatCompactToman(goal.targetRial),
+                })}
+              </AppText>
+              <View style={styles.track}>
+                <View
+                  style={{
+                    flex: share,
+                    borderRadius: 4,
+                    backgroundColor: share >= 1 ? colors.income : colors.highlight,
+                  }}
                 />
-                <View style={styles.row}>
-                  <Pressable onPress={() => deleteGoal(goal.id)}>
-                    <AppText variant="caption">{dict.transactions.delete}</AppText>
-                  </Pressable>
-                  <Pressable
+                <View style={{ flex: 1 - share }} />
+              </View>
+              {open ? (
+                <View style={styles.addRow}>
+                  <AmountInput
+                    value={extra[goal.id] ?? ''}
+                    onChangeValue={v => setExtra(s => ({ ...s, [goal.id]: v }))}
+                    placeholder={dict.goals.addSaved}
+                    style={{ flex: 1 }}
+                  />
+                  <PressScale
+                    accessibilityRole="button"
                     onPress={() => {
                       const toman = parseIntegerAmount(extra[goal.id] ?? '');
                       if (!toman) {
@@ -148,16 +201,30 @@ export function GoalsScreen({ embedded = false }: { embedded?: boolean } = {}) {
                       }
                       contributeGoal(goal.id, tomanToRial(toman));
                       setExtra(s => ({ ...s, [goal.id]: '' }));
+                      setAdding(null);
                       hapticSuccess();
-                    }}>
-                    <AppText>{dict.common.save}</AppText>
-                  </Pressable>
+                    }}
+                    style={[styles.pill, { backgroundColor: colors.primary }]}>
+                    <AppText style={{ color: colors.onPrimary }}>{dict.common.save}</AppText>
+                  </PressScale>
                 </View>
-              </GlassCard>
-            );
-          })
-        )}
-      </ScrollView>
+              ) : share < 1 ? (
+                <Pressable
+                  onPress={() => setAdding(goal.id)}
+                  accessibilityRole="button"
+                  style={styles.addLink}>
+                  <AppText style={styles.link}>{dict.goals.addMoney}</AppText>
+                </Pressable>
+              ) : (
+                <AppText style={[styles.kicker, { color: colors.income }]}>
+                  {dict.goals.reached}
+                </AppText>
+              )}
+            </GlassPanel>
+          </PressScale>
+        );
+      })}
+    </ScrollView>
   );
 
   if (embedded) {

@@ -1,110 +1,146 @@
-import React, { useState } from 'react';
-import { View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
-import { GlassCard } from '../../../components/ui/GlassCard';
+import { GlassPanel } from '../../../components/ui/GlassPanel';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
-import { interpolate, t } from '../../../i18n';
-import { formatTomanFromRial, tomanToRial } from '../../../utils/currency/money';
 import { AmountInput } from '../../../components/ui/AmountInput';
+import { interpolate, t } from '../../../i18n';
+import { formatCompactToman, tomanToRial } from '../../../utils/currency/money';
 import { parseIntegerAmount, sanitizeAmountDigits } from '../../../utils/numbers/digits';
 import { useFinanceStore } from '../../../store/finance/store';
 import { categoryTotals, isExpenseLike } from '../../../engine/insights/analytics';
-import { budgetAlerts } from '../../../engine/budget/alerts';
+import { monthStartMs } from '../../../engine/budget/alerts';
+import { jalaliMonthMeta } from '../../../utils/dates/jalali';
 import { BUDGET_SETUP_CATEGORIES } from '../../../constants/categories';
 import { hapticSuccess } from '../../../utils/haptics';
 import type { Budget, BudgetCategory, CategoryId } from '../../../types/finance';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 
+type Pace = 'ok' | 'tight' | 'over';
+
+/** This month against the limits first; the limits form opens only when asked for. */
 export function BudgetsPanel() {
   const { colors } = useAppTheme();
-  const styles = useThemedStyles(c => ({
-    barBg: {
-      height: 8,
-      borderRadius: 8,
-      backgroundColor: 'rgba(255,255,255,0.08)',
-      overflow: 'hidden' as const,
-      marginTop: 8,
-    },
-    bar: { height: 8, backgroundColor: c.primary },
-    row: { flexDirection: 'row-reverse' as const, justifyContent: 'space-between' as const },
-    limitRow: {
-      flexDirection: 'row-reverse' as const,
-      alignItems: 'center' as const,
-      gap: 10,
-      marginTop: 10,
-    },
-  }));
+  const dict = t();
   const snapshot = useFinanceStore(s => s.snapshot);
   const upsertBudget = useFinanceStore(s => s.upsertBudget);
-  const dict = t();
-  const spent = categoryTotals(snapshot.transactions.filter(isExpenseLike));
   const budget = snapshot.budgets[0];
   const cats = snapshot.budgetCategories.filter(c => !budget || c.budgetId === budget.id);
-  const rows = cats.map(c => {
-    const used = spent[c.categoryId] ?? 0;
-    return {
-      id: c.categoryId as CategoryId,
-      used,
-      limit: c.limitRial,
-      pct: Math.min(1, used / Math.max(1, c.limitRial)),
+  const [editing, setEditing] = useState(false);
+
+  const { rows, used, limit, projected } = useMemo(() => {
+    // This month only: the old panel summed every expense ever recorded.
+    const start = monthStartMs();
+    const spent = categoryTotals(
+      snapshot.transactions.filter(
+        tx => isExpenseLike(tx) && Date.parse(tx.transactionDate) >= start,
+      ),
+    );
+    const meta = jalaliMonthMeta();
+    const pace = (usedRial: number, limitRial: number): Pace => {
+      if (usedRial >= limitRial) {
+        return 'over';
+      }
+      const projectedRial = (usedRial / Math.max(1, meta.day)) * meta.daysInMonth;
+      return projectedRial > limitRial ? 'tight' : 'ok';
     };
-  });
-  const overall =
-    rows.length === 0
-      ? 0
-      : rows.reduce((s, r) => s + r.used, 0) / Math.max(1, rows.reduce((s, r) => s + r.limit, 0));
-  const alerts = budgetAlerts(snapshot);
-  const [draft, setDraft] = useState<Record<string, string>>(() => {
+    const list = cats
+      .map(c => {
+        const usedRial = spent[c.categoryId] ?? 0;
+        return {
+          id: c.categoryId as CategoryId,
+          used: usedRial,
+          limit: c.limitRial,
+          pct: usedRial / Math.max(1, c.limitRial),
+          pace: pace(usedRial, c.limitRial),
+        };
+      })
+      .sort((a, b) => b.pct - a.pct);
+    const totalUsed = list.reduce((s, r) => s + r.used, 0);
+    const totalLimit = list.reduce((s, r) => s + r.limit, 0);
+    return {
+      rows: list,
+      used: totalUsed,
+      limit: totalLimit,
+      projected: Math.round((totalUsed / Math.max(1, meta.day)) * meta.daysInMonth),
+    };
+  }, [cats, snapshot.transactions]);
+
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const openEditor = () => {
     const next: Record<string, string> = {};
     for (const c of cats) {
       next[c.categoryId] = String(Math.round(c.limitRial / 10));
     }
-    return next;
-  });
+    setDraft(next);
+    setEditing(true);
+  };
 
   const save = () => {
     const now = new Date();
     const id = budget?.id ?? `bud_${now.getFullYear()}_${now.getMonth() + 1}`;
+    const categories: BudgetCategory[] = BUDGET_SETUP_CATEGORIES.map(categoryId => ({
+      id: `${id}_${categoryId}`,
+      budgetId: id,
+      categoryId,
+      limitRial: tomanToRial(parseIntegerAmount(draft[categoryId] ?? '') ?? 0),
+    })).filter(c => c.limitRial > 0);
     const next: Budget = {
       id,
       userId: snapshot.profile.id,
       period: 'monthly',
       year: now.getFullYear(),
       month: now.getMonth() + 1,
-      totalLimitRial: 0,
+      totalLimitRial: categories.reduce((s, c) => s + c.limitRial, 0),
       createdAt: budget?.createdAt ?? now.toISOString(),
     };
-    const categories: BudgetCategory[] = BUDGET_SETUP_CATEGORIES.map(categoryId => {
-      const toman = parseIntegerAmount(draft[categoryId] ?? '') ?? 0;
-      return {
-        id: `${id}_${categoryId}`,
-        budgetId: id,
-        categoryId,
-        limitRial: tomanToRial(toman),
-      };
-    }).filter(c => c.limitRial > 0);
-    next.totalLimitRial = categories.reduce((s, c) => s + c.limitRial, 0);
     upsertBudget(next, categories);
     hapticSuccess();
+    setEditing(false);
   };
 
-  return (
-    <>
-      {alerts.map(alert => (
-        <AppText
-          key={alert.categoryId}
-          variant="caption"
-          style={{ color: colors.expense, textAlign: 'right', marginTop: 8 }}>
-          {interpolate(alert.ratio >= 1 ? dict.budgets.over : dict.budgets.warn, {
-            name: dict.categories[alert.categoryId],
-            pct: Math.round(alert.ratio * 100),
-          })}
-        </AppText>
-      ))}
-      <GlassCard style={{ marginTop: 16 }}>
-        <AppText variant="kicker">{dict.budgets.setLimits}</AppText>
+  const styles = useThemedStyles((c, th) => ({
+    panel: { padding: 18, gap: 12, marginTop: 12 },
+    head: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+    kicker: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
+    link: { color: c.text, fontSize: 13, fontFamily: th.typography.fontFamily.semibold },
+    big: {
+      textAlign: 'right',
+      color: c.text,
+      fontSize: 26,
+      fontFamily: th.typography.fontFamily.bold,
+    },
+    sub: { textAlign: 'right', color: c.textSecondary, fontSize: 13 },
+    track: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.glassBorder,
+      flexDirection: 'row-reverse',
+      overflow: 'hidden',
+    },
+    row: { gap: 6 },
+    rowHead: { flexDirection: 'row-reverse', justifyContent: 'space-between' },
+    name: { color: c.text, fontSize: 14 },
+    amount: { color: c.textMuted, fontSize: 12 },
+    limitRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+    cancel: { padding: 12, alignItems: 'center' },
+  }));
+
+  const toneOf = (pace: Pace) =>
+    pace === 'over' ? colors.expense : pace === 'tight' ? colors.highlight : colors.income;
+  const bar = (pct: number, color: string) => (
+    <View style={styles.track}>
+      <View style={{ flex: Math.min(1, pct), backgroundColor: color, borderRadius: 4 }} />
+      <View style={{ flex: Math.max(0, 1 - pct) }} />
+    </View>
+  );
+
+  if (editing) {
+    return (
+      <GlassPanel strong radius={26} style={styles.panel}>
+        <AppText style={styles.kicker}>{dict.budgets.setLimits}</AppText>
         {BUDGET_SETUP_CATEGORIES.map(id => (
           <View key={id} style={styles.limitRow}>
             <AmountInput
@@ -118,46 +154,72 @@ export function BudgetsPanel() {
             <AppText style={{ flex: 1, textAlign: 'right' }}>{dict.categories[id]}</AppText>
           </View>
         ))}
-        <View style={{ height: 12 }} />
         <PrimaryButton label={dict.budgets.saveMonth} onPress={save} />
-      </GlassCard>
-      {rows.length === 0 ? (
-        <EmptyState title={dict.budgets.empty} />
-      ) : (
-        <>
-          <AppText variant="hero" style={{ textAlign: 'center', marginVertical: 16 }}>
-            {Math.round(overall * 100)}٪
-          </AppText>
-          <AppText variant="caption" style={{ textAlign: 'center', marginBottom: 16 }}>
-            {dict.budgets.used}
-          </AppText>
-          <View style={styles.barBg}>
-            <View style={[styles.bar, { width: `${Math.round(Math.min(100, overall * 100))}%` }]} />
-          </View>
-          {rows.map(r => (
-            <GlassCard key={r.id} style={{ marginTop: 12 }}>
-              <View style={styles.row}>
-                <AppText variant="caption">{Math.round(r.pct * 100)}٪</AppText>
-                <AppText>{dict.categories[r.id]}</AppText>
-              </View>
-              <AppText variant="caption">
-                {formatTomanFromRial(r.used)} / {formatTomanFromRial(r.limit)}
+        <Pressable
+          onPress={() => setEditing(false)}
+          style={styles.cancel}
+          accessibilityRole="button">
+          <AppText style={styles.amount}>{dict.common.cancel}</AppText>
+        </Pressable>
+      </GlassPanel>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <GlassPanel radius={26} style={styles.panel}>
+        <EmptyState
+          title={dict.budgets.empty}
+          subtitle={dict.budgets.emptyHint}
+          actionLabel={dict.budgets.setUp}
+          onAction={openEditor}
+        />
+      </GlassPanel>
+    );
+  }
+
+  const overallPace: Pace = used >= limit ? 'over' : projected > limit ? 'tight' : 'ok';
+  return (
+    <>
+      <GlassPanel strong radius={26} style={styles.panel}>
+        <View style={styles.head}>
+          <AppText style={styles.kicker}>{dict.budgets.thisMonth}</AppText>
+          <Pressable onPress={openEditor} accessibilityRole="button" hitSlop={8}>
+            <AppText style={styles.link}>{dict.budgets.edit}</AppText>
+          </Pressable>
+        </View>
+        <AppText style={styles.big}>
+          {interpolate(dict.budgets.usedOf, {
+            used: formatCompactToman(used),
+            limit: formatCompactToman(limit),
+          })}
+        </AppText>
+        {bar(used / Math.max(1, limit), toneOf(overallPace))}
+        <AppText style={[styles.sub, overallPace !== 'ok' && { color: toneOf(overallPace) }]}>
+          {overallPace === 'over'
+            ? dict.budgets.paceOver
+            : interpolate(overallPace === 'tight' ? dict.budgets.paceTight : dict.budgets.paceOk, {
+                amount: formatCompactToman(projected),
+              })}
+        </AppText>
+      </GlassPanel>
+
+      <GlassPanel radius={26} style={styles.panel}>
+        {rows.map(r => (
+          <View key={r.id} style={styles.row}>
+            <View style={styles.rowHead}>
+              <AppText style={styles.name}>{dict.categories[r.id]}</AppText>
+              <AppText style={[styles.amount, r.pace !== 'ok' && { color: toneOf(r.pace) }]}>
+                {interpolate(dict.budgets.usedOf, {
+                  used: formatCompactToman(r.used),
+                  limit: formatCompactToman(r.limit),
+                })}
               </AppText>
-              <View style={styles.barBg}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      width: `${Math.round(r.pct * 100)}%`,
-                      backgroundColor: r.pct >= 0.8 ? colors.expense : colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-            </GlassCard>
-          ))}
-        </>
-      )}
+            </View>
+            {bar(r.pct, toneOf(r.pace))}
+          </View>
+        ))}
+      </GlassPanel>
     </>
   );
 }

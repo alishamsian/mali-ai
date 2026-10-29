@@ -51,7 +51,9 @@ export function formatTomanFromRial(
   const sign = options?.sign ? (amount > 0 ? '+' : amount < 0 ? '−' : '') : '';
   const grouped = groupThousands(Math.abs(amount));
   const digits = options?.persian === false ? grouped : toPersianDigits(grouped);
-  return `${sign}${digits}`;
+  // Inside Persian text a leading +/− drifts to the far side («۸,۰۸۹,۰۰۰+»); an LTR
+  // isolate keeps it on the number.
+  return sign ? `\u2066${sign}${digits}\u2069` : digits;
 }
 
 export function formatTomanLabel(
