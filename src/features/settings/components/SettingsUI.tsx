@@ -1,3 +1,4 @@
+import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import React from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
@@ -143,15 +144,6 @@ export function SettingsScreenHeader({
   backLabel: string;
   onBack: () => void;
 }) {
-  const { colors } = useAppTheme();
-  const styles = useThemedStyles(createSettingsUiStyles);
-  return (
-    <View style={styles.header}>
-      <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel={backLabel}>
-        <AppText style={[styles.back, { color: colors.textMuted }]}>{backLabel}</AppText>
-      </Pressable>
-      <AppText style={[styles.headerTitle, { color: colors.text }]}>{title}</AppText>
-      <View style={{ width: 48 }} />
-    </View>
-  );
+  // Same round back button and title as every other screen.
+  return <ScreenHeader title={title} onBack={onBack} backLabel={backLabel} />;
 }

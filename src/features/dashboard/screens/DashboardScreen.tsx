@@ -142,9 +142,9 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
       return dict.dashboard.expenseFlat;
     }
     if (expenseDeltaPct > 0) {
-      return interpolate(dict.dashboard.expenseUp, { pct: Math.round(expenseDeltaPct) });
+      return interpolate(dict.dashboard.expenseUp, { pct: toPersianDigits(Math.round(expenseDeltaPct)) });
     }
-    return interpolate(dict.dashboard.expenseDown, { pct: Math.round(Math.abs(expenseDeltaPct)) });
+    return interpolate(dict.dashboard.expenseDown, { pct: toPersianDigits(Math.round(Math.abs(expenseDeltaPct))) });
   }, [dict.dashboard, expenseDeltaPct, hidden]);
   const briefText = useMemo(() => {
     if (!brief) {
@@ -437,7 +437,7 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
             tone="warn"
             message={interpolate(topAlert.ratio >= 1 ? dict.budgets.over : dict.budgets.warn, {
               name: dict.categories[topAlert.categoryId],
-              pct: Math.round(topAlert.ratio * 100),
+              pct: toPersianDigits(Math.round(topAlert.ratio * 100)),
             })}
             onPress={() => navigation.navigate('Budgets')}
           />

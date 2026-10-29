@@ -166,6 +166,7 @@ export function TransactionDetailsScreen({
     },
     heroMeta: { flex: 1, alignItems: 'flex-end', gap: 6, minWidth: 0 },
     merchant: {
+      alignSelf: 'stretch',
       textAlign: 'right',
       writingDirection: 'rtl',
       fontFamily: th.typography.fontFamily.semibold,

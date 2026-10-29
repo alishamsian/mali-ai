@@ -11,11 +11,13 @@ export function ScreenHeader({
   subtitle,
   onBack,
   right,
+  backLabel = 'بازگشت',
 }: {
   title: string;
   subtitle?: string;
   onBack?: () => void;
   right?: React.ReactNode;
+  backLabel?: string;
 }) {
   const { colors } = useAppTheme();
   const styles = useThemedStyles((c, th) => ({
@@ -45,7 +47,7 @@ export function ScreenHeader({
   return (
     <View style={styles.wrap}>
       {onBack ? (
-        <PressScale onPress={onBack} style={styles.back} accessibilityLabel="بازگشت">
+        <PressScale onPress={onBack} style={styles.back} accessibilityLabel={backLabel}>
           <ChevronRight color={colors.textSecondary} size={22} />
         </PressScale>
       ) : (

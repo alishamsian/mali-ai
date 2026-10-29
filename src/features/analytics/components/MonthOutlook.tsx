@@ -249,7 +249,7 @@ export function MonthOutlook({ hidden }: { hidden: boolean }) {
                 <AppText style={[styles.whyAmount, { color: tone }]}>
                   {hidden
                     ? '••••'
-                    : `${up ? '+' : '−'}${formatCompactToman(Math.abs(row.deltaRial))}`}
+                    : `${up ? '▲' : '▼'} ${formatCompactToman(Math.abs(row.deltaRial))}`}
                 </AppText>
               </View>
             );
