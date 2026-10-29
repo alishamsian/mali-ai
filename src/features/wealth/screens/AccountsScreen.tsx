@@ -14,10 +14,9 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import { appAlert } from '../../../components/ui/AppAlert';
 import { t, interpolate } from '../../../i18n';
 import { toTimeLabel } from '../../../utils/dates/jalali';
-import { formatTomanFromRial } from '../../../utils/currency/money';
 import { useFinanceStore } from '../../../store/finance/store';
 import type { RootStackParamList } from '../../../app/navigation/types';
-import type { AllocationFilter, AssetClass, WealthRange } from '../../../types/wealth';
+import type { AssetClass, WealthRange } from '../../../types/wealth';
 import {
   buildAllocation,
   filterAndSortHoldings,
@@ -27,11 +26,15 @@ import {
   type WealthSort,
 } from '../engine/portfolio';
 import { supportsLivePrice } from '../pricing/symbols';
+import { AllocationTargetCard } from '../components/AllocationTargetCard';
 import { NetWorthHero, RANGES } from '../components/NetWorthHero';
 import { AllocationPanel } from '../components/AllocationPanel';
 import { WealthHoldingCard } from '../components/WealthHoldingCard';
-import { ASSET_CLASS_ORDER } from '../catalog/classes';
+import { ASSET_CLASS_ORDER, resolveAssetClass } from '../catalog/classes';
 import { InflationCard } from '../../obligations/components/InflationCard';
+
+/** Search only pays off once the list is longer than a screen. */
+const SEARCH_FROM = 6;
 
 const SORT_OPTIONS: WealthSort[] = ['value', 'profit', 'profit_pct', 'updated', 'name'];
 const SORT_LABEL = {
@@ -169,6 +172,7 @@ export function AccountsScreen() {
       backgroundColor: chipBg,
     },
     classChipText: { fontSize: 11, color: c.text, textAlign: 'center' },
+    controls: { flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 8 },
     sortRow: {
       flexDirection: 'row-reverse',
       flexWrap: 'wrap',
@@ -195,7 +199,6 @@ export function AccountsScreen() {
   const hidden = snapshot.settings.hideBalances;
 
   const [range, setRange] = useState<WealthRange>('3M');
-  const [allocFilter, setAllocFilter] = useState<AllocationFilter>('all');
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState<AssetClass | 'all'>('all');
   const [sort, setSort] = useState<WealthSort>('value');
@@ -214,9 +217,11 @@ export function AccountsScreen() {
     [snapshot.netWorthHistory, activeRange],
   );
   const changePct = useMemo(() => netWorthChangePct(history), [history]);
-  const slices = useMemo(
-    () => buildAllocation(snapshot.accounts, allocFilter),
-    [snapshot.accounts, allocFilter],
+  const slices = useMemo(() => buildAllocation(snapshot.accounts, 'all'), [snapshot.accounts]);
+  const presentClasses = useMemo(
+    () =>
+      ASSET_CLASS_ORDER.filter(cls => snapshot.accounts.some(a => resolveAssetClass(a) === cls)),
+    [snapshot.accounts],
   );
   const holdings = useMemo(
     () =>
@@ -278,6 +283,7 @@ export function AccountsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void useFinanceStore.getState().refreshUsdRate();
       // Market feeds are only worth fetching when something here is priced by them.
       if (!autoPrice || !hasLiveHoldings) {
         return;
@@ -370,125 +376,63 @@ export function AccountsScreen() {
           range={activeRange}
           onRangeChange={setRange}
           ranges={ranges}
+          usdRateRial={snapshot.settings.usdRateRial}
           changePct={changePct}
           hidden={hidden}
         />
 
-        <AllocationPanel
-          slices={slices}
-          filter={allocFilter}
-          onFilterChange={setAllocFilter}
-          hidden={hidden}
-        />
-
-        <InflationCard hidden={hidden} />
-
-        {snapshot.accounts.length > 0 ? (
-          <View style={styles.perfRow}>
-            <View style={styles.perfCard}>
-              <AppText style={styles.perfLabel}>{dict.wealth.unrealizedPl}</AppText>
-              <AppText
-                style={[
-                  styles.perfValue,
-                  {
-                    color: summary.unrealizedPlRial >= 0 ? colors.income : colors.expense,
-                  },
-                ]}>
-                {hidden
-                  ? '••••'
-                  : `${summary.unrealizedPlRial > 0 ? '+' : ''}${formatTomanFromRial(
-                      summary.unrealizedPlRial,
-                    )}`}
-              </AppText>
-            </View>
-            <View style={styles.perfCard}>
-              <AppText style={styles.perfLabel}>{dict.wealth.liquid}</AppText>
-              <AppText style={styles.perfValue}>
-                {hidden ? '••••' : formatTomanFromRial(summary.liquidRial)}
-              </AppText>
-            </View>
-            <View style={styles.perfCard}>
-              <AppText style={styles.perfLabel}>{dict.wealth.illiquid}</AppText>
-              <AppText style={styles.perfValue}>
-                {hidden ? '••••' : formatTomanFromRial(summary.illiquidRial)}
-              </AppText>
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.listHeader}>
           <AppText style={styles.listTitle}>{dict.wealth.holdingsTitle}</AppText>
           <AppText style={styles.listHint}>{dict.wealth.holdingsHint}</AppText>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={dict.wealth.search}
-            placeholderTextColor={colors.textMuted}
-            textAlign="right"
-            style={styles.search}
-          />
+          {snapshot.accounts.length > SEARCH_FROM ? (
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={dict.wealth.search}
+              placeholderTextColor={colors.textMuted}
+              textAlign="right"
+              style={styles.search}
+            />
+          ) : null}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.classFilters}>
+        <View style={styles.controls}>
           <Pressable
-            onPress={() => setClassFilter('all')}
-            style={[
-              styles.classChip,
-              classFilter === 'all' && {
-                borderColor: colors.primary,
-                backgroundColor: isLight ? colors.primary : accent.primaryGlow,
-              },
-            ]}>
-            <AppText
-              style={[
-                styles.classChipText,
-                classFilter === 'all' && isLight && { color: colors.onPrimary },
-              ]}>
-              {dict.accounts.filterAll}
+            accessibilityRole="button"
+            style={styles.sortRow}
+            onPress={() =>
+              appAlert(dict.wealth.filterTitle, undefined, [
+                { text: dict.wealth.filterAll, onPress: () => setClassFilter('all') },
+                ...presentClasses.map(cls => ({
+                  text: dict.wealth.classes[cls],
+                  onPress: () => setClassFilter(cls),
+                })),
+                { text: dict.common.cancel, style: 'cancel' as const },
+              ])
+            }>
+            <AppText style={styles.sortText}>
+              {`${dict.wealth.filterTitle}: ${
+                classFilter === 'all' ? dict.wealth.filterAll : dict.wealth.classes[classFilter]
+              }`}
             </AppText>
           </Pressable>
-          {ASSET_CLASS_ORDER.map(cls => (
-            <Pressable
-              key={cls}
-              onPress={() => setClassFilter(cls)}
-              style={[
-                styles.classChip,
-                classFilter === cls && {
-                  borderColor: colors.primary,
-                  backgroundColor: isLight ? colors.primary : accent.primaryGlow,
-                },
-              ]}>
-              <AppText
-                style={[
-                  styles.classChipText,
-                  classFilter === cls && isLight && { color: colors.onPrimary },
-                ]}>
-                {dict.wealth.classes[cls]}
-              </AppText>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* One sort control instead of a second row of chips. */}
-        <Pressable
-          accessibilityRole="button"
-          style={styles.sortRow}
-          onPress={() =>
-            appAlert(dict.wealth.sortTitle, undefined, [
-              ...SORT_OPTIONS.map(id => ({
-                text: dict.wealth.sort[SORT_LABEL[id]],
-                onPress: () => setSort(id),
-              })),
-              { text: dict.common.cancel, style: 'cancel' as const },
-            ])
-          }>
-          <AppText style={styles.sortText}>
-            {`${dict.wealth.sortTitle}: ${dict.wealth.sort[SORT_LABEL[sort]]}`}
-          </AppText>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.sortRow}
+            onPress={() =>
+              appAlert(dict.wealth.sortTitle, undefined, [
+                ...SORT_OPTIONS.map(id => ({
+                  text: dict.wealth.sort[SORT_LABEL[id]],
+                  onPress: () => setSort(id),
+                })),
+                { text: dict.common.cancel, style: 'cancel' as const },
+              ])
+            }>
+            <AppText style={styles.sortText}>
+              {`${dict.wealth.sortTitle}: ${dict.wealth.sort[SORT_LABEL[sort]]}`}
+            </AppText>
+          </Pressable>
+        </View>
 
         <View style={styles.list}>
           {holdings.length === 0 ? (
@@ -510,6 +454,17 @@ export function AccountsScreen() {
             ))
           )}
         </View>
+        {slices.length > 1 ? (
+          <AllocationPanel
+            slices={slices}
+            footer={<AllocationTargetCard embedded />}
+            hidden={hidden}
+          />
+        ) : (
+          <AllocationTargetCard />
+        )}
+
+        <InflationCard hidden={hidden} />
       </ScrollView>
     </NightCanvas>
   );

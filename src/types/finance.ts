@@ -333,6 +333,11 @@ export interface UserSettings {
   financialMonthStartDay?: number;
   /** Yearly inflation % the user assumes for real-value figures (default 35). */
   annualInflationPct?: number;
+  /** Last USD rate seen in market prices (rial per dollar) and when. */
+  usdRateRial?: number;
+  usdRateAt?: string;
+  /** Target share per allocation bucket, in percent (sums to 100). */
+  allocationTargets?: Partial<Record<'cash' | 'gold' | 'fx' | 'equity' | 'other', number>>;
   defaultAccountId?: string;
   insightsEnabled?: boolean;
   autoPriceUpdates?: boolean;

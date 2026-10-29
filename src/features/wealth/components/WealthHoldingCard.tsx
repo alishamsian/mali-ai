@@ -25,7 +25,6 @@ import {
   Wallet,
 } from 'lucide-react-native';
 import { AppText } from '../../../components/ui/AppText';
-import { BankPlasticCard } from '../../../components/banks/BankPlasticCard';
 import { PressScale } from '../../../components/ui/PressScale';
 import { formatTomanFromRial, formatCompactToman } from '../../../utils/currency/money';
 import { useAppTheme } from '../../../theme/ThemeBridge';
@@ -237,27 +236,6 @@ function ValueBlock({
         </AppText>
       )}
     </View>
-  );
-}
-
-function BankCard({
-  account,
-  hidden,
-  onPress,
-  index,
-}: {
-  account: FinancialAccount;
-  hidden: boolean;
-  onPress: () => void;
-  index: number;
-}) {
-  const reduced = useFinanceStore(s => s.snapshot.settings.reducedMotion);
-  const entrance = useCardEntrance(index, reduced);
-
-  return (
-    <Animated.View style={[{ marginBottom: 12 }, entrance]}>
-      <BankPlasticCard account={account} hidden={hidden} onPress={onPress} />
-    </Animated.View>
   );
 }
 
@@ -571,9 +549,6 @@ export function WealthHoldingCard({
   index?: number;
 }) {
   const cls = resolveAssetClass(account);
-  if (cls === 'bank') {
-    return <BankCard account={account} hidden={hidden} onPress={onPress} index={index} />;
-  }
   if (cls === 'gold') {
     return <GoldCard account={account} hidden={hidden} onPress={onPress} index={index} />;
   }

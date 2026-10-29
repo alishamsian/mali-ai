@@ -65,6 +65,7 @@ import type { SenderVerificationMethod } from '../../types/finance';
 import type { Cheque, ChequeStatus, InstallmentPlan, PersonalDebt } from '../../types/obligations';
 import { flushSyncQueue } from '../../services/sync/flush';
 import { findCrossSourceDuplicate } from '../../engine/duplicate/crossSource';
+import { getMarketBundle } from '../../features/wealth/pricing/marketClient';
 import { appendNetWorthPoint } from '../../features/wealth/migration/migrateAccounts';
 import { revalueFromDetails } from '../../features/wealth/engine/portfolio';
 import { refreshPricesFromHoldings } from '../../features/wealth/pricing/providers';
@@ -216,6 +217,7 @@ function isSmsBatching(): boolean {
 }
 
 const ALERT_LOG_LIMIT = 400;
+const USD_RATE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 function liveSnapshot(get: () => FinanceState): FinanceSnapshot {
   return smsBatchWorking ?? get().snapshot;
@@ -323,6 +325,8 @@ interface FinanceState {
   recordAlerts: (keys: string[]) => void;
   /** Today's net-worth point, so the Vault chart grows a point a day. */
   touchNetWorth: () => void;
+  /** Keeps settings.usdRateRial fresh (at most every 12 hours) for the Vault's dollar value. */
+  refreshUsdRate: () => Promise<void>;
   deleteRecurring: (id: string) => void;
   ingestSms: (
     payload: RawSmsPayload,
@@ -768,6 +772,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           : d,
       ),
     });
+  },
+  refreshUsdRate: async () => {
+    const { usdRateAt } = liveSnapshot(get).settings;
+    if (usdRateAt && Date.now() - Date.parse(usdRateAt) < USD_RATE_MAX_AGE_MS) {
+      return;
+    }
+    try {
+      const usd = (await getMarketBundle()).quotes.usd;
+      if (usd && usd > 0) {
+        get().updateSettings({ usdRateRial: usd, usdRateAt: new Date().toISOString() });
+      }
+    } catch {
+      // Offline: keep the last rate.
+    }
   },
   touchNetWorth: () => {
     // A Fast Refresh can remount the navigator before the reloaded store has hydrated.

@@ -14,7 +14,7 @@ import { theme } from '../../../theme';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { useFinanceStore } from '../../../store/finance/store';
-import { t } from '../../../i18n';
+import { t, interpolate as fill } from '../../../i18n';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import type { NetWorthSnapshot, WealthRange } from '../../../types/wealth';
 import type { PortfolioSummary } from '../engine/portfolio';
@@ -27,6 +27,7 @@ export function NetWorthHero({
   range,
   onRangeChange,
   ranges = RANGES,
+  usdRateRial,
   changePct,
   hidden,
 }: {
@@ -36,6 +37,8 @@ export function NetWorthHero({
   onRangeChange: (r: WealthRange) => void;
   /** Ranges with enough history to draw; the others are left out. */
   ranges?: WealthRange[];
+  /** Rial per dollar, for the «about N dollars» line. */
+  usdRateRial?: number;
   changePct: number | null;
   hidden: boolean;
 }) {
@@ -171,6 +174,15 @@ export function NetWorthHero({
           {hidden ? '••••••••' : formatTomanFromRial(summary.netWorthRial)}
         </AppText>
         <AppText style={styles.currency}>{dict.common.toman}</AppText>
+        {usdRateRial && !hidden && summary.netWorthRial > 0 ? (
+          <AppText style={styles.currency}>
+            {fill(dict.wealth.usdValue, {
+              amount: toPersianDigits(
+                Math.round(summary.netWorthRial / usdRateRial).toLocaleString('en-US'),
+              ),
+            })}
+          </AppText>
+        ) : null}
 
         <View style={styles.changePill}>
           {changePct != null && Math.abs(changePct) >= 0.05 ? (
@@ -196,12 +208,18 @@ export function NetWorthHero({
               {hidden ? '••••' : formatTomanFromRial(summary.totalLiabilitiesRial)}
             </AppText>
           </View>
-          <View style={styles.triItem}>
-            <AppText style={styles.triLabel}>{dict.wealth.liquid}</AppText>
-            <AppText style={styles.triValue}>
-              {hidden ? '••••' : formatTomanFromRial(summary.liquidRial)}
-            </AppText>
-          </View>
+          {summary.costBasisRial > 0 ? (
+            <View style={styles.triItem}>
+              <AppText style={styles.triLabel}>{dict.wealth.unrealizedPl}</AppText>
+              <AppText
+                style={[
+                  styles.triValue,
+                  { color: summary.unrealizedPlRial >= 0 ? colors.income : colors.expense },
+                ]}>
+                {hidden ? '••••' : formatTomanFromRial(summary.unrealizedPlRial, { sign: true })}
+              </AppText>
+            </View>
+          ) : null}
         </View>
 
         {points.length >= 2 ? (
@@ -215,27 +233,29 @@ export function NetWorthHero({
           </View>
         ) : null}
 
-        <View style={styles.ranges}>
-          {ranges.map(r => (
-            <Pressable
-              key={r}
-              onPress={() => onRangeChange(r)}
-              style={[
-                styles.range,
-                range === r && {
-                  backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow,
-                },
-              ]}>
-              <AppText
+        {ranges.length > 1 ? (
+          <View style={styles.ranges}>
+            {ranges.map(r => (
+              <Pressable
+                key={r}
+                onPress={() => onRangeChange(r)}
                 style={[
-                  styles.rangeText,
-                  range === r && { color: isLight ? colors.onPrimary : colors.primary },
+                  styles.range,
+                  range === r && {
+                    backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow,
+                  },
                 ]}>
-                {dict.wealth.ranges[r]}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
+                <AppText
+                  style={[
+                    styles.rangeText,
+                    range === r && { color: isLight ? colors.onPrimary : colors.primary },
+                  ]}>
+                  {dict.wealth.ranges[r]}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </LinearGradient>
     </Animated.View>
   );

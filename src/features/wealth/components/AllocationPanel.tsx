@@ -3,26 +3,21 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { DonutChart } from '../../../components/charts/Charts';
 import { formatTomanFromRial } from '../../../utils/currency/money';
-import { theme } from '../../../theme';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { t } from '../../../i18n';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import type { AllocationSlice } from '../engine/portfolio';
 import { allocationColor } from '../catalog/classes';
-import type { AllocationFilter } from '../../../types/wealth';
-
-const FILTERS: AllocationFilter[] = ['all', 'investments', 'liquid', 'physical', 'alternative'];
 
 export function AllocationPanel({
   slices,
-  filter,
-  onFilterChange,
+  footer,
   hidden,
 }: {
   slices: AllocationSlice[];
-  filter: AllocationFilter;
-  onFilterChange: (f: AllocationFilter) => void;
+  /** Rendered at the bottom of the same card (the target-mix view). */
+  footer?: React.ReactNode;
   hidden: boolean;
 }) {
   const dict = t();
@@ -147,28 +142,6 @@ export function AllocationPanel({
     <View style={styles.wrap}>
       <AppText style={styles.heading}>{dict.wealth.allocation}</AppText>
       <AppText style={styles.hint}>{dict.wealth.allocationHint}</AppText>
-      <View style={styles.filters}>
-        {FILTERS.map(f => (
-          <Pressable
-            key={f}
-            onPress={() => onFilterChange(f)}
-            style={[
-              styles.filter,
-              filter === f && {
-                borderColor: colors.primary,
-                backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow,
-              },
-            ]}>
-            <AppText
-              style={[
-                styles.filterText,
-                filter === f && { color: isLight ? colors.onPrimary : colors.primary },
-              ]}>
-              {dict.wealth.allocationFilters[f]}
-            </AppText>
-          </Pressable>
-        ))}
-      </View>
 
       {slices.length === 0 ? (
         <AppText style={styles.empty}>{dict.wealth.allocationEmpty}</AppText>
@@ -235,6 +208,7 @@ export function AllocationPanel({
           </View>
         </View>
       )}
+      {footer}
     </View>
   );
 }
