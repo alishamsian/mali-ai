@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import {
+  Canvas,
+  Circle,
+  DashPathEffect,
+  Group,
+  LinearGradient,
+  Line,
+  Path,
+  vec,
+} from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import { hapticTap } from '../../utils/haptics';
 import { AppText } from '../ui/AppText';
 import { PressScale } from '../ui/PressScale';
 import { useAppTheme } from '../../theme/ThemeBridge';
@@ -11,6 +23,24 @@ import { toPersianDigits } from '../../utils/numbers/digits';
 const CHART_H = 170;
 const TOP = 34;
 const PAD = 22;
+const DRAW_MS = 650;
+
+type Pt = { x: number; y: number };
+
+/** Monotone-ish smoothing: cubic segments through every point, no overshoot past neighbours. */
+function smoothPath(pts: Pt[]): string {
+  if (pts.length === 0) {
+    return '';
+  }
+  let d = `M${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length; i += 1) {
+    const p0 = pts[i - 1];
+    const p1 = pts[i];
+    const dx = (p1.x - p0.x) / 2;
+    d += ` C${p0.x + dx} ${p0.y} ${p1.x - dx} ${p1.y} ${p1.x} ${p1.y}`;
+  }
+  return d;
+}
 
 /** This period vs last: deep amber (≈3:1 on the glass backdrop) and a dashed grey reference. */
 export const CURRENT_LINE = '#A86E10';
@@ -40,13 +70,42 @@ export function CompareLineChart({
   const xAt = (i: number) => width - PAD - i * step;
   const max = Math.max(1, ...points.map(p => Math.max(p.current ?? 0, p.previous)));
   const yAt = (v: number) => CHART_H - (v / max) * (CHART_H - TOP);
-  const path = (vals: Array<number | null>) =>
-    vals.reduce<string>((d, v, i) => {
-      if (v === null) {
-        return d;
-      }
-      return `${d}${d ? ' L' : 'M'}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)}`;
-    }, '');
+  const toPts = (vals: Array<number | null>) =>
+    vals.flatMap((v, i) => (v === null ? [] : [{ x: xAt(i), y: yAt(v) }]));
+  const currentPts = toPts(points.map(p => p.current));
+  const currentD = smoothPath(currentPts);
+  const previousD = smoothPath(toPts(points.map(p => p.previous)));
+  const areaD =
+    currentPts.length > 1
+      ? `${currentD} L${currentPts[currentPts.length - 1].x} ${CHART_H} L${
+          currentPts[0].x
+        } ${CHART_H} Z`
+      : '';
+  // Skia takes SVG path strings directly.
+  const skPaths = { current: currentD || 'M0 0', previous: previousD || 'M0 0', area: areaD || 'M0 0' };
+
+  // Lines draw in when the data changes (week ↔ months).
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: DRAW_MS, easing: Easing.out(Easing.cubic) });
+  }, [currentD, previousD, progress]);
+
+  // Drag across the chart to scrub; a light tick on each new point.
+  const selectAt = (x: number) => {
+    if (n < 2 || step <= 0) {
+      return;
+    }
+    const i = Math.max(0, Math.min(n - 1, Math.round((width - PAD - x) / step)));
+    if (i !== selected && points[i]?.current !== null) {
+      hapticTap();
+      onSelect(i);
+    }
+  };
+  const scrub = Gesture.Pan()
+    .activeOffsetX([-6, 6])
+    .onBegin(e => runOnJS(selectAt)(e.x))
+    .onUpdate(e => runOnJS(selectAt)(e.x));
 
   const sel = points[selected];
   const selValue = sel?.current ?? 0;
@@ -59,37 +118,71 @@ export function CompareLineChart({
     <View onLayout={onLayout} style={styles.root}>
       {width > 0 ? (
         <>
-          <Svg width={width} height={CHART_H} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {Array.from({ length: Math.floor(width / 15) }, (_, i) => (
-              <Line key={i} x1={6 + i * 15} x2={6 + i * 15} y1={18} y2={CHART_H} stroke={gridColor} strokeWidth={2} />
-            ))}
-            <Path
-              d={path(points.map(p => p.previous))}
-              fill="none"
-              stroke={PREVIOUS_LINE}
-              strokeWidth={1.8}
-              strokeDasharray="5 4"
-              strokeLinejoin="round"
-            />
-            <Path
-              d={path(points.map(p => p.current))}
-              fill="none"
-              stroke={CURRENT_LINE}
-              strokeWidth={2.6}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {sel && sel.current !== null ? (
-              <>
-                <Line x1={xAt(selected)} x2={xAt(selected)} y1={yAt(selValue)} y2={CHART_H} stroke={colors.text} strokeWidth={2} />
-                <Circle cx={xAt(selected)} cy={yAt(selValue)} r={5} fill={colors.text} />
-              </>
-            ) : null}
-          </Svg>
+          <GestureDetector gesture={scrub}>
+            <Canvas
+              style={{ width, height: CHART_H }}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants">
+              {Array.from({ length: Math.floor(width / 15) }, (_, i) => (
+                <Line
+                  key={i}
+                  p1={vec(6 + i * 15, 18)}
+                  p2={vec(6 + i * 15, CHART_H)}
+                  color={gridColor}
+                  strokeWidth={2}
+                />
+              ))}
+              <Path path={skPaths.area} start={0} end={progress}>
+                <LinearGradient
+                  start={vec(0, TOP)}
+                  end={vec(0, CHART_H)}
+                  colors={[`${CURRENT_LINE}55`, `${CURRENT_LINE}00`]}
+                />
+              </Path>
+              <Path
+                path={skPaths.previous}
+                style="stroke"
+                strokeWidth={1.8}
+                color={PREVIOUS_LINE}
+                strokeJoin="round"
+                end={progress}>
+                <DashPathEffect intervals={[5, 4]} />
+              </Path>
+              <Path
+                path={skPaths.current}
+                style="stroke"
+                strokeWidth={3}
+                color={CURRENT_LINE}
+                strokeJoin="round"
+                strokeCap="round"
+                end={progress}
+              />
+              {sel && sel.current !== null ? (
+                <Group>
+                  <Line
+                    p1={vec(xAt(selected), yAt(selValue))}
+                    p2={vec(xAt(selected), CHART_H)}
+                    color={colors.text}
+                    strokeWidth={1.5}
+                  />
+                  <Circle cx={xAt(selected)} cy={yAt(selValue)} r={9} color={`${CURRENT_LINE}33`} />
+                  <Circle cx={xAt(selected)} cy={yAt(selValue)} r={5} color={colors.text} />
+                </Group>
+              ) : null}
+            </Canvas>
+          </GestureDetector>
           {sel && sel.current !== null ? (
             <View
               pointerEvents="none"
-              style={[styles.tip, { left: tipLeft, top: Math.max(0, yAt(selValue) - 40), width: tipW, backgroundColor: colors.primary }]}>
+              style={[
+                styles.tip,
+                {
+                  left: tipLeft,
+                  top: Math.max(0, yAt(selValue) - 40),
+                  width: tipW,
+                  backgroundColor: colors.primary,
+                },
+              ]}>
               <AppText style={[styles.tipText, { color: colors.onPrimary }]} numberOfLines={1}>
                 {formatValue(selValue)}
               </AppText>
@@ -114,14 +207,17 @@ export function CompareLineChart({
                       styles.labelTop,
                       {
                         color: on ? colors.text : future ? colors.textMuted : colors.textSecondary,
-                        fontFamily: on ? theme.typography.fontFamily.bold : theme.typography.fontFamily.medium,
+                        fontFamily: on
+                          ? theme.typography.fontFamily.bold
+                          : theme.typography.fontFamily.medium,
                         fontSize: p.sub ? 13 : 11,
                       },
                     ]}>
                     {p.label}
                   </AppText>
                   {p.sub ? (
-                    <AppText style={[styles.labelSub, { color: on ? colors.text : colors.textMuted }]}>
+                    <AppText
+                      style={[styles.labelSub, { color: on ? colors.text : colors.textMuted }]}>
                       {toPersianDigits(p.sub)}
                     </AppText>
                   ) : null}

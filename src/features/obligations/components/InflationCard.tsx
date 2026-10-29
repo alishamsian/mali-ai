@@ -28,9 +28,14 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
     head: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
     title: { textAlign: 'right', fontFamily: th.typography.fontFamily.semibold, color: c.text },
     body: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
-    value: { textAlign: 'right', fontSize: 22, fontFamily: th.typography.fontFamily.bold, color: c.text },
+    value: {
+      textAlign: 'right',
+      fontSize: 22,
+      fontFamily: th.typography.fontFamily.bold,
+      color: c.text,
+    },
     loss: { textAlign: 'right', color: c.warning, fontSize: 12 },
-    chips: { flexDirection: 'row-reverse', gap: 8 },
+    chips: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
   }));
 
   const liquid = liquidBalanceRial(accounts);
@@ -38,7 +43,8 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
     return null;
   }
   const after = purchasingPowerAfter(liquid, 12, pct);
-  const money = (rial: number) => (hidden ? '••••' : `${formatTomanFromRial(rial)} ${t().common.toman}`);
+  const money = (rial: number) =>
+    hidden ? '••••' : `${formatTomanFromRial(rial)} ${t().common.toman}`;
   return (
     <GlassPanel radius={28} style={styles.panel}>
       <View style={styles.head}>
@@ -53,6 +59,7 @@ export function InflationCard({ hidden }: { hidden: boolean }) {
         </AppText>
       )}
       <View style={styles.chips}>
+        <AppText style={styles.body}>{dict.change}</AppText>
         {RATES.map(rate => (
           <FilterChip
             key={rate}

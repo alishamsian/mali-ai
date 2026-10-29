@@ -1,9 +1,16 @@
-import React from 'react';
-import Svg, { Circle, Defs, LinearGradient as SvgGrad, Path, Stop, Text as SvgText } from 'react-native-svg';
+import React, { useEffect, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Canvas, LinearGradient, Path, Skia, vec } from '@shopify/react-native-skia';
+import { Area, CartesianChart, Line, Pie, PolarChart } from 'victory-native';
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AppText } from '../ui/AppText';
 import { theme } from '../../theme';
 import { useAppTheme } from '../../theme/ThemeBridge';
 import { toPersianDigits } from '../../utils/numbers/digits';
 
+const ANIMATE = { type: 'timing', duration: 600 } as const;
+
+/** Small trend line with a soft gradient fill (Victory Native on Skia). */
 export function Sparkline({
   points,
   color,
@@ -17,35 +24,40 @@ export function Sparkline({
 }) {
   const { colors } = useAppTheme();
   const stroke = color ?? colors.primary;
+  const data = useMemo(() => points.map((y, x) => ({ x, y })), [points]);
   if (points.length < 2) {
     return null;
   }
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const span = max - min || 1;
-  const step = width / (points.length - 1);
-  const coords = points.map((p, i) => {
-    const x = i * step;
-    const y = height - ((p - min) / span) * (height - 8) - 4;
-    return { x, y };
-  });
-  const line = coords.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const area = `${line} L ${width} ${height} L 0 ${height} Z`;
-  const gid = `spark-${stroke.replace('#', '')}-${width}`;
   return (
-    <Svg width={width} height={height}>
-      <Defs>
-        <SvgGrad id={gid} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={stroke} stopOpacity="0.35" />
-          <Stop offset="1" stopColor={stroke} stopOpacity="0" />
-        </SvgGrad>
-      </Defs>
-      <Path d={area} fill={`url(#${gid})`} />
-      <Path d={line} stroke={stroke} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View
+      style={{ width, height }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants">
+      <CartesianChart data={data} xKey="x" yKeys={['y']} padding={{ top: 4, bottom: 2 }}>
+        {({ points: pts, chartBounds }) => (
+          <>
+            <Area points={pts.y} y0={chartBounds.bottom} curveType="natural" animate={ANIMATE}>
+              <LinearGradient
+                start={vec(0, chartBounds.top)}
+                end={vec(0, chartBounds.bottom)}
+                colors={[`${stroke}59`, `${stroke}00`]}
+              />
+            </Area>
+            <Line
+              points={pts.y}
+              color={stroke}
+              strokeWidth={2.2}
+              curveType="natural"
+              animate={ANIMATE}
+            />
+          </>
+        )}
+      </CartesianChart>
+    </View>
   );
 }
 
+/** Ring chart; slices sweep in. Callers overlay their own centre label. */
 export function DonutChart({
   slices,
   size = 220,
@@ -53,37 +65,26 @@ export function DonutChart({
   slices: Array<{ value: number; color: string }>;
   size?: number;
 }) {
-  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
-  const r = size / 2 - 18;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
+  const data = useMemo(
+    () => slices.map((s, i) => ({ label: String(i), value: s.value, color: s.color })),
+    [slices],
+  );
+  if (data.length === 0) {
+    return <View style={{ width: size, height: size }} />;
+  }
   return (
-    <Svg width={size} height={size}>
-      <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(243,241,234,0.06)" strokeWidth={16} fill="none" />
-      {slices.map((slice, i) => {
-        const len = (slice.value / total) * c;
-        const el = (
-          <Circle
-            key={i}
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            stroke={slice.color}
-            strokeWidth={16}
-            fill="none"
-            strokeDasharray={`${len} ${c - len}`}
-            strokeDashoffset={-offset}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        );
-        offset += len;
-        return el;
-      })}
-    </Svg>
+    <View
+      style={{ width: size, height: size }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants">
+      <PolarChart data={data} labelKey="label" valueKey="value" colorKey="color">
+        <Pie.Chart innerRadius="78%">{() => <Pie.Slice animate={ANIMATE} />}</Pie.Chart>
+      </PolarChart>
+    </View>
   );
 }
 
+/** 270° score gauge that fills to its value. */
 export function ArcGauge({
   value,
   caption,
@@ -95,60 +96,58 @@ export function ArcGauge({
 }) {
   const { colors } = useAppTheme();
   const clamped = Math.max(0, Math.min(100, value));
-  const r = size / 2 - 14;
-  const c = 2 * Math.PI * r;
-  const track = c * 0.75;
-  const filled = (clamped / 100) * track;
   const color =
     clamped >= 80
       ? colors.income
       : clamped >= 65
-        ? colors.primary
-        : clamped >= 48
-          ? colors.filament
-          : colors.expense;
+      ? colors.primary
+      : clamped >= 48
+      ? colors.filament
+      : colors.expense;
+  const stroke = 11;
+  const arc = useMemo(() => {
+    const path = Skia.Path.Make();
+    const inset = stroke / 2 + 3;
+    path.addArc(
+      { x: inset, y: inset, width: size - inset * 2, height: size - inset * 2 },
+      135,
+      270,
+    );
+    return path;
+  }, [size]);
+  const fill = useSharedValue(0);
+  useEffect(() => {
+    fill.value = withTiming(clamped / 100, { duration: 900, easing: Easing.out(Easing.cubic) });
+  }, [clamped, fill]);
+
   return (
-    <Svg width={size} height={size}>
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="rgba(243,241,234,0.08)"
-        strokeWidth={11}
-        fill="none"
-        strokeDasharray={`${track} ${c}`}
-        strokeLinecap="round"
-        transform={`rotate(135 ${size / 2} ${size / 2})`}
-      />
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={color}
-        strokeWidth={11}
-        fill="none"
-        strokeDasharray={`${filled} ${c}`}
-        strokeLinecap="round"
-        transform={`rotate(135 ${size / 2} ${size / 2})`}
-      />
-      <SvgText
-        x={size / 2}
-        y={size / 2 + 4}
-        fill={colors.text}
-        fontSize="28"
-        fontFamily={theme.typography.fontFamily.bold}
-        textAnchor="middle">
-        {toPersianDigits(Math.round(clamped))}
-      </SvgText>
-      <SvgText
-        x={size / 2}
-        y={size / 2 + 24}
-        fill={theme.palette.filament}
-        fontSize="10"
-        fontFamily={theme.typography.fontFamily.medium}
-        textAnchor="middle">
-        {caption}
-      </SvgText>
-    </Svg>
+    <View style={{ width: size, height: size }}>
+      <Canvas style={StyleSheet.absoluteFill}>
+        <Path
+          path={arc}
+          style="stroke"
+          strokeWidth={stroke}
+          strokeCap="round"
+          color={`${colors.text}14`}
+        />
+        <Path path={arc} style="stroke" strokeWidth={stroke} strokeCap="round" end={fill}>
+          <LinearGradient start={vec(0, size)} end={vec(size, 0)} colors={[`${color}99`, color]} />
+        </Path>
+      </Canvas>
+      <View style={styles.gaugeCenter} pointerEvents="none">
+        <AppText style={[styles.gaugeValue, { color: colors.text }]}>
+          {toPersianDigits(Math.round(clamped))}
+        </AppText>
+        <AppText style={[styles.gaugeCaption, { color: theme.palette.filament }]}>
+          {caption}
+        </AppText>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  gaugeCenter: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  gaugeValue: { fontSize: 28, lineHeight: 36, fontFamily: theme.typography.fontFamily.bold },
+  gaugeCaption: { fontSize: 10, fontFamily: theme.typography.fontFamily.medium },
+});

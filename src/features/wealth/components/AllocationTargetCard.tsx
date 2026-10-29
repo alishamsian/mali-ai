@@ -7,6 +7,7 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
+import { formatCompactToman } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { allocationVsTarget, PRESETS, type TargetPreset } from '../engine/targets';
 
@@ -23,6 +24,14 @@ export function AllocationTargetCard({ embedded = false }: { embedded?: boolean 
     () => (targets ? allocationVsTarget(accounts, targets) : []),
     [accounts, targets],
   );
+  // One piece of advice: the bucket furthest from its target.
+  const worst = rows.reduce<(typeof rows)[number] | null>(
+    (max, r) =>
+      Math.abs(r.driftPct) > TOLERANCE_PCT && (!max || Math.abs(r.driftPct) > Math.abs(max.driftPct))
+        ? r
+        : max,
+    null,
+  );
 
   const styles = useThemedStyles((c, th) => ({
     panel: { padding: 18, gap: 12 },
@@ -31,19 +40,29 @@ export function AllocationTargetCard({ embedded = false }: { embedded?: boolean 
     title: { textAlign: 'right', color: c.text, fontFamily: th.typography.fontFamily.semibold },
     link: { color: c.textMuted, fontSize: 12 },
     hint: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
-    row: { gap: 6 },
+    row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
     rowHead: { flexDirection: 'row-reverse', justifyContent: 'space-between' },
-    name: { color: c.text, fontSize: 13 },
+    name: { width: 84, textAlign: 'right', color: c.text, fontSize: 12 },
+    delta: {
+      width: 44,
+      textAlign: 'left',
+      fontSize: 12,
+      fontFamily: th.typography.fontFamily.semibold,
+    },
     track: {
+      flex: 1,
+      // Clipped, so a 100% bar can never spill over the delta column.
+      overflow: 'hidden',
       height: 8,
       borderRadius: 4,
       backgroundColor: c.glassBorder,
       flexDirection: 'row-reverse',
     },
+    advice: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
     marker: {
       position: 'absolute',
-      top: -3,
-      bottom: -3,
+      top: 0,
+      bottom: 0,
       width: 2,
       backgroundColor: c.text,
       borderRadius: 1,
@@ -82,34 +101,46 @@ export function AllocationTargetCard({ embedded = false }: { embedded?: boolean 
       {rows.map(row => {
         const off = Math.abs(row.driftPct) > TOLERANCE_PCT;
         return (
-          <View key={row.bucket} style={styles.row}>
-            <View style={styles.rowHead}>
-              <AppText style={styles.name}>
-                {`${dict.buckets[row.bucket]} · ${toPersianDigits(
-                  Math.round(row.currentPct),
-                )}٪ از ${toPersianDigits(row.targetPct)}٪`}
-              </AppText>
-              <AppText style={[styles.link, off && { color: colors.warning }]}>
-                {off
-                  ? interpolate(row.driftPct > 0 ? dict.driftAbove : dict.driftBelow, {
-                      n: Math.round(Math.abs(row.driftPct)),
-                    })
-                  : dict.onTarget}
-              </AppText>
-            </View>
+          <View
+            key={row.bucket}
+            style={styles.row}
+            accessibilityLabel={`${dict.buckets[row.bucket]}، ${interpolate(dict.targetNowGoal, {
+              now: Math.round(row.currentPct),
+              goal: row.targetPct,
+            })}`}>
+            <AppText style={styles.name} numberOfLines={1}>
+              {dict.buckets[row.bucket]}
+            </AppText>
             <View style={styles.track}>
+              {/* Flex ratios, not a % width: a 100% width here grew the whole row. */}
               <View
                 style={{
-                  width: `${Math.min(100, row.currentPct)}%`,
+                  flex: Math.min(100, row.currentPct),
                   borderRadius: 4,
                   backgroundColor: off ? colors.highlight : colors.income,
                 }}
               />
+              <View style={{ flex: Math.max(0, 100 - row.currentPct) }} />
               <View style={[styles.marker, { right: `${Math.min(100, row.targetPct)}%` }]} />
             </View>
+            <AppText style={[styles.delta, { color: off ? colors.warning : colors.textMuted }]}>
+              {off
+                ? `${row.driftPct > 0 ? '▲' : '▼'} ${toPersianDigits(
+                    Math.round(Math.abs(row.driftPct)),
+                  )}٪`
+                : '✓'}
+            </AppText>
           </View>
         );
       })}
+      {worst ? (
+        <AppText style={styles.advice}>
+          {interpolate(worst.driftPct > 0 ? dict.targetTooMuch : dict.targetTooLittle, {
+            name: dict.buckets[worst.bucket],
+            amount: formatCompactToman(Math.abs(worst.driftRial)),
+          })}
+        </AppText>
+      ) : null}
     </GlassPanel>
   );
 }

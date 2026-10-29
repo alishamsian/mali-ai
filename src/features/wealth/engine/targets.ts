@@ -29,7 +29,15 @@ export const PRESETS: Record<TargetPreset, Record<Bucket, number>> = {
   growth: { cash: 15, gold: 20, fx: 25, equity: 35, other: 5 },
 };
 
-export type BucketRow = { bucket: Bucket; currentPct: number; targetPct: number; driftPct: number };
+export type BucketRow = {
+  bucket: Bucket;
+  currentPct: number;
+  targetPct: number;
+  /** Positive = above target. */
+  driftPct: number;
+  /** Rial to move out of (positive) or into (negative) this bucket to hit the target. */
+  driftRial: number;
+};
 
 /** Current share per bucket next to its target; drift > 0 means above target. */
 export function allocationVsTarget(
@@ -37,17 +45,21 @@ export function allocationVsTarget(
   targets: Partial<Record<Bucket, number>>,
 ): BucketRow[] {
   const current: Record<Bucket, number> = { cash: 0, gold: 0, fx: 0, equity: 0, other: 0 };
+  let totalRial = 0;
   for (const slice of buildAllocation(accounts, 'all')) {
     current[BUCKET_OF[slice.assetClass]] += slice.percent;
+    totalRial += slice.valueRial;
   }
   return BUCKETS.map(bucket => {
     const targetPct = targets[bucket] ?? 0;
     const currentPct = Math.round(current[bucket] * 10) / 10;
+    const driftPct = Math.round((currentPct - targetPct) * 10) / 10;
     return {
       bucket,
       currentPct,
       targetPct,
-      driftPct: Math.round((currentPct - targetPct) * 10) / 10,
+      driftPct,
+      driftRial: Math.round((driftPct / 100) * totalRial),
     };
   });
 }
