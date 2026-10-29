@@ -13,15 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Share2,
-} from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Share2 } from 'lucide-react-native';
 import { theme } from '../../../theme';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
@@ -65,6 +57,11 @@ import {
   type DayGroupBy,
   type DaySort,
 } from '../../../engine/insights/dailyLedger';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { appAlert } from '../../../components/ui/AppAlert';
+import { GlassPanel } from '../../../components/ui/GlassPanel';
+import { SwipeTxRow } from '../../../components/lists/SwipeTxRow';
 import type { CategoryId, TransactionSource } from '../../../types/finance';
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
 
@@ -74,7 +71,6 @@ type Nav = CompositeNavigationProp<
 >;
 
 const FILTERS: DayFilter[] = ['all', 'income', 'expense', 'transfer', 'sms'];
-const GROUPS: DayGroupBy[] = ['none', 'category', 'account', 'source'];
 const SORTS: DaySort[] = ['time_desc', 'time_asc', 'amount_desc', 'amount_asc'];
 const STRIP_RADIUS = 14;
 /** Day chip width + gap and the strip's side padding — used to centre the selected day. */
@@ -82,10 +78,7 @@ const STRIP_CHIP = 52;
 const STRIP_GAP = 8;
 const STRIP_PAD = 20;
 
-function sourceGroupLabel(
-  source: TransactionSource,
-  dict: ReturnType<typeof t>,
-): string {
+function sourceGroupLabel(source: TransactionSource, dict: ReturnType<typeof t>): string {
   switch (source) {
     case 'android_sms':
       return dict.transactions.autoSms;
@@ -120,6 +113,11 @@ export function DailyLedgerScreen() {
       marginBottom: 14,
     },
     topTitles: { alignItems: 'flex-end', flex: 1 },
+    headerIcons: { flexDirection: 'row', gap: 8 },
+    headerIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    flowLine: { marginTop: 14, textAlign: 'right', color: c.textSecondary, fontSize: 13 },
+    sortControl: { alignSelf: 'flex-end', paddingVertical: 10 },
+    sortText: { color: c.textMuted, fontSize: 12 },
     brandTile: {
       width: 52,
       height: 52,
@@ -128,7 +126,12 @@ export function DailyLedgerScreen() {
       justifyContent: 'center',
       backgroundColor: c.primary,
     },
-    brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: th.typography.fontFamily.bold, color: c.onPrimary },
+    brandGlyph: {
+      fontSize: 28,
+      lineHeight: 40,
+      fontFamily: th.typography.fontFamily.bold,
+      color: c.onPrimary,
+    },
     title: {
       fontSize: 24,
       fontFamily: th.typography.fontFamily.semibold,
@@ -204,7 +207,10 @@ export function DailyLedgerScreen() {
       backgroundColor: chipBg,
       gap: 4,
     },
-    dayChipOn: { borderColor: c.primary, backgroundColor: isLight ? c.primary : accent.primaryGlow },
+    dayChipOn: {
+      borderColor: c.primary,
+      backgroundColor: isLight ? c.primary : accent.primaryGlow,
+    },
     dayChipToday: { borderColor: `${c.primary}55` },
     dayWeek: { fontSize: 10, color: c.textMuted },
     dayWeekOn: { color: isLight ? c.onPrimary : c.primary },
@@ -229,8 +235,8 @@ export function DailyLedgerScreen() {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    heroKicker: { fontSize: 12, color: c.textMuted },
-    mtd: { fontSize: 11, color: c.textMuted },
+    heroKicker: { fontSize: 12, color: c.textMuted, flexShrink: 0 },
+    mtd: { flex: 1, fontSize: 11, color: c.textMuted },
     heroAmountRow: {
       marginTop: 10,
       flexDirection: 'row-reverse',
@@ -391,7 +397,8 @@ export function DailyLedgerScreen() {
   const [dayKey, setDayKey] = useState(todayKey());
   const [filter, setFilter] = useState<DayFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | 'all'>('all');
-  const [groupBy, setGroupBy] = useState<DayGroupBy>('none');
+  // Grouping a single day's handful of rows added more chrome than it saved.
+  const groupBy: DayGroupBy = 'none';
   const [sort, setSort] = useState<DaySort>('time_desc');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -400,7 +407,22 @@ export function DailyLedgerScreen() {
     [snapshot.transactions, dayKey],
   );
 
-  const summary = useMemo(() => summarizeDay(snapshot.transactions, dayKey), [snapshot.transactions, dayKey]);
+  const summary = useMemo(
+    () => summarizeDay(snapshot.transactions, dayKey),
+    [snapshot.transactions, dayKey],
+  );
+  // A day with no income reads better as «spent» than as a negative net.
+  const spendOnly = summary.incomeRial === 0;
+  // Swipe the day card sideways to move a day back or forward.
+  const goDay = (delta: number) => setDayKey(prev => shiftDayKey(prev, delta));
+  const daySwipe = Gesture.Pan()
+    .activeOffsetX([-24, 24])
+    .failOffsetY([-16, 16])
+    .onEnd(e => {
+      if (Math.abs(e.translationX) > 60) {
+        runOnJS(goDay)(e.translationX > 0 ? 1 : -1);
+      }
+    });
   const yesterday = useMemo(
     () => summarizeDay(snapshot.transactions, shiftDayKey(dayKey, -1)),
     [snapshot.transactions, dayKey],
@@ -430,9 +452,7 @@ export function DailyLedgerScreen() {
 
   const rows = useMemo(() => {
     const scoped =
-      categoryFilter === 'all'
-        ? rawDayTx
-        : rawDayTx.filter(tx => tx.categoryId === categoryFilter);
+      categoryFilter === 'all' ? rawDayTx : rawDayTx.filter(tx => tx.categoryId === categoryFilter);
     const list = filterDayTransactions(scoped, filter);
     return sortDayTransactions(list, sort);
   }, [rawDayTx, categoryFilter, filter, sort]);
@@ -466,10 +486,6 @@ export function DailyLedgerScreen() {
     () => dayInsightLine(summary, yesterday, isToday, weekAvg),
     [summary, yesterday, isToday, weekAvg],
   );
-
-  const flowTotal = Math.max(1, summary.incomeRial + summary.expenseRial);
-  const incomeShare = summary.incomeRial / flowTotal;
-  const expenseShare = summary.expenseRial / flowTotal;
 
   const insightText = useMemo(() => {
     if (!insight) {
@@ -505,8 +521,8 @@ export function DailyLedgerScreen() {
     insight?.code === 'weekMore' || insight?.code === 'yesterdayUp'
       ? colors.expense
       : insight?.code === 'weekLess' || insight?.code === 'yesterdayDown'
-        ? colors.income
-        : colors.textMuted;
+      ? colors.income
+      : colors.textMuted;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -559,8 +575,8 @@ export function DailyLedgerScreen() {
         ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)']
         : ['rgba(16,40,34,0.95)', 'rgba(12,22,24,0.88)']
       : isLight
-        ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)']
-        : ['rgba(42,22,24,0.95)', 'rgba(18,14,16,0.9)'];
+      ? ['rgba(255,255,255,0.62)', 'rgba(255,255,255,0.46)']
+      : ['rgba(42,22,24,0.95)', 'rgba(18,14,16,0.9)'];
 
   if (!hydrated) {
     return (
@@ -596,8 +612,17 @@ export function DailyLedgerScreen() {
             <AppText style={styles.title}>{dict.daily.title}</AppText>
             <AppText style={styles.subtitle}>{dict.daily.subtitle}</AppText>
           </View>
-          <View style={styles.brandTile}>
-            <AppText style={styles.brandGlyph}>پ</AppText>
+          <View style={styles.headerIcons}>
+            <PressScale onPress={share} accessibilityLabel={dict.daily.share}>
+              <GlassPanel strong radius={16} style={styles.headerIcon}>
+                <Share2 color={colors.text} size={18} strokeWidth={1.8} />
+              </GlassPanel>
+            </PressScale>
+            <PressScale onPress={openCalendar} accessibilityLabel={dict.daily.viewCalendar}>
+              <GlassPanel strong radius={16} style={styles.headerIcon}>
+                <CalendarDays color={colors.text} size={18} strokeWidth={1.8} />
+              </GlassPanel>
+            </PressScale>
           </View>
         </View>
 
@@ -640,7 +665,10 @@ export function DailyLedgerScreen() {
           onContentSizeChange={contentWidth => {
             const left =
               contentWidth - STRIP_PAD - (STRIP_RADIUS + 1) * STRIP_CHIP - STRIP_RADIUS * STRIP_GAP;
-            stripRef.current?.scrollTo({ x: Math.max(0, left + STRIP_CHIP / 2 - width / 2), animated: false });
+            stripRef.current?.scrollTo({
+              x: Math.max(0, left + STRIP_CHIP / 2 - width / 2),
+              animated: false,
+            });
           }}
           contentContainerStyle={styles.strip}>
           {weekStrip.map(d => {
@@ -673,8 +701,8 @@ export function DailyLedgerScreen() {
                               : d.netRial > 0
                               ? colors.income
                               : d.netRial < 0
-                                ? colors.expense
-                                : colors.primary,
+                              ? colors.expense
+                              : colors.primary,
                         }
                       : styles.activityDotEmpty,
                   ]}
@@ -694,108 +722,87 @@ export function DailyLedgerScreen() {
           </View>
         ) : null}
 
-        <LinearGradient colors={[...heroGradient]} style={styles.hero}>
-          <View style={styles.heroTop}>
-            <AppText style={styles.heroKicker}>{dict.daily.net}</AppText>
-            <MoneyText align="left" minFontScale={0.55} style={styles.mtd}>
-              {dict.daily.mtdNet}: {hidden ? '•••' : formatTomanFromRial(mtd, { sign: true })}
-            </MoneyText>
-          </View>
+        <GestureDetector gesture={daySwipe}>
+          <LinearGradient colors={[...heroGradient]} style={styles.hero}>
+            <View style={styles.heroTop}>
+              <AppText style={styles.heroKicker}>
+                {spendOnly ? dict.daily.spentThisDay : dict.daily.net}
+              </AppText>
+              <MoneyText align="left" minFontScale={0.55} style={styles.mtd}>
+                {dict.daily.mtdNet}: {hidden ? '•••' : formatTomanFromRial(mtd, { sign: true })}
+              </MoneyText>
+            </View>
 
-          <View style={styles.heroAmountRow}>
-            {!hidden && summary.netRial !== 0 ? (
-              <AppText
+            <View style={styles.heroAmountRow}>
+              {!hidden && !spendOnly && summary.netRial !== 0 ? (
+                <AppText
+                  style={{
+                    fontSize: 28,
+                    fontFamily: theme.typography.fontFamily.semibold,
+                    color: summary.netRial >= 0 ? colors.income : colors.expense,
+                  }}>
+                  {summary.netRial > 0 ? '+' : '−'}
+                </AppText>
+              ) : null}
+              <CountToman
+                rial={spendOnly ? summary.expenseRial : Math.abs(summary.netRial)}
+                hidden={hidden}
                 style={{
-                  fontSize: 28,
+                  fontSize: 34,
                   fontFamily: theme.typography.fontFamily.semibold,
-                  color: summary.netRial >= 0 ? colors.income : colors.expense,
-                }}>
-                {summary.netRial > 0 ? '+' : '−'}
+                  color: spendOnly
+                    ? colors.text
+                    : summary.netRial >= 0
+                    ? colors.income
+                    : colors.expense,
+                }}
+              />
+              <AppText style={styles.toman}>{dict.common.toman}</AppText>
+            </View>
+
+            {insightText ? (
+              <AppText style={[styles.vs, { color: insightColor }]}>{insightText}</AppText>
+            ) : null}
+
+            {budgetHint && isToday ? (
+              <AppText style={[styles.vs, { color: colors.textMuted }]}>
+                {budgetHint.remainingMonthRial <= 0
+                  ? dict.daily.budgetOver
+                  : interpolate(dict.daily.budgetDaily, {
+                      amount: hidden ? '•••' : formatTomanFromRial(budgetHint.dailyAllowanceRial),
+                    })}
               </AppText>
             ) : null}
-            <CountToman
-              rial={Math.abs(summary.netRial)}
-              hidden={hidden}
-              style={{
-                fontSize: 34,
-                fontFamily: theme.typography.fontFamily.semibold,
-                color: summary.netRial >= 0 ? colors.income : colors.expense,
-              }}
-            />
-            <AppText style={styles.toman}>{dict.common.toman}</AppText>
-          </View>
 
-          {insightText ? (
-            <AppText style={[styles.vs, { color: insightColor }]}>{insightText}</AppText>
-          ) : null}
+            {spendTrend.some(v => v > 0) ? (
+              <View style={styles.trendBlock}>
+                <AppText style={styles.trendLabel}>{dict.daily.spendTrend}</AppText>
+                <Sparkline
+                  points={spendTrend}
+                  color={colors.expense}
+                  width={Math.min(width - 72, 320)}
+                  height={52}
+                />
+              </View>
+            ) : null}
 
-          {budgetHint && isToday ? (
-            <AppText style={[styles.vs, { color: colors.textMuted }]}>
-              {budgetHint.remainingMonthRial <= 0
-                ? dict.daily.budgetOver
-                : interpolate(dict.daily.budgetDaily, {
-                    amount: hidden ? '•••' : formatTomanFromRial(budgetHint.dailyAllowanceRial),
+            <AppText style={styles.flowLine}>
+              {hidden
+                ? '•••'
+                : interpolate(dict.daily.flowLine, {
+                    expense: formatTomanFromRial(summary.expenseRial),
+                    income: formatTomanFromRial(summary.incomeRial),
+                    count: summary.expenseCount + summary.incomeCount,
                   })}
             </AppText>
-          ) : null}
-
-          {spendTrend.some(v => v > 0) ? (
-            <View style={styles.trendBlock}>
-              <AppText style={styles.trendLabel}>{dict.daily.spendTrend}</AppText>
-              <Sparkline
-                points={spendTrend}
-                color={colors.expense}
-                width={Math.min(width - 72, 320)}
-                height={52}
-              />
-            </View>
-          ) : null}
-
-          <View style={styles.flowBlock}>
-            <AppText style={styles.flowLabel}>{dict.daily.flowBalance}</AppText>
-            <View style={styles.flowBar}>
-              <View style={[styles.flowIncome, { flex: Math.max(0.04, incomeShare) }]} />
-              <View style={[styles.flowExpense, { flex: Math.max(0.04, expenseShare) }]} />
-            </View>
-            <View style={styles.flowStats}>
-              <View style={styles.flowStat}>
-                <View style={styles.flowStatHead}>
-                  <ArrowDownLeft color={colors.income} size={14} />
-                  <AppText style={styles.flowStatLabel}>{dict.dashboard.income}</AppText>
-                </View>
-                <MoneyText
-                  align="right"
-                  minFontScale={0.55}
-                  style={[styles.flowStatValue, { color: colors.income }]}>
-                  {hidden ? '•••' : `+${formatTomanFromRial(summary.incomeRial)}`}
-                </MoneyText>
-                <AppText style={styles.flowCount}>
-                  {toPersianDigits(String(summary.incomeCount))}
-                </AppText>
-              </View>
-              <View style={styles.flowStat}>
-                <View style={styles.flowStatHead}>
-                  <ArrowUpRight color={colors.expense} size={14} />
-                  <AppText style={styles.flowStatLabel}>{dict.dashboard.expense}</AppText>
-                </View>
-                <MoneyText
-                  align="right"
-                  minFontScale={0.55}
-                  style={[styles.flowStatValue, { color: colors.expense }]}>
-                  {hidden ? '•••' : `−${formatTomanFromRial(summary.expenseRial)}`}
-                </MoneyText>
-                <AppText style={styles.flowCount}>
-                  {toPersianDigits(String(summary.expenseCount))}
-                </AppText>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        </GestureDetector>
 
         <View style={styles.quickRow}>
           <PressScale onPress={() => openAdd('expense')} style={styles.quickExpense}>
             <Plus color={isLight ? colors.onPrimary : colors.expense} size={16} />
-            <AppText style={[styles.quickText, { color: isLight ? colors.onPrimary : colors.expense }]}>
+            <AppText
+              style={[styles.quickText, { color: isLight ? colors.onPrimary : colors.expense }]}>
               {dict.daily.quickExpense}
             </AppText>
           </PressScale>
@@ -808,21 +815,6 @@ export function DailyLedgerScreen() {
         </View>
 
         <View style={styles.pad}>
-          <View style={styles.utilityRow}>
-            <PressScale onPress={openCalendar} style={styles.utilityBtn}>
-              <CalendarDays color={colors.primary} size={16} />
-              <AppText variant="label" style={{ color: colors.primary }}>
-                {dict.daily.viewCalendar}
-              </AppText>
-            </PressScale>
-            <PressScale onPress={share} style={styles.utilityBtn} accessibilityLabel={dict.daily.share}>
-              <Share2 color={colors.textSecondary} size={16} />
-              <AppText variant="label" style={{ color: colors.textSecondary }}>
-                {dict.daily.shareBtn}
-              </AppText>
-            </PressScale>
-          </View>
-
           <SegmentedControl
             options={FILTERS}
             value={filter}
@@ -840,36 +832,19 @@ export function DailyLedgerScreen() {
             </View>
           ) : null}
 
-          <View style={styles.optionsCard}>
-            <View style={styles.optionBlock}>
-              <AppText style={styles.optionLabel}>{dict.daily.sortBy}</AppText>
-              <View style={styles.chipRow}>
-                {SORTS.map(s => (
-                  <FilterChip
-                    key={s}
-                    label={dict.daily[s]}
-                    active={sort === s}
-                    onPress={() => setSort(s)}
-                  />
-                ))}
-              </View>
-            </View>
-            <View style={styles.optionBlock}>
-              <AppText style={styles.optionLabel}>{dict.daily.groupBy}</AppText>
-              <View style={styles.chipRow}>
-                {GROUPS.map(g => (
-                  <FilterChip
-                    key={g}
-                    label={dict.daily[`group_${g}`]}
-                    active={groupBy === g}
-                    onPress={() => setGroupBy(g)}
-                  />
-                ))}
-              </View>
-            </View>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.sortControl}
+            onPress={() =>
+              appAlert(dict.daily.sortBy, undefined, [
+                ...SORTS.map(id => ({ text: dict.daily[id], onPress: () => setSort(id) })),
+                { text: dict.common.cancel, style: 'cancel' as const },
+              ])
+            }>
+            <AppText style={styles.sortText}>{`${dict.daily.sortBy}: ${dict.daily[sort]}`}</AppText>
+          </Pressable>
 
-          {summary.categories.length > 0 && filter !== 'income' ? (
+          {summary.categories.length > 1 && filter !== 'income' ? (
             <View style={styles.catCard}>
               <AppText style={styles.sectionTitle}>{dict.daily.byCategory}</AppText>
               {summary.categories.slice(0, 5).map(c => {
@@ -883,24 +858,16 @@ export function DailyLedgerScreen() {
                   <PressScale
                     key={c.categoryId}
                     onPress={() =>
-                      setCategoryFilter(prev =>
-                        prev === c.categoryId ? 'all' : c.categoryId,
-                      )
+                      setCategoryFilter(prev => (prev === c.categoryId ? 'all' : c.categoryId))
                     }
                     style={styles.catRow}>
                     <View style={styles.catTop}>
                       <View style={styles.catMeta}>
                         <View
-                          style={[
-                            styles.catDot,
-                            { backgroundColor: CATEGORY_COLOR[c.categoryId] },
-                          ]}
+                          style={[styles.catDot, { backgroundColor: CATEGORY_COLOR[c.categoryId] }]}
                         />
                         <AppText
-                          style={[
-                            styles.catName,
-                            active ? { color: colors.primary } : null,
-                          ]}>
+                          style={[styles.catName, active ? { color: colors.primary } : null]}>
                           {dict.categories[c.categoryId]}
                         </AppText>
                       </View>
@@ -956,9 +923,7 @@ export function DailyLedgerScreen() {
             <View style={styles.emptyWrap}>
               <EmptyState
                 title={rawDayTx.length === 0 ? dict.daily.empty : dict.daily.filterEmpty}
-                subtitle={
-                  rawDayTx.length === 0 ? dict.daily.emptyHint : dict.daily.filterEmptyHint
-                }
+                subtitle={rawDayTx.length === 0 ? dict.daily.emptyHint : dict.daily.filterEmptyHint}
               />
               {rawDayTx.length === 0 ? (
                 <PrimaryButton label={dict.daily.addForDay} onPress={() => openAdd('expense')} />
@@ -975,13 +940,14 @@ export function DailyLedgerScreen() {
           ) : (
             <View style={styles.listCard}>
               {rows.map((tx, i) => (
-                <TransactionRow
-                  key={tx.id}
-                  tx={tx}
-                  grouped
-                  isLast={i === rows.length - 1}
-                  onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
-                />
+                <SwipeTxRow key={tx.id} tx={tx}>
+                  <TransactionRow
+                    tx={tx}
+                    grouped
+                    isLast={i === rows.length - 1}
+                    onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
+                  />
+                </SwipeTxRow>
               ))}
             </View>
           )}

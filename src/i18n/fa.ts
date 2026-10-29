@@ -894,6 +894,8 @@ export const fa = {
     vsWeekMore: 'امروز از میانگین هفته {{amount}} تومان بیشتر خرج کردی',
     vsWeekLess: 'امروز از میانگین هفته {{amount}} تومان کمتر خرج کردی',
     vsWeekFlat: 'امروز نزدیک میانگین خرج هفته‌ات بود',
+    spentThisDay: 'خرج این روز',
+    flowLine: 'هزینه {{expense}} · درآمد {{income}} · {{count}} تراکنش',
     flowBalance: 'تراز جریان',
     quickExpense: 'هزینه',
     quickIncome: 'درآمد',
