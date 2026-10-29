@@ -11,7 +11,9 @@ import { EmptyState } from '../../../components/feedback/EmptyState';
 import { AlertBanner } from '../../../components/ui/AlertBanner';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
 import { Skeleton } from '../../../components/ui/Skeleton';
-import { t } from '../../../i18n';
+import { appAlert } from '../../../components/ui/AppAlert';
+import { t, interpolate } from '../../../i18n';
+import { toTimeLabel } from '../../../utils/dates/jalali';
 import { formatTomanFromRial } from '../../../utils/currency/money';
 import { useFinanceStore } from '../../../store/finance/store';
 import type { RootStackParamList } from '../../../app/navigation/types';
@@ -21,15 +23,27 @@ import {
   filterAndSortHoldings,
   filterNetWorthHistory,
   netWorthChangePct,
-  summarizePortfolio,
+  summarizeWealth,
   type WealthSort,
 } from '../engine/portfolio';
 import { supportsLivePrice } from '../pricing/symbols';
-import { NetWorthHero } from '../components/NetWorthHero';
+import { NetWorthHero, RANGES } from '../components/NetWorthHero';
 import { AllocationPanel } from '../components/AllocationPanel';
 import { WealthHoldingCard } from '../components/WealthHoldingCard';
 import { ASSET_CLASS_ORDER } from '../catalog/classes';
 import { InflationCard } from '../../obligations/components/InflationCard';
+
+const SORT_OPTIONS: WealthSort[] = ['value', 'profit', 'profit_pct', 'updated', 'name'];
+const SORT_LABEL = {
+  value: 'value',
+  profit: 'profit',
+  profit_pct: 'profitPct',
+  updated: 'updated',
+  name: 'name',
+} as const satisfies Record<WealthSort, string>;
+
+/** Prices move slowly enough that every 10 minutes while the Vault is open is plenty. */
+const PRICE_REFRESH_MS = 10 * 60_000;
 
 export function AccountsScreen() {
   const insets = useSafeAreaInsets();
@@ -186,10 +200,18 @@ export function AccountsScreen() {
   const [classFilter, setClassFilter] = useState<AssetClass | 'all'>('all');
   const [sort, setSort] = useState<WealthSort>('value');
 
-  const summary = useMemo(() => summarizePortfolio(snapshot.accounts), [snapshot.accounts]);
+  const summary = useMemo(() => summarizeWealth(snapshot), [snapshot]);
+  const ranges = useMemo(
+    () =>
+      RANGES.filter(
+        r => r === 'ALL' || filterNetWorthHistory(snapshot.netWorthHistory ?? [], r).length >= 2,
+      ),
+    [snapshot.netWorthHistory],
+  );
+  const activeRange: WealthRange = ranges.includes(range) ? range : 'ALL';
   const history = useMemo(
-    () => filterNetWorthHistory(snapshot.netWorthHistory ?? [], range),
-    [snapshot.netWorthHistory, range],
+    () => filterNetWorthHistory(snapshot.netWorthHistory ?? [], activeRange),
+    [snapshot.netWorthHistory, activeRange],
   );
   const changePct = useMemo(() => netWorthChangePct(history), [history]);
   const slices = useMemo(
@@ -206,6 +228,15 @@ export function AccountsScreen() {
     [snapshot.accounts, query, classFilter, sort],
   );
 
+  const lastPriceAt = useMemo(
+    () =>
+      snapshot.accounts.reduce<string | undefined>(
+        (latest, a) =>
+          a.priceUpdatedAt && (!latest || a.priceUpdatedAt > latest) ? a.priceUpdatedAt : latest,
+        undefined,
+      ),
+    [snapshot.accounts],
+  );
   const hasLiveHoldings = useMemo(
     () => snapshot.accounts.some(a => supportsLivePrice(a)),
     [snapshot.accounts],
@@ -247,15 +278,16 @@ export function AccountsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!autoPrice) {
+      // Market feeds are only worth fetching when something here is priced by them.
+      if (!autoPrice || !hasLiveHoldings) {
         return;
       }
       void doRefresh();
       const id = setInterval(() => {
         void doRefresh();
-      }, 120_000);
+      }, PRICE_REFRESH_MS);
       return () => clearInterval(id);
-    }, [autoPrice, doRefresh]),
+    }, [autoPrice, doRefresh, hasLiveHoldings]),
   );
 
   if (!hydrated) {
@@ -301,7 +333,8 @@ export function AccountsScreen() {
             ]}
             onPress={() => nav.navigate('AddWealthAsset')}>
             <Plus size={16} color={isLight ? colors.onPrimary : colors.primary} strokeWidth={2.4} />
-            <AppText style={[styles.addBtnText, { color: isLight ? colors.onPrimary : colors.primary }]}>
+            <AppText
+              style={[styles.addBtnText, { color: isLight ? colors.onPrimary : colors.primary }]}>
               {dict.wealth.addAsset}
             </AppText>
           </Pressable>
@@ -309,11 +342,17 @@ export function AccountsScreen() {
         <AppText variant="caption" style={styles.screenSubtitle}>
           {dict.vault.subtitle}
         </AppText>
-        <Pressable onPress={() => void doRefresh()} style={styles.refreshRow}>
-          <AppText variant="caption" style={{ color: colors.primary, textAlign: 'right' }}>
-            {refreshing ? dict.wealth.pricesRefreshing : dict.wealth.pricesRefresh}
-          </AppText>
-        </Pressable>
+        {hasLiveHoldings ? (
+          <Pressable onPress={() => void doRefresh()} style={styles.refreshRow}>
+            <AppText variant="caption" style={{ color: colors.primary, textAlign: 'right' }}>
+              {refreshing
+                ? dict.wealth.pricesRefreshing
+                : lastPriceAt
+                ? interpolate(dict.wealth.pricesUpdatedAt, { time: toTimeLabel(lastPriceAt) })
+                : dict.wealth.pricesRefresh}
+            </AppText>
+          </Pressable>
+        ) : null}
 
         {priceError ? (
           <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
@@ -328,8 +367,9 @@ export function AccountsScreen() {
         <NetWorthHero
           summary={summary}
           history={history}
-          range={range}
+          range={activeRange}
           onRangeChange={setRange}
+          ranges={ranges}
           changePct={changePct}
           hidden={hidden}
         />
@@ -351,13 +391,14 @@ export function AccountsScreen() {
                 style={[
                   styles.perfValue,
                   {
-                    color:
-                      summary.unrealizedPlRial >= 0 ? colors.income : colors.expense,
+                    color: summary.unrealizedPlRial >= 0 ? colors.income : colors.expense,
                   },
                 ]}>
                 {hidden
                   ? '••••'
-                  : `${summary.unrealizedPlRial > 0 ? '+' : ''}${formatTomanFromRial(summary.unrealizedPlRial)}`}
+                  : `${summary.unrealizedPlRial > 0 ? '+' : ''}${formatTomanFromRial(
+                      summary.unrealizedPlRial,
+                    )}`}
               </AppText>
             </View>
             <View style={styles.perfCard}>
@@ -431,30 +472,23 @@ export function AccountsScreen() {
           ))}
         </ScrollView>
 
-        <View style={styles.sortRow}>
-          {(
-            [
-              ['value', dict.wealth.sort.value],
-              ['profit', dict.wealth.sort.profit],
-              ['profit_pct', dict.wealth.sort.profitPct],
-              ['updated', dict.wealth.sort.updated],
-              ['name', dict.wealth.sort.name],
-            ] as Array<[WealthSort, string]>
-          ).map(([id, label]) => (
-            <Pressable
-              key={id}
-              onPress={() => setSort(id)}
-              style={[styles.sortChip, sort === id && styles.sortOn]}>
-              <AppText
-                style={[
-                  styles.sortText,
-                  sort === id && { color: isLight ? colors.onPrimary : colors.text },
-                ]}>
-                {label}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
+        {/* One sort control instead of a second row of chips. */}
+        <Pressable
+          accessibilityRole="button"
+          style={styles.sortRow}
+          onPress={() =>
+            appAlert(dict.wealth.sortTitle, undefined, [
+              ...SORT_OPTIONS.map(id => ({
+                text: dict.wealth.sort[SORT_LABEL[id]],
+                onPress: () => setSort(id),
+              })),
+              { text: dict.common.cancel, style: 'cancel' as const },
+            ])
+          }>
+          <AppText style={styles.sortText}>
+            {`${dict.wealth.sortTitle}: ${dict.wealth.sort[SORT_LABEL[sort]]}`}
+          </AppText>
+        </Pressable>
 
         <View style={styles.list}>
           {holdings.length === 0 ? (

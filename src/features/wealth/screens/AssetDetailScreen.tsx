@@ -152,7 +152,10 @@ export function AssetDetailScreen() {
       );
     } else if (d?.class === 'currency') {
       typeRows.push(
-        { k: dict.wealth.fields.fxAmount, v: `${toPersianDigits(String(d.amount))} ${d.currencyCode}` },
+        {
+          k: dict.wealth.fields.fxAmount,
+          v: `${toPersianDigits(String(d.amount))} ${d.currencyCode}`,
+        },
         {
           k: dict.wealth.fields.avgRate,
           v: hidden ? '••••' : formatTomanFromRial(d.averagePurchaseRateRial),
@@ -180,7 +183,10 @@ export function AssetDetailScreen() {
     } else if (d?.class === 'real_estate') {
       typeRows.push(
         { k: dict.wealth.fields.city, v: d.city },
-        { k: dict.wealth.fields.area, v: `${toPersianDigits(String(d.areaSqm))} ${dict.wealth.sqm}` },
+        {
+          k: dict.wealth.fields.area,
+          v: `${toPersianDigits(String(d.areaSqm))} ${dict.wealth.sqm}`,
+        },
         {
           k: dict.wealth.fields.ownershipPct,
           v: `${toPersianDigits(String(d.ownershipPercent))}٪`,
@@ -293,12 +299,17 @@ export function AssetDetailScreen() {
           <Pressable onPress={() => nav.goBack()}>
             <AppText style={{ color: colors.textMuted }}>{dict.common.back}</AppText>
           </Pressable>
-          <Pressable onPress={() => nav.navigate('AddWealthAsset', { id: account.id, assetClass: cls })}>
+          <Pressable
+            onPress={() => nav.navigate('AddWealthAsset', { id: account.id, assetClass: cls })}>
             <AppText style={{ color: colors.primary }}>{dict.accounts.edit}</AppText>
           </Pressable>
         </View>
 
-        <View style={[styles.hero, { backgroundColor: meta.accentMuted, borderColor: `${meta.accent}44` }]}>
+        <View
+          style={[
+            styles.hero,
+            { backgroundColor: meta.accentMuted, borderColor: `${meta.accent}44` },
+          ]}>
           <AppText style={styles.classTag}>{dict.wealth.classes[cls]}</AppText>
           <AppText style={styles.title}>{account.name}</AppText>
           <AppText style={styles.value}>

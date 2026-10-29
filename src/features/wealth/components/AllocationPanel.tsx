@@ -206,13 +206,14 @@ export function AllocationPanel({
                     <AppText style={styles.legendMeta} numberOfLines={1}>
                       {hidden
                         ? '••••'
-                        : `${formatTomanFromRial(s.valueRial)} · ${toPersianDigits(String(s.count))} ${dict.wealth.holdings}`}
+                        : `${formatTomanFromRial(s.valueRial)} · ${toPersianDigits(
+                            String(s.count),
+                          )} ${dict.wealth.holdings}`}
                     </AppText>
                     {on && s.unrealizedPlRial !== 0 ? (
                       <AppText
                         style={{
-                          color:
-                            s.unrealizedPlRial >= 0 ? colors.income : colors.expense,
+                          color: s.unrealizedPlRial >= 0 ? colors.income : colors.expense,
                           fontSize: 11,
                           marginTop: 2,
                           textAlign: 'right',
@@ -223,7 +224,10 @@ export function AllocationPanel({
                     ) : null}
                   </View>
                   <View
-                    style={[styles.swatch, { backgroundColor: allocationColor(s.assetClass, mode) }]}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: allocationColor(s.assetClass, mode) },
+                    ]}
                   />
                 </Pressable>
               );

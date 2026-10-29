@@ -36,10 +36,7 @@ function quote(symbol: string, priceRial: number, source: PriceSourceKind = 'man
 
 /** آخرین قیمت شناخته‌شده از خود دارایی‌ها (آفلاین) */
 export class LastKnownPriceProvider implements AssetPriceProvider {
-  constructor(
-    public readonly id: string,
-    private readonly accounts: FinancialAccount[],
-  ) {}
+  constructor(public readonly id: string, private readonly accounts: FinancialAccount[]) {}
 
   async getCurrentPrice(symbol: string): Promise<PriceQuote | null> {
     const match = this.accounts.find(
@@ -56,8 +53,8 @@ export class LastKnownPriceProvider implements AssetPriceProvider {
       match.unitPriceRial && match.unitPriceRial > 0
         ? match.unitPriceRial
         : match.balanceRial > 0 && (match.quantity ?? 0) > 0
-          ? Math.round(match.balanceRial / (match.quantity as number))
-          : 0;
+        ? Math.round(match.balanceRial / (match.quantity as number))
+        : 0;
     if (price <= 0) {
       return null;
     }
@@ -163,7 +160,10 @@ function applyQuoteToAccount(
       details: { ...d, currentPriceRial: unitPriceRial },
       quantity: d.quantity,
     };
-  } else if (d?.class === 'cash' && ['USD', 'EUR', 'GBP', 'AED'].includes(d.currency.toUpperCase())) {
+  } else if (
+    d?.class === 'cash' &&
+    ['USD', 'EUR', 'GBP', 'AED'].includes(d.currency.toUpperCase())
+  ) {
     next = {
       ...next,
       balanceRial: Math.round(d.amount * unitPriceRial),
@@ -221,10 +221,10 @@ export async function refreshPricesFromHoldings(
       (a.details?.class === 'gold'
         ? a.details.currentPricePerUnitRial
         : a.details?.class === 'currency'
-          ? a.details.currentRateRial
-          : a.details?.class === 'crypto'
-            ? a.details.currentPriceRial
-            : 0);
+        ? a.details.currentRateRial
+        : a.details?.class === 'crypto'
+        ? a.details.currentPriceRial
+        : 0);
     const valued = applyQuoteToAccount(a, unit, (bundle as MarketBundle).asOf);
     if (valued.balanceRial !== a.balanceRial || unit !== prevUnit) {
       updated += 1;

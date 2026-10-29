@@ -19,13 +19,14 @@ import { toPersianDigits } from '../../../utils/numbers/digits';
 import type { NetWorthSnapshot, WealthRange } from '../../../types/wealth';
 import type { PortfolioSummary } from '../engine/portfolio';
 
-const RANGES: WealthRange[] = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL'];
+export const RANGES: WealthRange[] = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL'];
 
 export function NetWorthHero({
   summary,
   history,
   range,
   onRangeChange,
+  ranges = RANGES,
   changePct,
   hidden,
 }: {
@@ -33,6 +34,8 @@ export function NetWorthHero({
   history: NetWorthSnapshot[];
   range: WealthRange;
   onRangeChange: (r: WealthRange) => void;
+  /** Ranges with enough history to draw; the others are left out. */
+  ranges?: WealthRange[];
   changePct: number | null;
   hidden: boolean;
 }) {
@@ -170,10 +173,10 @@ export function NetWorthHero({
         <AppText style={styles.currency}>{dict.common.toman}</AppText>
 
         <View style={styles.changePill}>
-          {changePct != null ? (
+          {changePct != null && Math.abs(changePct) >= 0.05 ? (
             <AppText style={[styles.change, { color: up ? colors.income : colors.expense }]}>
-              {up ? '+' : ''}
-              {toPersianDigits(changePct.toFixed(1))}٪ · {dict.wealth.rangeLabels[range]}
+              {up ? '▲ ' : '▼ '}
+              {toPersianDigits(Math.abs(changePct).toFixed(1))}٪ · {dict.wealth.rangeLabels[range]}
             </AppText>
           ) : (
             <AppText style={styles.changeMuted}>{dict.wealth.noHistoryYet}</AppText>
@@ -213,13 +216,15 @@ export function NetWorthHero({
         ) : null}
 
         <View style={styles.ranges}>
-          {RANGES.map(r => (
+          {ranges.map(r => (
             <Pressable
               key={r}
               onPress={() => onRangeChange(r)}
               style={[
                 styles.range,
-                range === r && { backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow },
+                range === r && {
+                  backgroundColor: isLight ? colors.primary : theme.palette.primaryGlow,
+                },
               ]}>
               <AppText
                 style={[

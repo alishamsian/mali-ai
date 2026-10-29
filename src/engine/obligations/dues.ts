@@ -4,6 +4,7 @@ import {
   daysUntil,
   debtRemainingRial,
   installmentSchedule,
+  planStatus,
   type CalendarKind,
 } from './schedule';
 
@@ -142,4 +143,43 @@ export function monthEndForecast(
   const liquidRial = liquidBalanceRial(input.accounts);
   const projectedRial = liquidRial - outRial + inRial;
   return { liquidRial, outRial, inRial, projectedRial, items, shortfall: projectedRial < 0 };
+}
+
+export interface ObligationsPosition {
+  /** Unpaid installments, money borrowed from people, issued cheques not yet cleared. */
+  owedRial: number;
+  /** Money lent to people and received cheques not yet cleared. */
+  owedToMeRial: number;
+}
+
+/** What the cheques/installments/debts section adds to the balance sheet. */
+export function obligationsPosition(
+  input: ObligationsInput,
+  now: Date,
+  calendar: CalendarKind = 'jalali',
+): ObligationsPosition {
+  let owedRial = 0;
+  let owedToMeRial = 0;
+  for (const plan of input.plans) {
+    owedRial += planStatus(plan, now, calendar).remainingRial;
+  }
+  for (const debt of input.debts) {
+    const remaining = debtRemainingRial(debt);
+    if (debt.direction === 'borrowed') {
+      owedRial += remaining;
+    } else {
+      owedToMeRial += remaining;
+    }
+  }
+  for (const cheque of input.cheques) {
+    if (cheque.status !== 'pending') {
+      continue;
+    }
+    if (cheque.direction === 'issued') {
+      owedRial += cheque.amountRial;
+    } else {
+      owedToMeRial += cheque.amountRial;
+    }
+  }
+  return { owedRial, owedToMeRial };
 }

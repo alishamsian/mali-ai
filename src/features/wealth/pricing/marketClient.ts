@@ -16,10 +16,8 @@ export type MarketBundle = {
 };
 
 const TGJU_URL = 'https://call1.tgju.org/ajax.json';
-const NAVASAN_GOLD =
-  'https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/gold.json';
-const NAVASAN_FIAT =
-  'https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/fiat.json';
+const NAVASAN_GOLD = 'https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/gold.json';
+const NAVASAN_FIAT = 'https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/fiat.json';
 const COINGECKO_URL =
   'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,tron,dogecoin&vs_currencies=usd';
 

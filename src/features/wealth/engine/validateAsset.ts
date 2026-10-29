@@ -8,10 +8,7 @@ export type WealthFormContext = {
   bankBalanceToman?: number;
 };
 
-export function validateWealthForm(
-  ctx: WealthFormContext,
-  dict: FaDict,
-): string | null {
+export function validateWealthForm(ctx: WealthFormContext, dict: FaDict): string | null {
   const { assetClass, name, details } = ctx;
 
   if (!name.trim() && assetClass !== 'bank') {
@@ -56,8 +53,7 @@ export function validateWealthForm(
     case 'stock':
     case 'fund': {
       const qty = details.class === 'stock' ? details.quantity : details.units;
-      const price =
-        details.class === 'stock' ? details.currentPriceRial : details.currentNavRial;
+      const price = details.class === 'stock' ? details.currentPriceRial : details.currentNavRial;
       if (qty <= 0 || price <= 0) {
         return dict.accounts.assetInvalidBody;
       }

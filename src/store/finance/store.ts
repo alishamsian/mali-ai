@@ -321,6 +321,8 @@ interface FinanceState {
   settleDebt: (id: string, amountRial: number) => void;
   deleteDebt: (id: string) => void;
   recordAlerts: (keys: string[]) => void;
+  /** Today's net-worth point, so the Vault chart grows a point a day. */
+  touchNetWorth: () => void;
   deleteRecurring: (id: string) => void;
   ingestSms: (
     payload: RawSmsPayload,
@@ -766,6 +768,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           : d,
       ),
     });
+  },
+  touchNetWorth: () => {
+    // A Fast Refresh can remount the navigator before the reloaded store has hydrated.
+    if (!get().hydrated) {
+      return;
+    }
+    persistSet(set, appendNetWorthPoint(liveSnapshot(get)));
   },
   recordAlerts: keys => {
     if (keys.length === 0) {

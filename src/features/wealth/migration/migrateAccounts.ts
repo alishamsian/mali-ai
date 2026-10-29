@@ -1,3 +1,4 @@
+import { summarizeWealth } from '../engine/portfolio';
 import type { FinancialAccount, AssetId } from '../../../types/finance';
 import type {
   AssetClass,
@@ -152,7 +153,11 @@ function migrateOne(account: FinancialAccount): FinancialAccount {
       costBasisRial: account.balanceRial,
       liabilityRial: 0,
       valueHistory: account.valueHistory ?? [
-        { date: account.updatedAt || account.createdAt, valueRial: account.balanceRial, source: 'manual' },
+        {
+          date: account.updatedAt || account.createdAt,
+          valueRial: account.balanceRial,
+          source: 'manual',
+        },
       ],
     };
   }
@@ -173,7 +178,11 @@ function migrateOne(account: FinancialAccount): FinancialAccount {
       costBasisRial: account.balanceRial,
       liabilityRial: 0,
       valueHistory: account.valueHistory ?? [
-        { date: account.updatedAt || account.createdAt, valueRial: account.balanceRial, source: 'manual' },
+        {
+          date: account.updatedAt || account.createdAt,
+          valueRial: account.balanceRial,
+          source: 'manual',
+        },
       ],
     };
   }
@@ -191,7 +200,11 @@ function migrateOne(account: FinancialAccount): FinancialAccount {
         costBasisRial: account.costBasisRial ?? account.balanceRial,
         liabilityRial: 0,
         valueHistory: account.valueHistory ?? [
-          { date: account.updatedAt || account.createdAt, valueRial: account.balanceRial, source: 'manual' },
+          {
+            date: account.updatedAt || account.createdAt,
+            valueRial: account.balanceRial,
+            source: 'manual',
+          },
         ],
       };
     }
@@ -209,7 +222,11 @@ function migrateOne(account: FinancialAccount): FinancialAccount {
       costBasisRial: account.costBasisRial ?? account.balanceRial,
       liabilityRial: 0,
       valueHistory: account.valueHistory ?? [
-        { date: account.updatedAt || account.createdAt, valueRial: account.balanceRial, source: 'manual' },
+        {
+          date: account.updatedAt || account.createdAt,
+          valueRial: account.balanceRial,
+          source: 'manual',
+        },
       ],
     };
   }
@@ -261,9 +278,11 @@ export function migrateWealthSnapshot(snapshot: FinanceSnapshot): FinanceSnapsho
 }
 
 export function appendNetWorthPoint(snapshot: FinanceSnapshot): FinanceSnapshot {
-  const assetsRial = snapshot.accounts.reduce((s, a) => s + a.balanceRial, 0);
-  const liabilitiesRial = snapshot.accounts.reduce((s, a) => s + (a.liabilityRial ?? 0), 0);
-  const netWorthRial = assetsRial - liabilitiesRial;
+  // Same figures as the Vault hero, so the chart and the headline agree.
+  const summary = summarizeWealth(snapshot);
+  const assetsRial = summary.totalAssetsRial;
+  const liabilitiesRial = summary.totalLiabilitiesRial;
+  const netWorthRial = summary.netWorthRial;
   const today = new Date().toISOString().slice(0, 10);
   const history = [...(snapshot.netWorthHistory ?? [])];
   const last = history[history.length - 1];

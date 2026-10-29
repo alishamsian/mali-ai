@@ -119,6 +119,8 @@ export function AddWealthAssetScreen() {
   const isLight = mode === 'light';
   const chipBg = isLight ? 'rgba(8,13,16,0.04)' : 'rgba(255,255,255,0.04)';
   const styles = useThemedStyles((c, th) => ({
+    moreToggle: { paddingVertical: 12, alignItems: 'center' },
+    moreText: { color: c.textMuted, fontSize: 13 },
     prompt: {
       textAlign: 'right',
       fontSize: 20,
@@ -181,6 +183,8 @@ export function AddWealthAssetScreen() {
 
   // shared
   const [name, setName] = useState(editing?.name ?? '');
+  // Secondary fields (name, notes, live-priced unit price, purity) start folded away.
+  const [showMore, setShowMore] = useState(Boolean(editing));
   const [notes, setNotes] = useState(editing?.notes ?? '');
 
   // cash
@@ -779,7 +783,9 @@ export function AddWealthAssetScreen() {
         ) : (
           <View style={styles.form}>
             <AppText style={styles.formClass}>{dict.wealth.classes[assetClass]}</AppText>
-            <Field label={dict.accounts.nameField} value={name} onChange={setName} />
+            {showMore ? (
+              <Field label={dict.accounts.nameField} value={name} onChange={setName} />
+            ) : null}
 
             {assetClass === 'cash' ? (
               <>
@@ -864,41 +870,47 @@ export function AddWealthAssetScreen() {
                   onChange={setGoldType}
                   labelOf={v => dict.wealth.goldTypes[v]}
                 />
-                <OptionPickerField
-                  label={dict.wealth.fields.goldUnit}
-                  options={['gram', 'mithqal', 'coin', 'piece'] as GoldUnit[]}
-                  value={goldUnit}
-                  onChange={setGoldUnit}
-                  labelOf={v => dict.wealth.goldUnits[v]}
-                  searchable={false}
-                />
+                {showMore ? (
+                  <OptionPickerField
+                    label={dict.wealth.fields.goldUnit}
+                    options={['gram', 'mithqal', 'coin', 'piece'] as GoldUnit[]}
+                    value={goldUnit}
+                    onChange={setGoldUnit}
+                    labelOf={v => dict.wealth.goldUnits[v]}
+                    searchable={false}
+                  />
+                ) : null}
                 <Field
                   label={dict.wealth.fields.weight}
                   value={goldWeight}
                   onChange={v => setGoldWeight(decimalInput(v))}
                   kind="decimal"
                 />
-                <Field
-                  label={dict.wealth.fields.purity}
-                  value={goldPurity ? toPersianDigits(goldPurity) : ''}
-                  onChange={v => setGoldPurity(digitsOnly(v))}
-                  keyboardType="number-pad"
-                />
+                {showMore ? (
+                  <Field
+                    label={dict.wealth.fields.purity}
+                    value={goldPurity ? toPersianDigits(goldPurity) : ''}
+                    onChange={v => setGoldPurity(digitsOnly(v))}
+                    keyboardType="number-pad"
+                  />
+                ) : null}
                 <Field
                   label={dict.wealth.fields.purchasePrice}
                   value={goldPurchase}
                   onChange={setGoldPurchase}
                   kind="amount"
                 />
-                <Field
-                  label={dict.wealth.fields.unitPrice}
-                  value={goldUnitPrice}
-                  onChange={v => {
-                    manualGoldPrice.current = true;
-                    setGoldUnitPrice(v);
-                  }}
-                  kind="amount"
-                />
+                {showMore ? (
+                  <Field
+                    label={dict.wealth.fields.unitPrice}
+                    value={goldUnitPrice}
+                    onChange={v => {
+                      manualGoldPrice.current = true;
+                      setGoldUnitPrice(v);
+                    }}
+                    kind="amount"
+                  />
+                ) : null}
                 {liveHint ? <AppText style={styles.hint}>{liveHint}</AppText> : null}
                 <AppText style={styles.hint}>{dict.wealth.priceHint}</AppText>
               </>
@@ -1168,9 +1180,19 @@ export function AddWealthAssetScreen() {
               </>
             ) : null}
 
-            <Field label={dict.wealth.fields.notes} value={notes} onChange={setNotes} />
+            {showMore ? (
+              <Field label={dict.wealth.fields.notes} value={notes} onChange={setNotes} />
+            ) : null}
             <AppText style={styles.hint}>{dict.wealth.manualPriceHint}</AppText>
             {formError ? <AppText style={styles.formError}>{formError}</AppText> : null}
+            <Pressable
+              onPress={() => setShowMore(v => !v)}
+              style={styles.moreToggle}
+              accessibilityRole="button">
+              <AppText style={styles.moreText}>
+                {showMore ? dict.wealth.lessDetails : dict.wealth.moreDetails}
+              </AppText>
+            </Pressable>
             <PrimaryButton label={dict.common.save} onPress={() => void save()} />
           </View>
         )}

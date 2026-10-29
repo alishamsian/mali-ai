@@ -8,6 +8,8 @@ import type {
   NetWorthSnapshot,
 } from '../../../types/wealth';
 import { resolveAssetClass } from '../catalog/classes';
+import type { FinanceSnapshot } from '../../../database/schema/snapshot';
+import { obligationsPosition } from '../../../engine/obligations/dues';
 
 export function holdingPerformance(account: FinancialAccount): HoldingPerformance {
   const currentValueRial = account.balanceRial;
@@ -106,10 +108,7 @@ const PHYSICAL: AssetClass[] = [
 ];
 const ALTERNATIVE: AssetClass[] = ['collectible', 'business', 'jewelry', 'other'];
 
-export function matchesAllocationFilter(
-  assetClass: AssetClass,
-  filter: AllocationFilter,
-): boolean {
+export function matchesAllocationFilter(assetClass: AssetClass, filter: AllocationFilter): boolean {
   if (filter === 'all') {
     return true;
   }
@@ -193,12 +192,7 @@ export function netWorthChangePct(history: NetWorthSnapshot[]): number | null {
   return ((last - first) / Math.abs(first)) * 100;
 }
 
-export type WealthSort =
-  | 'value'
-  | 'profit'
-  | 'profit_pct'
-  | 'updated'
-  | 'name';
+export type WealthSort = 'value' | 'profit' | 'profit_pct' | 'updated' | 'name';
 
 export type WealthListFilter = {
   query?: string;
@@ -277,8 +271,8 @@ export function revalueFromDetails(account: FinancialAccount): FinancialAccount 
         d.unit === 'mithqal'
           ? d.weight * 4.6083
           : d.unit === 'coin' || d.unit === 'piece'
-            ? d.weight
-            : d.weight;
+          ? d.weight
+          : d.weight;
       balanceRial = Math.round(units * d.currentPricePerUnitRial);
       costBasisRial = d.purchasePriceRial;
       break;
@@ -344,5 +338,37 @@ export function revalueFromDetails(account: FinancialAccount): FinancialAccount 
     costBasisRial,
     liabilityRial,
     priceUpdatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Portfolio summary with the cheques/installments/debts section folded in: unpaid
+ * installments, borrowed money and issued cheques are liabilities; money lent and
+ * received cheques are assets.
+ */
+export function summarizeWealth(
+  snapshot: Pick<
+    FinanceSnapshot,
+    'accounts' | 'installmentPlans' | 'cheques' | 'debts' | 'settings'
+  >,
+  now = new Date(),
+): PortfolioSummary {
+  const base = summarizePortfolio(snapshot.accounts);
+  const { owedRial, owedToMeRial } = obligationsPosition(
+    {
+      plans: snapshot.installmentPlans ?? [],
+      cheques: snapshot.cheques ?? [],
+      debts: snapshot.debts ?? [],
+    },
+    now,
+    snapshot.settings.calendar ?? 'jalali',
+  );
+  const totalAssetsRial = base.totalAssetsRial + owedToMeRial;
+  const totalLiabilitiesRial = base.totalLiabilitiesRial + owedRial;
+  return {
+    ...base,
+    totalAssetsRial,
+    totalLiabilitiesRial,
+    netWorthRial: totalAssetsRial - totalLiabilitiesRial,
   };
 }

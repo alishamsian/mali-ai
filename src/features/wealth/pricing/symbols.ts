@@ -31,7 +31,10 @@ export function currencyMarketSymbol(code: string): string {
 }
 
 export function cryptoMarketSymbol(symbol: string): string {
-  return symbol.trim().toLowerCase().replace(/^usdt$/i, 'usdt');
+  return symbol
+    .trim()
+    .toLowerCase()
+    .replace(/^usdt$/i, 'usdt');
 }
 
 /**
@@ -67,10 +70,12 @@ export function resolveUnitPriceRial(
     case 'gold': {
       const sym = goldMarketSymbol(d.goldType);
       if (d.unit === 'mithqal') {
-        return quoteFromBundle(bundle, 'gold_mesghal') ??
+        return (
+          quoteFromBundle(bundle, 'gold_mesghal') ??
           (quoteFromBundle(bundle, 'gold_18') != null
             ? Math.round((quoteFromBundle(bundle, 'gold_18') as number) * 4.6083)
-            : null);
+            : null)
+        );
       }
       // سکه / قطعه
       if (d.unit === 'coin' || d.unit === 'piece') {

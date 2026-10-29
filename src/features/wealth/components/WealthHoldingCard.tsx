@@ -27,7 +27,7 @@ import {
 import { AppText } from '../../../components/ui/AppText';
 import { BankPlasticCard } from '../../../components/banks/BankPlasticCard';
 import { PressScale } from '../../../components/ui/PressScale';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, formatCompactToman } from '../../../utils/currency/money';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -46,7 +46,9 @@ function secondaryMetric(account: FinancialAccount): string {
   }
   switch (d.class) {
     case 'gold':
-      return `${toPersianDigits(String(d.weight))} ${dict.wealth.goldUnits[d.unit]} · ${dict.wealth.goldTypes[d.goldType]}`;
+      return `${toPersianDigits(String(d.weight))} ${dict.wealth.goldUnits[d.unit]} · ${
+        dict.wealth.goldTypes[d.goldType]
+      }`;
     case 'silver':
       return `${toPersianDigits(String(d.weight))} ${dict.wealth.silverUnits[d.unit]}`;
     case 'crypto':
@@ -58,7 +60,9 @@ function secondaryMetric(account: FinancialAccount): string {
     case 'fund':
       return `${toPersianDigits(String(d.units))} ${dict.wealth.units}`;
     case 'real_estate':
-      return `${toPersianDigits(String(d.areaSqm))} ${dict.wealth.sqm} · ${toPersianDigits(String(d.ownershipPercent))}٪`;
+      return `${toPersianDigits(String(d.areaSqm))} ${dict.wealth.sqm} · ${toPersianDigits(
+        String(d.ownershipPercent),
+      )}٪`;
     case 'vehicle':
       return `${d.brand} ${d.model} · ${toPersianDigits(String(d.year))}`;
     case 'business':
@@ -217,13 +221,15 @@ function ValueBlock({
                   ? '#A7F3D0'
                   : '#FECACA'
                 : plPositive
-                  ? colors.income
-                  : colors.expense,
+                ? colors.income
+                : colors.expense,
             },
           ]}>
           {hidden
             ? '••'
-            : `${plPositive ? '+' : ''}${toPersianDigits(perf.unrealizedPlPct.toFixed(1))}٪`}
+            : `${plPositive ? '▲' : '▼'} ${toPersianDigits(
+                Math.abs(perf.unrealizedPlPct).toFixed(1),
+              )}٪ · ${formatCompactToman(Math.abs(perf.unrealizedPlRial))}`}
         </AppText>
       ) : (
         <AppText style={[styles.liq, { color: muted }]}>
@@ -374,10 +380,7 @@ function TypedAssetCard({
   const meta = ASSET_CLASS_META[cls];
   const metric = secondaryMetric(account);
 
-  const palette: Record<
-    AssetClass,
-    { bg: [string, string]; border: string; glyphBg: string }
-  > = {
+  const palette: Record<AssetClass, { bg: [string, string]; border: string; glyphBg: string }> = {
     cash: {
       bg: ['rgba(16,42,34,0.95)', 'rgba(10,28,24,0.95)'],
       border: 'rgba(52,211,153,0.35)',
@@ -466,10 +469,10 @@ function TypedAssetCard({
     account.details?.class === 'crypto'
       ? account.details.symbol.slice(0, 3).toUpperCase()
       : account.details?.class === 'currency'
-        ? account.details.currencyCode
-        : account.details?.class === 'stock'
-          ? account.details.symbol.slice(0, 4)
-          : null;
+      ? account.details.currencyCode
+      : account.details?.class === 'stock'
+      ? account.details.symbol.slice(0, 4)
+      : null;
 
   return (
     <Animated.View style={[{ marginBottom: 12 }, entrance]}>

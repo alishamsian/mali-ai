@@ -162,6 +162,7 @@ export function RootNavigator() {
     // Initial app entry sync (once navigator mounts)
     triggerIncrementalSync();
     void runSmartAlerts();
+    useFinanceStore.getState().touchNetWorth();
 
     const onChange = (next: AppStateStatus) => {
       const prev = appState.current;
