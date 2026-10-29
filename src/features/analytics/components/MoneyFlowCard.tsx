@@ -6,7 +6,7 @@ import { GlassPanel } from '../../../components/ui/GlassPanel';
 import { t } from '../../../i18n';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatCompactToman } from '../../../utils/currency/money';
 import { moneyFlow, type FlowNode } from '../../../engine/insights/moneyFlow';
 import type { Transaction } from '../../../types/finance';
 
@@ -122,7 +122,6 @@ export function MoneyFlowCard({
     }
   }
 
-  const money = (rial: number) => (hidden ? '••••' : formatTomanFromRial(rial));
   const labelColumn = (nodes: Placed[], align: 'right' | 'left') => {
     const tops = labelTops(nodes);
     return (
@@ -133,7 +132,7 @@ export function MoneyFlowCard({
               {nameOf(n.id)}
             </AppText>
             <AppText style={[styles.value, { textAlign: align }]} numberOfLines={1}>
-              {money(n.rial)}
+              {hidden ? '••••' : formatCompactToman(n.rial)}
             </AppText>
           </View>
         ))}

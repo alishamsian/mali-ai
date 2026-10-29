@@ -386,9 +386,8 @@ export const fa = {
   swipe: {
     delete: 'حذف',
     confirm: 'تأیید',
-    deleteTitle: 'این تراکنش حذف شود؟',
-    deleteBody: 'موجودی حساب هم به‌روز می‌شود.',
-    cancel: 'انصراف',
+    deleted: 'تراکنش حذف شد',
+    undo: 'برگرداندن',
   },
   transactions: {
     title: 'تراکنش‌ها',

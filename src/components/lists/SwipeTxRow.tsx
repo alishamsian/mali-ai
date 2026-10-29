@@ -6,7 +6,7 @@ import ReanimatedSwipeable, {
 import { Check, Trash2 } from 'lucide-react-native';
 import { AppText } from '../ui/AppText';
 import { PressScale } from '../ui/PressScale';
-import { appAlert } from '../ui/AppAlert';
+import { appToast } from '../ui/AppAlert';
 import { t } from '../../i18n';
 import { useFinanceStore } from '../../store/finance/store';
 import { useAppTheme } from '../../theme/ThemeBridge';
@@ -15,7 +15,7 @@ import type { Transaction } from '../../types/finance';
 
 const ACTION_WIDTH = 84;
 
-/** Swipe left to delete (confirmed in a sheet); swipe right to confirm a row that needs review. */
+/** Swipe left to delete (with undo); swipe right to confirm a row that needs review. */
 export function SwipeTxRow({ tx, children }: { tx: Transaction; children: React.ReactNode }) {
   const { colors } = useAppTheme();
   const dict = t().swipe;
@@ -44,16 +44,19 @@ export function SwipeTxRow({ tx, children }: { tx: Transaction; children: React.
       overshootLeft={false}
       onSwipeableWillOpen={hapticTap}
       renderRightActions={() =>
-        action(dict.delete, Trash2, '#C2410C', () =>
-          appAlert(dict.deleteTitle, dict.deleteBody, [
-            { text: dict.cancel, style: 'cancel' },
-            {
-              text: dict.delete,
-              style: 'destructive',
-              onPress: () => useFinanceStore.getState().deleteTransaction(tx.id),
-            },
-          ]),
-        )
+        action(dict.delete, Trash2, '#C2410C', () => {
+          // Delete at once and offer undo, rather than asking first.
+          const store = useFinanceStore.getState();
+          const removed = store.snapshot.transactions.find(item => item.id === tx.id);
+          store.deleteTransaction(tx.id);
+          if (removed) {
+            appToast(dict.deleted, {
+              label: dict.undo,
+              onPress: () =>
+                useFinanceStore.getState().addTransaction(removed, { allowDuplicate: true }),
+            });
+          }
+        })
       }
       renderLeftActions={
         needsReview

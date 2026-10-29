@@ -6,7 +6,7 @@ import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial } from '../../../utils/currency/money';
+import { formatTomanFromRial, formatCompactToman } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { DAY_BANDS, spendHeatmap, topMerchants } from '../../../engine/insights/habits';
 
@@ -76,7 +76,11 @@ export function HabitsPanel({ hidden }: { hidden: boolean }) {
               </View>
               <View style={{ alignItems: 'flex-start' }}>
                 <AppText style={styles.amount}>{money(m.totalRial)}</AppText>
-                <AppText style={styles.sub}>{interpolate(dict.monthly, { amount: money(m.monthlyRial) })}</AppText>
+                <AppText style={styles.sub}>
+                  {interpolate(dict.monthly, {
+                    amount: hidden ? '••••' : formatCompactToman(m.monthlyRial),
+                  })}
+                </AppText>
               </View>
             </View>
           ))}
@@ -109,7 +113,9 @@ export function HabitsPanel({ hidden }: { hidden: boolean }) {
                       styles.cell,
                       {
                         backgroundColor:
-                          value > 0 ? `rgba(${heatRgb},${0.15 + (value / heat.maxRial) * 0.85})` : colors.glass,
+                          value > 0
+                            ? `rgba(${heatRgb},${0.15 + (value / heat.maxRial) * 0.85})`
+                            : colors.glass,
                       },
                     ]}
                   />

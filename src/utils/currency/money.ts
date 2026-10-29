@@ -62,3 +62,23 @@ export function formatTomanLabel(
   const unit = currency === 'IRR' ? 'ریال' : 'تومان';
   return `${formatTomanFromRial(rial, options)} ${unit}`;
 }
+
+/** "۱۳٫۳ میلیون", "۸۵۰ هزار": for cards and charts where the exact figure is noise. */
+export function formatCompactToman(rial: number): string {
+  const toman = Math.abs(rialToToman(rial));
+  const sign = rial < 0 ? '−' : '';
+  const scaled = (value: number, unit: string) => {
+    const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
+    return `${sign}${toPersianDigits(String(rounded).replace('.', '٫'))} ${unit}`;
+  };
+  if (toman >= 1e9) {
+    return scaled(toman / 1e9, 'میلیارد');
+  }
+  if (toman >= 1e6) {
+    return scaled(toman / 1e6, 'میلیون');
+  }
+  if (toman >= 1e3) {
+    return `${sign}${toPersianDigits(Math.round(toman / 1e3))} هزار`;
+  }
+  return `${sign}${toPersianDigits(Math.round(toman))}`;
+}
