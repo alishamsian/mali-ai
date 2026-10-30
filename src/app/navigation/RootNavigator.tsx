@@ -26,6 +26,7 @@ import { SearchScreen } from '../../features/transactions/screens/SearchScreen';
 import { VoiceEntryScreen } from '../../features/transactions/screens/VoiceEntryScreen';
 import { BudgetsScreen } from '../../features/budgets/screens/BudgetsScreen';
 import { ToolsScreen } from '../../features/more/screens/ToolsScreen';
+import { QuickSetupScreen } from '../../features/onboarding/screens/QuickSetupScreen';
 import { SmsSetupScreen } from '../../features/sms/screens/SmsSetupScreen';
 import { withCanvas } from '../../components/ui/withCanvas';
 import { ObligationsScreen } from '../../features/obligations/screens/ObligationsScreen';
@@ -134,6 +135,7 @@ const STATIC_NAV_THEME = {
 const TRANSIENT_ROUTES = new Set([
   'VoiceEntry',
   'Search',
+  'QuickSetup',
   'SmsSetup',
   'AddTransaction',
   'AddObligation',
@@ -281,6 +283,7 @@ export function RootNavigator() {
           screenLayout={screenErrorLayout}
           initialRouteName={completed ? 'Main' : 'Onboarding'}>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="QuickSetup" component={QuickSetupScreen} />
           <Stack.Screen name="SmsSetup" component={SmsSetupScreen} />
           <Stack.Screen name="SmsOnboarding" component={SmsOnboardingCanvas} />
           <Stack.Screen name="SmsSenderPicker" component={SmsSenderPickerScreen} />

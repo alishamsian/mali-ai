@@ -24,6 +24,7 @@ export type AddTransactionParams = {
 
 export type RootStackParamList = {
   Onboarding: undefined;
+  QuickSetup: undefined;
   SmsOnboarding: undefined;
   SmsSetup: undefined;
   SmsSenderPicker: { bankId: string };
