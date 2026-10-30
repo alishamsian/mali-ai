@@ -38,7 +38,7 @@ export function safeToSpendToday(input: {
 }
 
 /** Most recent monthly budget's total limit, if the user set one. */
-export function currentMonthlyLimitRial(snapshot: FinanceSnapshot): number | null {
+export function currentMonthlyLimitRial(snapshot: Pick<FinanceSnapshot, 'budgets'>): number | null {
   const monthly = snapshot.budgets
     .filter(b => b.period === 'monthly' && b.totalLimitRial > 0)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
