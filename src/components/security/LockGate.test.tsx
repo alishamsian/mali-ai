@@ -57,6 +57,25 @@ describe('LockGate', () => {
       biometric.mockRestore();
     }
   });
+  it('lets the phone owner reset the lock when the saved PIN cannot be read', async () => {
+    const owner = jest.spyOn(vault, 'confirmDeviceOwner').mockResolvedValue('ok');
+    const pinStore = jest.requireActual('../../services/security/pin');
+    const hasPin = jest.spyOn(pinStore, 'hasStoredPin').mockResolvedValue(false);
+    try {
+      renderGate();
+      await waitFor(() => expect(screen.getByText(fa.profile.resetLock)).toBeTruthy());
+      expect(screen.queryByText('vault contents')).toBeNull();
+      await act(async () => {
+        fireEvent.press(screen.getByText(fa.profile.resetLock));
+      });
+      await waitFor(() => expect(screen.getByText('vault contents')).toBeTruthy());
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(useFinanceStore.getState().snapshot.settings.appLockEnabled).toBe(false);
+    } finally {
+      owner.mockRestore();
+      hasPin.mockRestore();
+    }
+  });
   it('hides the app behind the PIN pad and opens with the right PIN', async () => {
     renderGate();
     await screen.findByText(fa.profile.unlock);

@@ -9,13 +9,19 @@ import { NightCanvas } from '../ui/NightCanvas';
 import { useAuthStore } from '../../store/auth/store';
 import { useFinanceStore } from '../../store/finance/store';
 import {
+  clearPinHash,
   hasStoredPin,
   pinLockRemainingMs,
   pinMatches,
   recordPinFailure,
   recordPinSuccess,
 } from '../../services/security/pin';
-import { isSensitiveAuthActive, promptVaultBiometric } from '../../services/security/vault';
+import {
+  confirmDeviceOwner,
+  isSensitiveAuthActive,
+  promptVaultBiometric,
+} from '../../services/security/vault';
+import { appAlert } from '../ui/AppAlert';
 import { hapticSuccess, hapticWarn } from '../../utils/haptics';
 import { t } from '../../i18n';
 
@@ -123,10 +129,29 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [enabled, lock]);
 
-  const showLock =
-    enabled && !unlocked;
+  const showLock = enabled && !unlocked;
 
   const locked = lockMs > 0;
+
+  // The saved PIN is unreadable (Keystore wiped, device restored): let the phone's owner,
+  // proven by the OS screen lock, turn the app lock off instead of being locked out for good.
+  const resetLock = useCallback(async () => {
+    const finish = async () => {
+      await clearPinHash().catch(() => undefined);
+      useFinanceStore.getState().updateSettings({ appLockEnabled: false, biometricUnlock: false });
+      unlock();
+      appAlert(dict.profile.resetLockDone, dict.profile.resetLockDoneBody);
+    };
+    const check = await confirmDeviceOwner();
+    if (check === 'ok') {
+      await finish();
+    } else if (check === 'no-device-lock') {
+      appAlert(dict.profile.resetLockNoDeviceLock, dict.profile.resetLockNoDeviceLockBody, [
+        { text: dict.common.cancel, style: 'cancel' },
+        { text: dict.profile.resetLock, style: 'destructive', onPress: () => void finish() },
+      ]);
+    }
+  }, [dict.common.cancel, dict.profile, unlock]);
 
   const tryBiometric = useCallback(async () => {
     if (busy || locked || hasPin !== true || !biometricUnlock) {
@@ -218,6 +243,12 @@ export function LockGate({ children }: { children: React.ReactNode }) {
                   <AppText style={styles.err}>{dict.profile.pinUnavailable}</AppText>
                   <Pressable accessibilityRole="button" onPress={() => void refreshPinState()}>
                     <AppText>{dict.storageError.retry}</AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => void resetLock()}
+                    style={{ marginTop: 12 }}>
+                    <AppText style={styles.center}>{dict.profile.resetLock}</AppText>
                   </Pressable>
                 </>
               ) : null}

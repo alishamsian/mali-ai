@@ -165,3 +165,44 @@ export async function clearVaultToken(): Promise<void> {
     // ignore
   }
 }
+
+export type OwnerCheck = 'ok' | 'failed' | 'no-device-lock';
+
+/**
+ * Asks the OS to confirm the phone's owner (fingerprint, face or screen-lock PIN), with
+ * no app secret involved: used when the app's own PIN can no longer be read. Creates a
+ * throwaway keychain item that only opens after device authentication.
+ */
+export async function confirmDeviceOwner(): Promise<OwnerCheck> {
+  if (!keychain) {
+    return 'no-device-lock';
+  }
+  const service = `${SERVICE}.owner-check`;
+  try {
+    await keychain.setGenericPassword('owner', String(Date.now()), {
+      service,
+      accessControl: keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
+      accessible: keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+    });
+  } catch {
+    // Creating a passcode-bound item fails when the phone has no screen lock.
+    return 'no-device-lock';
+  }
+  beginSensitiveAuth();
+  try {
+    const result = await keychain.getGenericPassword({
+      service,
+      authenticationPrompt: {
+        title: 'تأیید صاحب گوشی',
+        subtitle: 'بازنشانی قفل پولت',
+        cancel: 'انصراف',
+      },
+    });
+    return result ? 'ok' : 'failed';
+  } catch {
+    return 'failed';
+  } finally {
+    endSensitiveAuth();
+    await keychain.resetGenericPassword({ service }).catch(() => undefined);
+  }
+}
