@@ -79,3 +79,6 @@ yarn-error.log
 .env
 .env.local
 preview/*.apk
+
+# Built release APKs
+/release/
