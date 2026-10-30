@@ -1,3 +1,4 @@
+import { requestWidgetPin } from '../../../services/widget/widgetState';
 import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, TextInput, View } from 'react-native';
@@ -1393,9 +1394,31 @@ export function SettingsAppearanceScreen() {
         </View>
       </SettingsSection>
 
+      <SettingsSection title={dict.widget.sectionTitle}>
+        <SettingsNavRow
+          title={dict.widget.addSmall}
+          subtitle={dict.widget.addSmallHint}
+          onPress={() => void addWidget(false)}
+        />
+        <SettingsNavRow
+          title={dict.widget.addWide}
+          subtitle={dict.widget.addWideHint}
+          onPress={() => void addWidget(true)}
+          last
+        />
+      </SettingsSection>
+
       <AppText style={styles.hint}>{dict.settings.themePartialHint}</AppText>
     </Shell>
   );
+}
+
+/** Places a home-screen widget, or explains how to add one by hand. */
+async function addWidget(wide: boolean) {
+  if (!(await requestWidgetPin(wide))) {
+    const dict = t().widget;
+    appAlert(dict.manualTitle, dict.manualBody);
+  }
 }
 
 export function SettingsLanguageScreen() {

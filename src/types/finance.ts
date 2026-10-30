@@ -129,6 +129,8 @@ export interface Transaction {
   transferId?: string;
   notes?: string;
   receiptNote?: string;
+  /** کد پیگیری / شماره مرجع from the bank SMS, for finding a payment later. */
+  receiptCode?: string;
   /** Absolute account balance from SMS, in Rials */
   balanceAfterRial?: number;
   mergedFromId?: string;

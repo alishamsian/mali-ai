@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2x2: today's allowance, month progress, one-tap add. Right-aligned for Persian. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="end"
+    android:layoutDirection="ltr"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical|end"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/widget_kicker"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/vazirmatn_regular"
+            android:gravity="end"
+            android:maxLines="1"
+            android:textColor="@color/widget_muted"
+            android:textSize="12sp" />
+        <TextView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_brand"
+            android:fontFamily="@font/vazirmatn_bold"
+            android:gravity="center"
+            android:text="پ"
+            android:textColor="@color/widget_on_btn"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_amount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:autoSizeMaxTextSize="30sp"
+        android:autoSizeMinTextSize="16sp"
+        android:autoSizeTextType="uniform"
+        android:fontFamily="@font/vazirmatn_bold"
+        android:gravity="end"
+        android:maxLines="1"
+        android:textColor="@color/widget_ink"
+        android:textSize="28sp" />
+
+    <TextView
+        android:id="@+id/widget_sub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/vazirmatn_regular"
+        android:gravity="end"
+        android:maxLines="1"
+        android:textColor="@color/widget_muted"
+        android:textSize="11sp" />
+
+    <ProgressBar
+        android:id="@+id/widget_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="10dp"
+        android:max="100"
+        android:progressDrawable="@drawable/widget_progress" />
+
+    <!-- Spacer: home-screen widgets only allow a fixed set of view classes, not plain View. -->
+    <FrameLayout
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/widget_add"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:background="@drawable/widget_btn"
+        android:fontFamily="@font/vazirmatn_bold"
+        android:gravity="center"
+        android:text="+  ثبت خرج"
+        android:textColor="@color/widget_on_btn"
+        android:textSize="13sp" />
+</LinearLayout>

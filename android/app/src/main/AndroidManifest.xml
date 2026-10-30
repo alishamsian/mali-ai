@@ -44,6 +44,9 @@
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="poolet" android:host="auth" />
+            <!-- Home-screen widget shortcuts -->
+            <data android:scheme="poolet" android:host="add" />
+            <data android:scheme="poolet" android:host="voice" />
         </intent-filter>
       </activity>
       <receiver
@@ -59,6 +62,14 @@
         <intent-filter>
             <action android:name="android.intent.action.BOOT_COMPLETED" />
         </intent-filter>
+      </receiver>
+      <receiver android:name=".widget.BudgetWidgetSmall" android:exported="false" android:label="پولت · امروز">
+        <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+        <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_small_info" />
+      </receiver>
+      <receiver android:name=".widget.BudgetWidgetWide" android:exported="false" android:label="پولت · خلاصه">
+        <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+        <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_wide_info" />
       </receiver>
     </application>
 </manifest>

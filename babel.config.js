@@ -5,7 +5,7 @@ module.exports = {
     // never put the service role key here.
     [
       './scripts/babel-plugin-inline-env',
-      { names: ['SUPABASE_URL', 'SUPABASE_ANON_KEY'] },
+      { names: ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'UPDATE_MANIFEST_URL'] },
     ],
     // Must stay last.
     'react-native-reanimated/plugin',

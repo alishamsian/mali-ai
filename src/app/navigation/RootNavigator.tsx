@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, type AppStateStatus, View } from 'react-native';
+import { AppState, type AppStateStatus, Linking, View } from 'react-native';
 import {
   DarkTheme,
   NavigationContainer,
@@ -77,6 +77,8 @@ import { getStorageDriver } from '../../database/drivers/storageBootstrap';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { screenErrorLayout } from '../../components/errors/ErrorBoundary';
 import { setCloudAutoRefresh } from '../../services/supabase/client';
+import { pushWidgetState, watchWidget } from '../../services/widget/widgetState';
+import { checkForUpdate } from '../../services/update/checkForUpdate';
 import { runSmartAlerts, watchSmartAlerts } from '../../services/notifications/smartAlerts';
 import { useCloudAuthLinks } from './useCloudAuthLinks';
 
@@ -93,6 +95,19 @@ type MainProps = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
 /** کامپوننت پایدار — تابع ناشناس داخل Screen با هر رندر تم ریمونت می‌کرد */
 function MainScreen({ navigation }: MainProps) {
+  // Home-screen widget shortcuts: poolet://add and poolet://voice.
+  useEffect(() => {
+    const open = (url: string | null) => {
+      if (url?.startsWith('poolet://add')) {
+        navigation.navigate('AddTransaction', { mode: 'expense' });
+      } else if (url?.startsWith('poolet://voice')) {
+        navigation.navigate('VoiceEntry');
+      }
+    };
+    void Linking.getInitialURL().then(open);
+    const sub = Linking.addEventListener('url', event => open(event.url));
+    return () => sub.remove();
+  }, [navigation]);
   return (
     <TabNavigator
       onAdd={() => navigation.navigate('AddTransaction', { mode: 'expense' })}
@@ -187,6 +202,7 @@ export function RootNavigator() {
     triggerIncrementalSync();
     void runSmartAlerts();
     useFinanceStore.getState().touchNetWorth();
+    void checkForUpdate();
 
     const onChange = (next: AppStateStatus) => {
       const prev = appState.current;
@@ -194,14 +210,17 @@ export function RootNavigator() {
       setCloudAutoRefresh(next === 'active');
       if (prev.match(/inactive|background/) && next === 'active') {
         triggerIncrementalSync();
+        pushWidgetState();
         void runSmartAlerts();
       }
     };
     const sub = AppState.addEventListener('change', onChange);
     const stopWatching = watchSmartAlerts();
+    const stopWidget = watchWidget();
     return () => {
       sub.remove();
       stopWatching();
+      stopWidget();
     };
   }, [triggerIncrementalSync]);
 
@@ -249,9 +268,7 @@ export function RootNavigator() {
   }
 
   const showSyncBanner =
-    smsSync.status === 'scanning' ||
-    smsSync.status === 'completed' ||
-    smsSync.status === 'error';
+    smsSync.status === 'scanning' || smsSync.status === 'completed' || smsSync.status === 'error';
 
   return (
     <View style={{ flex: 1 }}>
@@ -325,25 +342,21 @@ export function RootNavigator() {
           <Stack.Screen name="AddWealthAsset" component={AddWealthAssetScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      {showSyncBanner && smsSync.message ? <SmsSyncBanner message={smsSync.message} status={smsSync.status} /> : null}
+      {showSyncBanner && smsSync.message ? (
+        <SmsSyncBanner message={smsSync.message} status={smsSync.status} />
+      ) : null}
     </View>
   );
 }
 
-function SmsSyncBanner({
-  message,
-  status,
-}: {
-  message: string;
-  status: string;
-}) {
+function SmsSyncBanner({ message, status }: { message: string; status: string }) {
   const insets = useSafeAreaInsets();
   const bg =
     status === 'error'
       ? 'rgba(180,60,60,0.92)'
       : status === 'completed'
-        ? 'rgba(30,110,80,0.92)'
-        : 'rgba(20,40,44,0.92)';
+      ? 'rgba(30,110,80,0.92)'
+      : 'rgba(20,40,44,0.92)';
   return (
     <View
       pointerEvents="none"

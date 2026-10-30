@@ -12,11 +12,21 @@ import { BankEmblem } from '../../../components/banks/BankEmblem';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
 import { CategoryPickerField } from '../components/CategoryPickerField';
 import { EXPENSE_CATEGORIES } from '../../../constants/categories';
-import { t } from '../../../i18n';
+import { t, interpolate } from '../../../i18n';
+import { appAlert } from '../../../components/ui/AppAlert';
+import { toPersianDigits } from '../../../utils/numbers/digits';
 import { toJalaliLabel, toTimeLabel } from '../../../utils/dates/jalali';
-import { getDisplayCurrencyPreference, formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
+import {
+  getDisplayCurrencyPreference,
+  formatTomanFromRial,
+  displayUnitLabel,
+} from '../../../utils/currency/money';
 import { useFinanceStore } from '../../../store/finance/store';
-import { flowIconSurface, flowKindForTransaction, flowTint } from '../../../components/ui/FlowAmount';
+import {
+  flowIconSurface,
+  flowKindForTransaction,
+  flowTint,
+} from '../../../components/ui/FlowAmount';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { resolveBankName } from '../../banks/names';
@@ -25,7 +35,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../app/navigation/types';
 import type { CategoryId, TransactionSource } from '../../../types/finance';
 
-function sourceLabel(source: TransactionSource, dict: ReturnType<typeof t>['transactions']): string {
+function sourceLabel(
+  source: TransactionSource,
+  dict: ReturnType<typeof t>['transactions'],
+): string {
   switch (source) {
     case 'android_sms':
       return dict.autoSms;
@@ -111,6 +124,38 @@ export function TransactionDetailsScreen({
   const account = useFinanceStore(s => s.snapshot.accounts.find(a => a.id === tx?.accountId));
   const confirm = useFinanceStore(s => s.confirmTransaction);
   const recategorize = useFinanceStore(s => s.recategorizeTransaction);
+  // After a manual category change, offer to fix the merchant's other transactions too.
+  const offerMerchantRecategorize = (categoryId: CategoryId) => {
+    const merchant = tx?.merchant?.trim();
+    if (!merchant) {
+      return;
+    }
+    const others = useFinanceStore
+      .getState()
+      .snapshot.transactions.filter(
+        o =>
+          o.id !== tx?.id &&
+          o.merchant?.trim().toLowerCase() === merchant.toLowerCase() &&
+          o.categoryId !== categoryId,
+      ).length;
+    if (others === 0) {
+      return;
+    }
+    appAlert(
+      interpolate(dict.transactions.learnTitle, { merchant }),
+      interpolate(dict.transactions.learnBody, {
+        n: others,
+        category: dict.categories[categoryId],
+      }),
+      [
+        {
+          text: dict.transactions.learnAll,
+          onPress: () => useFinanceStore.getState().recategorizeMerchant(merchant, categoryId),
+        },
+        { text: dict.transactions.learnOnlyThis, style: 'cancel' },
+      ],
+    );
+  };
   const remove = useFinanceStore(s => s.deleteTransaction);
   const [whyOpen, setWhyOpen] = useState(false);
   // Two-step delete: the first tap arms it, a second tap within 4 s deletes.
@@ -141,7 +186,12 @@ export function TransactionDetailsScreen({
       justifyContent: 'center',
       backgroundColor: c.primary,
     },
-    brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: th.typography.fontFamily.bold, color: c.onPrimary },
+    brandGlyph: {
+      fontSize: 28,
+      lineHeight: 40,
+      fontFamily: th.typography.fontFamily.bold,
+      color: c.onPrimary,
+    },
     hero: {
       alignItems: 'center',
       paddingVertical: 22,
@@ -180,7 +230,12 @@ export function TransactionDetailsScreen({
       borderWidth: 1,
     },
     amountBlock: { alignItems: 'center', gap: 4, width: '100%', paddingHorizontal: 6 },
-    amount: { width: '100%', fontSize: 40, letterSpacing: -1, fontFamily: th.typography.fontFamily.semibold },
+    amount: {
+      width: '100%',
+      fontSize: 40,
+      letterSpacing: -1,
+      fontFamily: th.typography.fontFamily.semibold,
+    },
     unit: { fontSize: 12, color: c.textMuted },
     dateLine: { textAlign: 'center', color: c.textMuted },
     chips: {
@@ -308,10 +363,10 @@ export function TransactionDetailsScreen({
     tx.source === 'manual'
       ? dict.transactions.confidenceManual
       : confidencePct >= 90
-        ? dict.transactions.confidenceFull
-        : confidencePct >= 60
-          ? dict.transactions.confidenceLikely
-          : dict.transactions.confidenceLow;
+      ? dict.transactions.confidenceFull
+      : confidencePct >= 60
+      ? dict.transactions.confidenceLikely
+      : dict.transactions.confidenceLow;
 
   return (
     <NightCanvas>
@@ -336,7 +391,10 @@ export function TransactionDetailsScreen({
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: iconSurface.backgroundColor, borderColor: iconSurface.borderColor },
+                {
+                  backgroundColor: iconSurface.backgroundColor,
+                  borderColor: iconSurface.borderColor,
+                },
               ]}>
               {isSms && account?.bankId && account.bankId !== 'cash' ? (
                 <BankEmblem bankId={account.bankId} size={28} />
@@ -348,7 +406,11 @@ export function TransactionDetailsScreen({
               <AppText numberOfLines={2} style={[styles.merchant, { color: colors.text }]}>
                 {title}
               </AppText>
-              <View style={[styles.flowPill, { borderColor: `${tint}44`, backgroundColor: `${tint}14` }]}>
+              <View
+                style={[
+                  styles.flowPill,
+                  { borderColor: `${tint}44`, backgroundColor: `${tint}14` },
+                ]}>
                 <AppText variant="caption" style={{ color: tint, fontSize: 11 }}>
                   {flowLabel(flow, dict)}
                 </AppText>
@@ -357,10 +419,7 @@ export function TransactionDetailsScreen({
           </View>
 
           <View style={styles.amountBlock}>
-            <MoneyText
-              align="center"
-              minFontScale={0.48}
-              style={[styles.amount, { color: tint }]}>
+            <MoneyText align="center" minFontScale={0.48} style={[styles.amount, { color: tint }]}>
               {hidden ? '••••••' : `${sign}${formatTomanFromRial(tx.amountRial)}`}
             </MoneyText>
             {!hidden ? <AppText style={styles.unit}>{moneyUnit}</AppText> : null}
@@ -394,12 +453,11 @@ export function TransactionDetailsScreen({
         </AppText>
         <GlassPanel radius={24} style={styles.section}>
           <View
-            style={[
-              styles.categoryBlock,
-              needsCategoryConfirm ? styles.categoryBlockWarn : null,
-            ]}>
+            style={[styles.categoryBlock, needsCategoryConfirm ? styles.categoryBlockWarn : null]}>
             {needsCategoryConfirm ? (
-              <AppText variant="caption" style={[styles.categoryHint, { color: colors.textSecondary }]}>
+              <AppText
+                variant="caption"
+                style={[styles.categoryHint, { color: colors.textSecondary }]}>
                 {dict.transactions.pickCategoryHint}
               </AppText>
             ) : null}
@@ -410,6 +468,7 @@ export function TransactionDetailsScreen({
               onSelect={id => {
                 if (id !== 'all') {
                   recategorize(tx.id, id);
+                  offerMerchantRecategorize(id);
                 }
               }}
             />
@@ -420,7 +479,17 @@ export function TransactionDetailsScreen({
             valueColor={confidencePct >= 100 ? colors.income : colors.warning}
           />
           <InfoRow label={dict.transactions.account} value={account?.name ?? '—'} />
-          <InfoRow label={dict.transactions.source} value={sourceLabel(tx.source, dict.transactions)} last />
+          {tx.receiptCode ? (
+            <InfoRow
+              label={dict.transactions.receiptCode}
+              value={toPersianDigits(tx.receiptCode)}
+            />
+          ) : null}
+          <InfoRow
+            label={dict.transactions.source}
+            value={sourceLabel(tx.source, dict.transactions)}
+            last
+          />
         </GlassPanel>
 
         {tx.mergedFromId ? (
@@ -457,7 +526,9 @@ export function TransactionDetailsScreen({
             </PressScale>
             {whyOpen ? (
               <View style={styles.whyBody}>
-                <AppText variant="caption" style={{ color: colors.textMuted, textAlign: 'right', lineHeight: 20 }}>
+                <AppText
+                  variant="caption"
+                  style={{ color: colors.textMuted, textAlign: 'right', lineHeight: 20 }}>
                   {dict.transactions.whyRecordedHint}
                 </AppText>
                 {tx.sourceSmsPreview ? (
@@ -465,7 +536,9 @@ export function TransactionDetailsScreen({
                     <AppText style={styles.smsText}>{tx.sourceSmsPreview}</AppText>
                   </View>
                 ) : (
-                  <AppText variant="caption" style={{ color: colors.textMuted, textAlign: 'right', lineHeight: 20 }}>
+                  <AppText
+                    variant="caption"
+                    style={{ color: colors.textMuted, textAlign: 'right', lineHeight: 20 }}>
                     {dict.transactions.smsPreviewMissing}
                   </AppText>
                 )}
@@ -486,7 +559,9 @@ export function TransactionDetailsScreen({
             />
           ) : null}
           {isSms && needsCategoryConfirm ? (
-            <AppText variant="caption" style={{ textAlign: 'right', lineHeight: 20, color: colors.textMuted }}>
+            <AppText
+              variant="caption"
+              style={{ textAlign: 'right', lineHeight: 20, color: colors.textMuted }}>
               {dict.transactions.fixLearnHint}
             </AppText>
           ) : null}
@@ -507,7 +582,10 @@ export function TransactionDetailsScreen({
             styles.delete,
             armed
               ? { backgroundColor: danger, borderColor: danger }
-              : { backgroundColor: glass ? colors.glassStrong : 'transparent', borderColor: glass ? colors.glassBorder : colors.border },
+              : {
+                  backgroundColor: glass ? colors.glassStrong : 'transparent',
+                  borderColor: glass ? colors.glassBorder : colors.border,
+                },
           ]}>
           <Trash2 color={armed ? '#FFFFFF' : danger} size={18} strokeWidth={2} />
           <AppText style={[styles.deleteText, { color: armed ? '#FFFFFF' : danger }]}>

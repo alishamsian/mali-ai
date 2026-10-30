@@ -109,10 +109,15 @@ function relink(snapshot: FinanceSnapshot, transactions: Transaction[]): Finance
     if (!tx.transferId || tx.direction !== 'internal') {
       return tx;
     }
-    const direction = legacyDirections.get(tx.id) ??
+    const direction =
+      legacyDirections.get(tx.id) ??
       (tx.id.endsWith('_out') ? 'out' : tx.id.endsWith('_in') ? 'in' : undefined);
     return direction
-      ? { ...tx, direction, type: direction === 'in' ? 'deposit' as const : 'withdrawal' as const }
+      ? {
+          ...tx,
+          direction,
+          type: direction === 'in' ? ('deposit' as const) : ('withdrawal' as const),
+        }
       : { ...tx, needsReview: true, isConfirmed: false };
   });
   const links = detectTransfers(normalized, snapshot.profile.id);
@@ -319,6 +324,8 @@ interface FinanceState {
   updateTransaction: (id: string, patch: Partial<Transaction>) => void;
   confirmTransaction: (id: string) => void;
   recategorizeTransaction: (id: string, categoryId: CategoryId) => void;
+  /** Moves every transaction from this merchant to the category; returns how many changed. */
+  recategorizeMerchant: (merchant: string, categoryId: CategoryId) => number;
   updateSettings: (patch: Partial<UserSettings>) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
   upsertAccount: (account: FinancialAccount) => void;
@@ -445,7 +452,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           try {
             await storePinHash(migratedHash);
           } catch {
-            set({ storageError: { code: 'pin-migration', detail: 'PIN migration could not be persisted' } });
+            set({
+              storageError: {
+                code: 'pin-migration',
+                detail: 'PIN migration could not be persisted',
+              },
+            });
             return;
           }
         }
@@ -575,6 +587,22 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
   confirmTransaction: id => {
     get().updateTransaction(id, { isConfirmed: true, needsReview: false, confidence: 1 });
+  },
+  recategorizeMerchant: (merchant, categoryId) => {
+    const key = merchant.trim().toLowerCase();
+    const snapshot = liveSnapshot(get);
+    let changed = 0;
+    const transactions = snapshot.transactions.map(tx => {
+      if (tx.merchant?.trim().toLowerCase() !== key || tx.categoryId === categoryId) {
+        return tx;
+      }
+      changed += 1;
+      return { ...tx, categoryId, needsReview: false, updatedAt: new Date().toISOString() };
+    });
+    if (changed > 0) {
+      persistSet(set, { ...snapshot, transactions });
+    }
+    return changed;
   },
   recategorizeTransaction: (id, categoryId) => {
     const snapshot = liveSnapshot(get);
@@ -1232,10 +1260,16 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       };
       const linked = relink(next, next.transactions);
       for (const account of linked.accounts) {
-        linked.syncQueue = enqueueSync(linked.syncQueue, createQueueItem('financial_accounts', account.id, 'upsert', account));
+        linked.syncQueue = enqueueSync(
+          linked.syncQueue,
+          createQueueItem('financial_accounts', account.id, 'upsert', account),
+        );
       }
       for (const tx of linked.transactions) {
-        linked.syncQueue = enqueueSync(linked.syncQueue, createQueueItem('transactions', tx.id, 'upsert', tx));
+        linked.syncQueue = enqueueSync(
+          linked.syncQueue,
+          createQueueItem('transactions', tx.id, 'upsert', tx),
+        );
       }
       persistSet(set, linked);
       applyUserTheme({
@@ -1291,14 +1325,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     // New accounts already carry their complete cloud balance. Only missing rows on
     // existing accounts need their incremental effect applied, once.
     let existingAccounts = live.accounts;
-    for (const tx of [...newTxs].sort((a, b) => Date.parse(a.transactionDate) - Date.parse(b.transactionDate))) {
+    for (const tx of [...newTxs].sort(
+      (a, b) => Date.parse(a.transactionDate) - Date.parse(b.transactionDate),
+    )) {
       if (accountIds.has(tx.accountId) && tx.source !== 'android_sms') {
         existingAccounts = applyBalance(existingAccounts, tx);
       }
     }
-    const smsTouched = touched.filter(id => newTxs.some(tx => tx.accountId === id && hasSmsBalance(tx)));
+    const smsTouched = touched.filter(id =>
+      newTxs.some(tx => tx.accountId === id && hasSmsBalance(tx)),
+    );
     const accounts = recomputeSmsBalancesFor(
-      [...existingAccounts, ...newAccounts], transactions, smsTouched,
+      [...existingAccounts, ...newAccounts],
+      transactions,
+      smsTouched,
     );
     persistSet(set, appendNetWorthPoint({ ...relink(live, transactions), accounts }));
     return {

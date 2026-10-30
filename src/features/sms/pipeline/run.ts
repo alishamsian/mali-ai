@@ -33,6 +33,12 @@ const bankParsers: BankSmsParser[] = BANK_REGISTRY.map(
   bank => IMPLEMENTED_PARSERS[bank.id] ?? createUnimplementedParser(bank.id),
 );
 
+/** «پیگیری: 123456», «شماره مرجع 9876543210», «رهگیری:…»: digits only, 6–20 long. */
+export function extractReceiptCode(body: string): string | undefined {
+  const m = toEnglishDigits(body).match(/(?:پیگیری|رهگیری|مرجع|ارجاع|شماره سند|سند)\s*[:：]?\s*(\d{6,20})/);
+  return m?.[1];
+}
+
 function directionFor(type: TransactionType, body: string): TransactionDirection {
   if (type === 'deposit' || type === 'refund' || type === 'reversal') {
     return 'in';
@@ -212,6 +218,7 @@ export function runSmsPipeline(input: {
     isConfirmed: parsed.confidence >= 0.9,
     needsReview: parsed.confidence < 0.9 && parsed.confidence >= 0.6,
     balanceAfterRial: parsed.balance,
+    receiptCode: extractReceiptCode(normalized.body),
   };
 
   // Fuzzy amount/window dedupe MUST NOT apply to android_sms with a real sourceSmsId.

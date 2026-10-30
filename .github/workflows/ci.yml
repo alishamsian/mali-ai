@@ -33,3 +33,32 @@ jobs:
 
       - name: Test
         run: npm test -- --ci
+
+  # Compiles the native app, so a library that breaks the Android build (as the old
+  # voice package did) fails here instead of on a release day. Release builds need the
+  # signing key, which CI does not have, so this builds debug.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install
+        run: npm ci
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon --max-workers=2

@@ -84,6 +84,17 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "ir.maliai.app"
+    // One APK per CPU type (about half the size: Skia and Hermes ship native code per
+    // ABI). The universal APK would carry every ABI (~80 MB), so it is not built.
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk false
+        }
+    }
+
     defaultConfig {
         applicationId "ir.maliai.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -112,6 +123,10 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // Optional isolated UI-QA install; uses its own data and Keychain.
+            if (project.hasProperty('designQa')) {
+                applicationIdSuffix '.designqa'
+            }
         }
         release {
             if (keystorePropertiesFile.exists()) {
@@ -125,10 +140,6 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            // اکثر گوشی‌های امروزی arm64 — حذف armeabi-v7a حدود نصف .soها را کم می‌کند
-            ndk {
-                abiFilters "arm64-v8a"
-            }
         }
     }
 }

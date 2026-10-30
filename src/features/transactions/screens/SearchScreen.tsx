@@ -58,6 +58,7 @@ export function SearchScreen({ navigation }: Props) {
         const hay = fold(
           [
             tx.merchant,
+            tx.receiptCode,
             tx.notes,
             tx.description,
             dict.categories[tx.categoryId],

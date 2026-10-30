@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Polt</string>
+    <string name="widget_small_description">امروز چقدر می‌تونی خرج کنی و ثبت سریع</string>
+    <string name="widget_wide_description">خرج امروز و این ماه، با ثبت سریع و صوتی</string>
 </resources>

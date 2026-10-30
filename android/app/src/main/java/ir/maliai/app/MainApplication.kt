@@ -19,6 +19,7 @@ class MainApplication : Application(), ReactApplication {
               add(ir.maliai.app.sms.SmsPackage())
               add(ir.maliai.app.notify.NotifyPackage())
               add(ir.maliai.app.speech.SpeechPackage())
+              add(ir.maliai.app.widget.WidgetPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

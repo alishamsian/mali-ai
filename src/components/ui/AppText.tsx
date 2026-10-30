@@ -79,6 +79,8 @@ function colorForVariant(
   return colors.text;
 }
 
+const MAX_FONT_SCALE = 1.35;
+
 export function AppText({
   variant = 'body',
   style,
@@ -88,5 +90,13 @@ export function AppText({
   useSyncExternalStore(subscribeTheme, getThemeRevision, getThemeRevision);
   const { colors } = getThemeSnapshot();
   const color = colorForVariant(variant, colors, theme.palette.filament);
-  return <Text style={[styles[variant], { color }, style as StyleProp<TextStyle>]} {...rest} />;
+  // Follows the phone's text size, capped so large settings enlarge text without
+  // breaking amounts and rows out of their cards.
+  return (
+    <Text
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
+      style={[styles[variant], { color }, style as StyleProp<TextStyle>]}
+      {...rest}
+    />
+  );
 }
