@@ -10,9 +10,17 @@ export function normalizeSmsSender(raw: string | null | undefined): string {
   s = s.replace(/[\u200e\u200f\u202a-\u202e]/g, '');
   s = s.replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06f0));
   s = s.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660));
-  s = s.replace(/^\+/, '');
-  s = s.replace(/^00/, '');
-  s = s.replace(/[\s\-_.]/g, '');
+  s = s.replace(/[\s\-_.()]/g, '');
+  const international = /^(\+|00)/.test(s);
+  s = s.replace(/^\+/, '').replace(/^00/, '');
+  // «+98 9830009417», «0098 9121234567» and «09121234567» are the same senders as
+  // «9830009417» and «9121234567». Only a real country prefix (12+ digits after it)
+  // is stripped, so short codes that merely start with 98 stay intact.
+  if (international && /^98\d{10,}$/.test(s)) {
+    s = s.slice(2);
+  } else if (/^09\d{9}$/.test(s)) {
+    s = s.slice(1);
+  }
   return s;
 }
 
@@ -37,6 +45,11 @@ export function sendersMatch(incoming: string, verified: string): boolean {
   if (ni === nv) {
     return true;
   }
-  // Only allow verified short-code as a substring of the *incoming* address
-  return nv.length >= 4 && ni.includes(nv) && ni.length > nv.length;
+  // A verified short code inside a longer incoming address (+98…9830009417), or a full
+  // number saved before country prefixes were stripped («989830009417») containing the
+  // incoming one. Seven digits minimum keeps «983000» from matching «9830009417».
+  return (
+    (nv.length >= 4 && ni.includes(nv) && ni.length > nv.length) ||
+    (ni.length >= 7 && nv.includes(ni) && nv.length > ni.length)
+  );
 }

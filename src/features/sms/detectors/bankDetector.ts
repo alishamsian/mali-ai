@@ -22,8 +22,14 @@ const LEGACY_SENDER_HINTS: Record<string, string[]> = Object.fromEntries(
   BANK_REGISTRY.map(bank => [bank.id, bank.legacyAliases]),
 );
 
+/** Arabic ي/ك and zero-width joiners vary between banks; compare without them. */
+function fold(text: string): string {
+  return text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, ' ');
+}
+
 function scoreBank(message: NormalizedSms, bank: BankIdentity): number {
   const sender = `${message.sender} ${message.senderName ?? ''}`.toLowerCase();
+  const body = fold(message.body);
   let score = 0;
   const senders = [
     ...bank.senders,
@@ -32,9 +38,9 @@ function scoreBank(message: NormalizedSms, bank: BankIdentity): number {
   if (senders.some(s => sender.includes(s.toLowerCase()))) {
     score += 0.7;
   }
-  if (bank.strongKeywords.some(k => message.body.includes(k))) {
+  if (bank.strongKeywords.some(k => body.includes(fold(k)))) {
     score += 0.65;
-  } else if (bank.weakKeywords.some(k => message.body.includes(k))) {
+  } else if (bank.weakKeywords.some(k => body.includes(fold(k)))) {
     score += 0.25;
   }
   return Math.min(score, 0.99);

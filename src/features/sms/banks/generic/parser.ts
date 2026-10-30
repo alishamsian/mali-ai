@@ -22,21 +22,54 @@ export function inferType(body: string): { type: TransactionType; confidence: nu
   return { type: 'unknown', confidence: 0.4 };
 }
 
+/**
+ * Picks the transaction amount out of an unfamiliar bank SMS by scoring every number:
+ * dates, times, card/account numbers and masked digits are skipped; a number after
+ * «مانده/موجودی» is the balance, not the amount; one after «مبلغ», a transaction word or
+ * next to a +/− sign is likely the amount.
+ */
 export function extractAmountParts(body: string): { amount: number; currency: 'IRR' | 'IRT' } | null {
   const currency = detectCurrencyHint(body) ?? 'IRR';
-  const patterns = [
-    /مبلغ[:\s]*([0-9]{3,})/,
-    /([0-9]{4,})\s*(?:ریال|تومان|تومن)/,
-    /(?:برداشت|واریز|خرید|انتقال)[^\d]{0,20}([0-9]{4,})/,
-  ];
-  for (const pattern of patterns) {
-    const match = body.match(pattern);
-    const parsed = match?.[1] ? parseIntegerAmount(match[1]) : null;
-    if (parsed != null && parsed >= 1000) {
-      return { amount: parsed, currency };
+  const text = body.replace(/(\d)[,٬،](?=\d{3})/g, '$1');
+  let best: { value: number; score: number } | null = null;
+  for (const m of text.matchAll(/\d{3,}/g)) {
+    const start = m.index ?? 0;
+    const end = start + m[0].length;
+    const before = text[start - 1] ?? ' ';
+    const after = text[end] ?? ' ';
+    const digitAt = (i: number) => /\d/.test(text[i] ?? '');
+    if (
+      '/*_'.includes(before) ||
+      '/*_'.includes(after) ||
+      // «12:10» is a time, but «مبلغ:420000» is an amount after a label.
+      (before === ':' && digitAt(start - 2)) ||
+      (after === ':' && digitAt(end + 1)) ||
+      (before === '-' && digitAt(start - 2)) ||
+      (after === '-' && digitAt(end + 1)) ||
+      m[0].length > 12
+    ) {
+      continue;
+    }
+    const value = Number(m[0]);
+    if (value < 1000) {
+      continue;
+    }
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const pre = text.slice(Math.max(lineStart, start - 25), start);
+    const post = text.slice(end, end + 12).trim();
+    let score = 0;
+    if (/مانده|موجودی/.test(pre)) score -= 10;
+    if (/حساب|کارت|شبا|کد|پیگیری|مرجع|شماره|رمز|پویا/.test(pre) && !/مبلغ|واریز/.test(pre)) score -= 4;
+    if (/مبلغ/.test(pre)) score += 5;
+    if (/واریز|برداشت|خرید|انتقال|پرداخت|کسر/.test(pre)) score += 4;
+    if (pre.trim().endsWith('+') || after === '+') score += 4;
+    if (pre.trim().endsWith('-') || after === '-') score += 3;
+    if (/^(ریال|تومان|تومن|rial|irr)/i.test(post)) score += 2;
+    if (!best || score > best.score) {
+      best = { value, score };
     }
   }
-  return null;
+  return best && best.score >= 0 ? { amount: best.value, currency } : null;
 }
 
 export function extractCardLast4(body: string): string | undefined {
