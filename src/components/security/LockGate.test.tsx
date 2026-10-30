@@ -7,6 +7,7 @@ import { useFinanceStore } from '../../store/finance/store';
 import { useAuthStore } from '../../store/auth/store';
 import { __resetPinMemoryForTests, storePin } from '../../services/security/pin';
 import { fa } from '../../i18n/fa';
+import * as vault from '../../services/security/vault';
 
 const metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -45,6 +46,17 @@ beforeEach(async () => {
 });
 
 describe('LockGate', () => {
+  it('waits for PIN initialization before attempting automatic biometric unlock', async () => {
+    const biometric = jest.spyOn(vault, 'promptVaultBiometric').mockResolvedValue(true);
+    try {
+      useFinanceStore.getState().updateSettings({ biometricUnlock: true });
+      renderGate();
+      await waitFor(() => expect(screen.getByText('vault contents')).toBeTruthy());
+      expect(biometric).toHaveBeenCalledTimes(1);
+    } finally {
+      biometric.mockRestore();
+    }
+  });
   it('hides the app behind the PIN pad and opens with the right PIN', async () => {
     renderGate();
     await screen.findByText(fa.profile.unlock);

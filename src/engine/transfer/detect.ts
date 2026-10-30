@@ -3,12 +3,13 @@ import type { Transaction, TransferLink } from '../../types/finance';
 const WINDOW_HOURS = 36;
 
 export function detectTransfers(transactions: Transaction[], userId: string): TransferLink[] {
-  const outs = transactions.filter(t => t.direction === 'out' && !t.transferId);
+  const candidate = (t: Transaction) => t.type === 'transfer' || t.categoryId === 'transfer' || Boolean(t.transferId);
+  const outs = transactions.filter(t => t.direction === 'out' && candidate(t));
   // Bucket incoming by amount (order preserved): an out can only pair with an equal amount,
   // so this finds the same first match as scanning every incoming transaction, without O(n²).
   const insByAmount = new Map<number, Array<{ tx: Transaction; at: number }>>();
   for (const t of transactions) {
-    if (t.direction !== 'in' || t.transferId) {
+    if (t.direction !== 'in' || !candidate(t)) {
       continue;
     }
     const bucket = insByAmount.get(t.amountRial);
@@ -63,15 +64,10 @@ export function applyTransferLinks(
   );
   return transactions.map(tx => {
     const transferId = byId.get(tx.id);
-    if (!transferId) {
+    if (tx.transferId === transferId) {
       return tx;
     }
-    return {
-      ...tx,
-      type: 'transfer',
-      direction: 'internal' as const,
-      categoryId: 'transfer',
-      transferId,
-    };
+    // Preserve the actual money direction, type and category for undo/edit/reconciliation.
+    return { ...tx, transferId };
   });
 }

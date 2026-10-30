@@ -13,8 +13,8 @@ interface AuthState {
 export const useAuthStore = create<AuthState>(set => ({
   userId: 'local-user',
   signedIn: true,
-  // باز به‌صورت پیش‌فرض — قفل فقط وقتی appLockEnabled و PIN فعال است
-  vaultUnlocked: true,
+  // Start closed; LockGate opens automatically only when app lock is disabled.
+  vaultUnlocked: false,
   signInLocal: () => set({ signedIn: true, userId: 'local-user', vaultUnlocked: true }),
   signOut: () => set({ signedIn: false, vaultUnlocked: false }),
   lockVault: () => set({ vaultUnlocked: false }),

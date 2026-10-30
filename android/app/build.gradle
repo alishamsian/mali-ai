@@ -117,8 +117,10 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             } else {
-                println 'WARNING: android/keystore.properties missing — release uses debug keystore. Run scripts/generate-release-keystore.sh'
-                signingConfig signingConfigs.debug
+                // Debug builds remain available, but release tasks must never use a public key.
+                if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+                    throw new GradleException('Release signing requires android/keystore.properties. Run scripts/generate-release-keystore.sh')
+                }
             }
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds

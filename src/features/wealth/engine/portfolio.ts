@@ -267,13 +267,8 @@ export function revalueFromDetails(account: FinancialAccount): FinancialAccount 
       costBasisRial = account.balanceRial;
       break;
     case 'gold': {
-      const units =
-        d.unit === 'mithqal'
-          ? d.weight * 4.6083
-          : d.unit === 'coin' || d.unit === 'piece'
-          ? d.weight
-          : d.weight;
-      balanceRial = Math.round(units * d.currentPricePerUnitRial);
+      // The quote uses the selected unit (Rial/gram, Rial/mithqal or Rial/coin).
+      balanceRial = Math.round(d.weight * d.currentPricePerUnitRial);
       costBasisRial = d.purchasePriceRial;
       break;
     }

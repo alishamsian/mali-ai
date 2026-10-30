@@ -71,6 +71,7 @@ export function parseGenericBankSms(message: NormalizedSms, bankId = 'generic'):
   }
 
   const amountRialDisplay = amountInfo.amount;
+  const balance = extractBalance(message.body);
   const overall =
     0.55 * 0.7 + typeInfo.confidence * 0.2 + (amountInfo ? 1 : 0) * 0.1;
 
@@ -79,11 +80,11 @@ export function parseGenericBankSms(message: NormalizedSms, bankId = 'generic'):
     type: typeInfo.type,
     amount: toInternalRial(amountRialDisplay, amountInfo.currency),
     currency: amountInfo.currency,
-    balance: extractBalance(message.body),
+    balance: balance == null ? undefined : toInternalRial(balance, amountInfo.currency),
     cardLast4: extractCardLast4(message.body),
     transactionDate: message.receivedAt,
     merchant: extractMerchant(message.body),
-    description: message.body.slice(0, 180),
+    description: typeInfo.type,
     confidence: Math.min(0.84, Number(overall.toFixed(2))),
     source: 'android_sms',
     parserStatus: 'ok',

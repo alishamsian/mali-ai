@@ -45,6 +45,12 @@ function backupJson(transactions: Transaction[], extra: Record<string, unknown> 
 }
 
 describe('backup content validation', () => {
+  it.each(['installmentPlans', 'cheques', 'debts', 'goals', 'rules', 'budgets', 'recurring'])('rejects null rows in %s without replacing data', key => {
+    expect(resolveBackupInput(backupJson([], { [key]: [null] })).ok).toBe(false);
+  });
+  it('rejects malformed nested installment payments', () => {
+    expect(resolveBackupInput(backupJson([], { installmentPlans: [{ id: 'p', kind: 'loan', title: 'loan', createdAt: now, updatedAt: now, firstDueDate: now, installmentRial: 100, totalCount: 2, payments: [null] }] })).ok).toBe(false);
+  });
   it('accepts a well-formed backup', () => {
     expect(resolveBackupInput(backupJson([tx('a'), tx('b')])).ok).toBe(true);
   });

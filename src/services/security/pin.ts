@@ -57,20 +57,23 @@ function parseRecord(raw: string): PinRecord | null {
 function shouldUseMemoryFallback(): boolean {
   const jestWorker = (globalThis as { process?: { env?: { JEST_WORKER_ID?: string } } }).process?.env
     ?.JEST_WORKER_ID;
-  return Boolean(jestWorker) || !keychain;
+  return Boolean(jestWorker);
 }
 
 async function readKeychain(): Promise<PinRecord | null> {
   if (shouldUseMemoryFallback()) {
     return memoryRecord;
   }
+  if (!keychain) {
+    throw new Error('pin-store-unavailable');
+  }
   try {
-    const result = await keychain!.getGenericPassword({ service: PIN_SERVICE });
+    const result = await keychain.getGenericPassword({ service: PIN_SERVICE });
     if (result && typeof result.password === 'string') {
       return parseRecord(result.password);
     }
   } catch {
-    // ignore
+    throw new Error('pin-store-unavailable');
   }
   return null;
 }
@@ -90,15 +93,31 @@ async function writeKeychain(record: PinRecord | null): Promise<void> {
       await keychain!.resetGenericPassword({ service: PIN_SERVICE });
       return;
     }
-    const ok = await keychain!.setGenericPassword('pin', JSON.stringify(record), {
+    if (!keychain) {
+      throw new Error('keychain-unavailable');
+    }
+    const options = {
       service: PIN_SERVICE,
-      accessible: keychain!.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      ...(Platform.OS === 'android'
-        ? { securityLevel: keychain!.SECURITY_LEVEL.SECURE_HARDWARE }
-        : {}),
-    });
-    if (ok === false) {
-      throw new Error('keychain-write-false');
+      accessible: keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    };
+    let ok;
+    try {
+      ok = await keychain.setGenericPassword('pin', JSON.stringify(record), {
+        ...options,
+        ...(Platform.OS === 'android'
+          ? { securityLevel: keychain.SECURITY_LEVEL.SECURE_HARDWARE }
+          : {}),
+      });
+    } catch (err) {
+      if (Platform.OS !== 'android') {
+        throw err;
+      }
+      // Emulators and some phones have no hardware-backed Keystore. The normal
+      // OS-protected Keychain remains persistent; never fall back to JS memory.
+      ok = await keychain.setGenericPassword('pin', JSON.stringify(record), options);
+    }
+    if (ok === false || (await readKeychain())?.hash !== record.hash) {
+      throw new Error('keychain-write-failed');
     }
   } catch {
     throw new Error('pin-store-failed');

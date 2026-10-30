@@ -1,5 +1,7 @@
 import type { FinanceSnapshot } from '../../database/schema/snapshot';
 import { decryptBackupJson, isEncryptedBackupJson } from './backupCrypto';
+import { transactionForExport } from './transactionPrivacy';
+import { backupSectionsValid } from './backupSections';
 
 export const BACKUP_FORMAT = 'mali-backup' as const;
 export const BACKUP_FORMAT_VERSION = 2;
@@ -36,7 +38,7 @@ export function buildSanitizedBackup(snapshot: FinanceSnapshot): BackupPayload {
       pinHash: undefined,
     },
     accounts: snapshot.accounts,
-    transactions: snapshot.transactions.map(({ sourceSmsPreview: _preview, ...tx }) => tx),
+    transactions: snapshot.transactions.map(transactionForExport),
     budgets: snapshot.budgets,
     budgetCategories: snapshot.budgetCategories,
     goals: snapshot.goals ?? [],
@@ -139,7 +141,7 @@ export function accountLooksValid(account: unknown): boolean {
  * store, so one malformed row rejects the file instead of half-importing broken data.
  */
 export function checkBackupPayload(data: BackupPayload): BackupResult {
-  if (!Array.isArray(data.transactions) || !Array.isArray(data.accounts)) {
+  if (!backupSectionsValid(data) || !Array.isArray(data.transactions) || !Array.isArray(data.accounts)) {
     return { ok: false, error: 'schema' };
   }
   for (const key of OPTIONAL_ARRAYS) {
@@ -154,7 +156,8 @@ export function checkBackupPayload(data: BackupPayload): BackupResult {
     return { ok: false, error: 'schema' };
   }
   const ids = new Set(data.transactions.map(tx => tx.id));
-  if (ids.size !== data.transactions.length) {
+  const accountIds = new Set(data.accounts.map(a => a.id));
+  if (ids.size !== data.transactions.length || accountIds.size !== data.accounts.length) {
     return { ok: false, error: 'schema' };
   }
   return { ok: true, data };

@@ -1,4 +1,6 @@
 import React from 'react';
+import { emptySnapshot } from '../../../database/schema/snapshot';
+import { applyGuestPreview } from '../../../database/seed/guestPreview';
 import * as AppAlert from '../../../components/ui/AppAlert';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -117,4 +119,24 @@ describe('AddTransactionScreen', () => {
     expect(manualTxs()).toHaveLength(before + 1);
     alert.mockRestore();
   });
+});
+
+
+test('first real expense leaves the demo and creates a persistent real wallet', () => {
+  const before = state().snapshot;
+  const guest = applyGuestPreview(emptySnapshot());
+  useFinanceStore.setState({ snapshot: guest });
+  try {
+    renderScreen();
+    typeAmount(['۱', '۲', '۰۰۰']);
+    pressSave();
+    const snap = state().snapshot;
+    expect(snap.settings.guestPreviewActive).toBe(false);
+    expect(snap.transactions).toHaveLength(1);
+    expect(snap.transactions[0].accountId).not.toMatch(/^guest_/);
+    expect(snap.accounts.some(a => a.id === snap.transactions[0].accountId)).toBe(true);
+    expect(snap.accounts.some(a => a.id.startsWith('guest_'))).toBe(false);
+  } finally {
+    useFinanceStore.setState({ snapshot: before });
+  }
 });

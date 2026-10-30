@@ -98,14 +98,14 @@ describe('category engine', () => {
 describe('financial engine', () => {
   it('excludes transfers from expense/income', () => {
     const txs: Transaction[] = [
-      base({ id: '1', accountId: 'a', direction: 'out', amountRial: 10_000_000, type: 'withdrawal' }),
+      base({ id: '1', accountId: 'a', direction: 'out', amountRial: 10_000_000, type: 'withdrawal', categoryId: 'transfer' }),
       base({
         id: '2',
         accountId: 'b',
         direction: 'in',
         amountRial: 10_000_000,
         type: 'deposit',
-        categoryId: 'income',
+        categoryId: 'transfer',
       }),
     ];
     const links = detectTransfers(txs, 'u');

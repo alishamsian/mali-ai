@@ -26,8 +26,8 @@ const SURFACE: Record<FlowKind, { dark: [string, string]; light: [string, string
   },
 };
 
-export function flowKindForTransaction(tx: Pick<Transaction, 'direction' | 'type'>): FlowKind {
-  if (tx.type === 'transfer' || tx.direction === 'internal') {
+export function flowKindForTransaction(tx: Pick<Transaction, 'direction' | 'type' | 'transferId'>): FlowKind {
+  if (tx.transferId || tx.type === 'transfer' || tx.direction === 'internal') {
     return 'neutral';
   }
   return tx.direction === 'in' ? 'income' : 'expense';

@@ -2,7 +2,7 @@
  * Exercises the real Keychain path (pin.test.ts covers the Jest in-memory fallback).
  * JEST_WORKER_ID switches pin.ts to that fallback, so it is cleared while these run.
  */
-const keychainStore: { value: string | null; failWrites: boolean } = {
+const keychainStore: { value: string | null; failWrites: boolean; failReads?: boolean } = {
   value: null,
   failWrites: false,
 };
@@ -10,9 +10,10 @@ const keychainStore: { value: string | null; failWrites: boolean } = {
 jest.mock('react-native-keychain', () => ({
   ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'w' },
   SECURITY_LEVEL: { SECURE_HARDWARE: 's' },
-  getGenericPassword: jest.fn(async () =>
-    keychainStore.value == null ? false : { username: 'pin', password: keychainStore.value },
-  ),
+  getGenericPassword: jest.fn(async () => {
+    if (keychainStore.failReads) { throw new Error('keystore read failed'); }
+    return keychainStore.value == null ? false : { username: 'pin', password: keychainStore.value };
+  }),
   setGenericPassword: jest.fn(async (_user: string, password: string) => {
     if (keychainStore.failWrites) {
       throw new Error('keystore unavailable');
@@ -46,10 +47,16 @@ afterAll(() => {
 beforeEach(() => {
   keychainStore.value = null;
   keychainStore.failWrites = false;
+  keychainStore.failReads = false;
   pin.__resetPinMemoryForTests();
 });
 
 describe('PIN on the Keychain path', () => {
+  it('distinguishes a failed read from an absent PIN', async () => {
+    await pin.storePin('482913');
+    keychainStore.failReads = true;
+    await expect(pin.hasStoredPin()).rejects.toThrow('pin-store-unavailable');
+  });
   it('stores and matches through the Keychain', async () => {
     await pin.storePin('482913');
     expect(keychainStore.value).toContain('"hash"');

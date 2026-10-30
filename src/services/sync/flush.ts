@@ -2,6 +2,7 @@ import { sha256 } from 'js-sha256';
 import type { FinancialAccount, SyncQueueItem, Transaction } from '../../types/finance';
 import { getSupabase } from '../supabase/client';
 import { markRetry } from './queue';
+import { transactionForExport } from '../security/transactionPrivacy';
 
 const UPSERT_CHUNK = 200;
 
@@ -56,12 +57,11 @@ function accountRow(userId: string, a: FinancialAccount) {
 
 /** The raw SMS text stays on the device; everything else is kept for restore. */
 export function cloudTransactionPayload(tx: Transaction): Omit<Transaction, 'sourceSmsPreview'> {
-  const rest: Partial<Transaction> = { ...tx };
-  delete rest.sourceSmsPreview;
-  return rest as Omit<Transaction, 'sourceSmsPreview'>;
+  return transactionForExport(tx);
 }
 
-function transactionRow(userId: string, tx: Transaction, knownAccounts: Set<string>) {
+function transactionRow(userId: string, original: Transaction, knownAccounts: Set<string>) {
+  const tx = cloudTransactionPayload(original);
   const stamp = tx.updatedAt ?? tx.createdAt ?? tx.transactionDate ?? new Date().toISOString();
   return {
     id: cloudIdFor(userId, tx.id),

@@ -1,3 +1,4 @@
+import { toEnglishDigits } from '../../../utils/numbers/digits';
 import type {
   Transaction,
   TransactionDirection,
@@ -32,12 +33,24 @@ const bankParsers: BankSmsParser[] = BANK_REGISTRY.map(
   bank => IMPLEMENTED_PARSERS[bank.id] ?? createUnimplementedParser(bank.id),
 );
 
-function directionFor(type: TransactionType): TransactionDirection {
-  if (type === 'deposit' || type === 'refund') {
+function directionFor(type: TransactionType, body: string): TransactionDirection {
+  if (type === 'deposit' || type === 'refund' || type === 'reversal') {
     return 'in';
   }
   if (type === 'transfer') {
-    return 'internal';
+    // A bank transfer may go to someone else. Only a paired own-account move
+    // is excluded from spending by transferId.
+    // Banks mark the amount with a sign («۱,۵۰۰,۰۰۰+»); words are the fallback.
+    const latin = toEnglishDigits(body);
+    // Preprocessing drops thousands separators; 4+ digits keeps dates («0603-19:36») out.
+    const amount = '\\d{4,}';
+    if (new RegExp(`${amount}\\s*\\+|\\+\\s*${amount}`).test(latin)) {
+      return 'in';
+    }
+    if (new RegExp(`${amount}\\s*-(?!\\d)|-\\s*${amount}`).test(latin)) {
+      return 'out';
+    }
+    return /واریز|دریافت|به حساب شما/.test(body) ? 'in' : 'out';
   }
   return 'out';
 }
@@ -179,7 +192,7 @@ export function runSmsPipeline(input: {
     userId: input.userId,
     accountId: input.accountId,
     type: parsed.type,
-    direction: directionFor(parsed.type),
+    direction: directionFor(parsed.type, normalized.body),
     amountRial: parsed.amount,
     currency: 'IRR',
     merchant: parsed.merchant,

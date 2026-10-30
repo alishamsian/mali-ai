@@ -95,26 +95,29 @@ export function AddTransactionScreen({
   /** Ids written by the last save, kept so «برگرداندن» can undo it. */
   const [savedIds, setSavedIds] = useState<string[] | null>(null);
 
+  // Sample accounts must never own a real transaction.
+  const realAccounts = snapshot.accounts.filter(a => !a.id.startsWith('guest_'));
+
   const [accountId, setAccountId] = useState(() => {
     const def = snapshot.settings.defaultAccountId;
-    if (def && snapshot.accounts.some(a => a.id === def)) {
+    if (def && realAccounts.some(a => a.id === def)) {
       return def;
     }
-    return snapshot.accounts[0]?.id ?? 'acc_cash';
+    return realAccounts[0]?.id ?? 'acc_cash';
   });
   const [toAccountId, setToAccountId] = useState(() => {
-    const first = snapshot.accounts[0]?.id ?? 'acc_cash';
-    const second = snapshot.accounts.find(a => a.id !== first)?.id;
+    const first = realAccounts[0]?.id ?? 'acc_cash';
+    const second = realAccounts.find(a => a.id !== first)?.id;
     return second ?? first;
   });
   const [categoryId, setCategoryId] = useState<CategoryId>(
     initialMode === 'income' ? 'income' : 'food',
   );
 
-  const accounts = snapshot.accounts.filter(
+  const accounts = realAccounts.filter(
     a => a.kind === 'bank' || a.kind === 'cash' || a.kind === 'card',
   );
-  const usableAccounts = accounts.length > 0 ? accounts : snapshot.accounts;
+  const usableAccounts = accounts.length > 0 ? accounts : realAccounts;
 
   const amountToman = parseIntegerAmount(amount);
   const amountWords = tomanToPersianWords(amountToman);
@@ -237,6 +240,13 @@ export function AddTransactionScreen({
       hapticWarn();
       setFormError(dict.add.needAmount);
       return;
+    }
+    if (mode === 'transfer' && (!usableAccounts.some(a => a.id === accountId) || !usableAccounts.some(a => a.id === toAccountId))) {
+      setFormError(dict.add.needAccount);
+      return;
+    }
+    if (snapshot.settings.guestPreviewActive) {
+      useFinanceStore.getState().dismissGuestPreview();
     }
     // No account yet (fresh install, SMS not connected): create a real cash wallet rather
     // than filing the entry under a demo id that startup cleanup would delete.

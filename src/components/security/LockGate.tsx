@@ -69,9 +69,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     keyGhost: { backgroundColor: 'transparent', borderColor: 'transparent' },
   }));
   const enabled = useFinanceStore(s => s.snapshot.settings.appLockEnabled);
-  const onboarded = useFinanceStore(s => s.snapshot.settings.onboardingCompleted);
   const biometricUnlock = useFinanceStore(s => s.snapshot.settings.biometricUnlock);
-  const updateSettings = useFinanceStore(s => s.updateSettings);
   const unlocked = useAuthStore(s => s.vaultUnlocked);
   const lock = useAuthStore(s => s.lockVault);
   const unlock = useAuthStore(s => s.unlockVault);
@@ -90,21 +88,13 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       const remaining = await pinLockRemainingMs();
       setHasPin(ok);
       setLockMs(remaining);
-      if (enabled && !ok) {
-        updateSettings({ appLockEnabled: false, biometricUnlock: false });
-        unlock();
-      }
-      if (!enabled) {
+      if (!enabled && !useFinanceStore.getState().snapshot.settings.appLockEnabled) {
         unlock();
       }
     } catch {
       setHasPin(false);
-      if (enabled) {
-        updateSettings({ appLockEnabled: false, biometricUnlock: false });
-        unlock();
-      }
     }
-  }, [enabled, unlock, updateSettings]);
+  }, [enabled, unlock]);
 
   useEffect(() => {
     void refreshPinState();
@@ -134,12 +124,12 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   }, [enabled, lock]);
 
   const showLock =
-    enabled && onboarded && !unlocked && hasPin === true;
+    enabled && !unlocked;
 
   const locked = lockMs > 0;
 
   const tryBiometric = useCallback(async () => {
-    if (busy || locked || !biometricUnlock) {
+    if (busy || locked || hasPin !== true || !biometricUnlock) {
       return;
     }
     setBusy(true);
@@ -156,10 +146,10 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [biometricUnlock, busy, locked, unlock]);
+  }, [biometricUnlock, busy, locked, hasPin, unlock]);
 
   useEffect(() => {
-    if (!showLock || !biometricUnlock || bioTried.current || locked) {
+    if (!showLock || hasPin !== true || !biometricUnlock || bioTried.current || locked) {
       return;
     }
     bioTried.current = true;
@@ -167,10 +157,10 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       void tryBiometric();
     }, 350);
     return () => clearTimeout(tmr);
-  }, [showLock, biometricUnlock, locked, tryBiometric]);
+  }, [showLock, hasPin, biometricUnlock, locked, tryBiometric]);
 
   const push = async (key: string) => {
-    if (locked || busy || submitting.current) {
+    if (locked || busy || hasPin !== true || submitting.current) {
       return;
     }
     if (key === '⌫') {
@@ -221,8 +211,16 @@ export function LockGate({ children }: { children: React.ReactNode }) {
             <View style={[styles.wrap, { paddingTop: insets.top + 48 }]}>
               <View style={styles.mark} />
               <AppText variant="title" style={styles.center}>
-                {dict.profile.unlock}
+                {hasPin === null ? dict.common.loading : dict.profile.unlock}
               </AppText>
+              {hasPin === false ? (
+                <>
+                  <AppText style={styles.err}>{dict.profile.pinUnavailable}</AppText>
+                  <Pressable accessibilityRole="button" onPress={() => void refreshPinState()}>
+                    <AppText>{dict.storageError.retry}</AppText>
+                  </Pressable>
+                </>
+              ) : null}
               <View style={styles.dots}>
                 {Array.from({ length: PIN_LENGTH }, (_, i) => (
                   <View
@@ -252,7 +250,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
                     key={`${k}-${index}`}
                     onPress={() => void push(k)}
                     style={[styles.key, !k && styles.keyGhost]}
-                    disabled={!k || locked || busy}>
+                    disabled={!k || locked || busy || hasPin !== true}>
                     <AppText variant="title">{k}</AppText>
                   </Pressable>
                 ))}

@@ -99,10 +99,26 @@ function noteDiscoveredInSettings(settings: UserSettings, sender: string) {
 }
 
 function relink(snapshot: FinanceSnapshot, transactions: Transaction[]): FinanceSnapshot {
-  const links = detectTransfers(transactions, snapshot.profile.id);
+  // Upgrade legacy paired rows whose original direction was overwritten as "internal".
+  const legacyDirections = new Map<string, 'in' | 'out'>();
+  for (const link of snapshot.transfers) {
+    legacyDirections.set(link.outboundTransactionId, 'out');
+    legacyDirections.set(link.inboundTransactionId, 'in');
+  }
+  const normalized = transactions.map(tx => {
+    if (!tx.transferId || tx.direction !== 'internal') {
+      return tx;
+    }
+    const direction = legacyDirections.get(tx.id) ??
+      (tx.id.endsWith('_out') ? 'out' : tx.id.endsWith('_in') ? 'in' : undefined);
+    return direction
+      ? { ...tx, direction, type: direction === 'in' ? 'deposit' as const : 'withdrawal' as const }
+      : { ...tx, needsReview: true, isConfirmed: false };
+  });
+  const links = detectTransfers(normalized, snapshot.profile.id);
   return {
     ...snapshot,
-    transactions: applyTransferLinks(transactions, links),
+    transactions: applyTransferLinks(normalized, links),
     transfers: links,
   };
 }
@@ -425,6 +441,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           linked.settings.onboardingCompleted && shouldOfferGuestPreview(linked)
             ? applyGuestPreview(linked)
             : linked;
+        if (migratedHash) {
+          try {
+            await storePinHash(migratedHash);
+          } catch {
+            set({ storageError: { code: 'pin-migration', detail: 'PIN migration could not be persisted' } });
+            return;
+          }
+        }
         persistSet(set, withGuest);
         applyUserTheme({
           theme: withGuest.settings.theme,
@@ -432,9 +456,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         });
         pushVerifiedSendersToNative(withGuest.settings);
         set({ hydrated: true });
-        if (migratedHash) {
-          void storePinHash(migratedHash);
-        }
       })().finally(() => {
         hydrating = null;
       });
@@ -1159,6 +1180,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     return flushing;
   },
   importBackupJson: (raw, password) => {
+    if (flushing || isSmsBatching()) {
+      return { ok: false, error: 'busy' };
+    }
     const validated = resolveBackupInput(raw, password);
     if (!validated.ok) {
       return { ok: false, error: validated.error };
@@ -1179,6 +1203,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           ...(parsed.settings ?? {}),
           userId: current.profile.id,
           pinHash: undefined,
+          // Credentials are device-bound and are deliberately absent from backups.
+          appLockEnabled: current.settings.appLockEnabled,
+          biometricUnlock: current.settings.biometricUnlock,
         }),
         accounts: Array.isArray(parsed.accounts) ? parsed.accounts : current.accounts,
         transactions: Array.isArray(parsed.transactions)
@@ -1201,9 +1228,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         netWorthHistory: Array.isArray(parsed.netWorthHistory)
           ? parsed.netWorthHistory
           : current.netWorthHistory,
-        syncQueue: current.syncQueue,
+        syncQueue: [],
       };
       const linked = relink(next, next.transactions);
+      for (const account of linked.accounts) {
+        linked.syncQueue = enqueueSync(linked.syncQueue, createQueueItem('financial_accounts', account.id, 'upsert', account));
+      }
+      for (const tx of linked.transactions) {
+        linked.syncQueue = enqueueSync(linked.syncQueue, createQueueItem('transactions', tx.id, 'upsert', tx));
+      }
       persistSet(set, linked);
       applyUserTheme({
         theme: linked.settings.theme,
@@ -1255,10 +1288,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       (a, b) => Date.parse(b.transactionDate) - Date.parse(a.transactionDate),
     );
     const touched = [...new Set(newTxs.map(tx => tx.accountId))];
+    // New accounts already carry their complete cloud balance. Only missing rows on
+    // existing accounts need their incremental effect applied, once.
+    let existingAccounts = live.accounts;
+    for (const tx of [...newTxs].sort((a, b) => Date.parse(a.transactionDate) - Date.parse(b.transactionDate))) {
+      if (accountIds.has(tx.accountId) && tx.source !== 'android_sms') {
+        existingAccounts = applyBalance(existingAccounts, tx);
+      }
+    }
+    const smsTouched = touched.filter(id => newTxs.some(tx => tx.accountId === id && hasSmsBalance(tx)));
     const accounts = recomputeSmsBalancesFor(
-      [...live.accounts, ...newAccounts],
-      transactions,
-      touched,
+      [...existingAccounts, ...newAccounts], transactions, smsTouched,
     );
     persistSet(set, appendNetWorthPoint({ ...relink(live, transactions), accounts }));
     return {

@@ -3,8 +3,9 @@ import type { Transaction, TransferLink } from '../../types/finance';
 
 /** The original O(n²) scan, kept here as the reference the indexed version must match. */
 function reference(transactions: Transaction[], userId: string): TransferLink[] {
-  const outs = transactions.filter(t => t.direction === 'out' && !t.transferId);
-  const ins = transactions.filter(t => t.direction === 'in' && !t.transferId);
+  const candidate = (t: Transaction) => t.type === 'transfer' || t.categoryId === 'transfer' || Boolean(t.transferId);
+  const outs = transactions.filter(t => t.direction === 'out' && candidate(t));
+  const ins = transactions.filter(t => t.direction === 'in' && candidate(t));
   const links: TransferLink[] = [];
   const usedIn = new Set<string>();
   for (const out of outs) {
@@ -48,6 +49,7 @@ describe('detectTransfers', () => {
         return {
           id: `t${i}`,
           accountId: `a${Math.floor(r() * 3)}`,
+          type: r() < 0.5 ? 'transfer' : 'purchase',
           direction: r() < 0.5 ? 'out' : 'in',
           amountRial: [100, 200, 300, 400][Math.floor(r() * 4)],
           transactionDate: new Date(at).toISOString(),
