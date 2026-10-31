@@ -77,14 +77,22 @@ const debt = (overrides: Partial<PersonalDebt> = {}): PersonalDebt => ({
 
 describe('installment plans', () => {
   it('lays out one installment per month and flags unpaid past ones as overdue', () => {
-    const rows = installmentSchedule(plan({ payments: [{ index: 0, paidAt: local(2026, 8, 5), amountRial: 5_000_000 }] }), NOW, 'gregorian');
+    const rows = installmentSchedule(
+      plan({ payments: [{ index: 0, paidAt: local(2026, 8, 5), amountRial: 5_000_000 }] }),
+      NOW,
+      'gregorian',
+    );
     expect(rows).toHaveLength(12);
     expect(rows.map(r => new Date(r.dueDate).getMonth() + 1).slice(0, 4)).toEqual([8, 9, 10, 11]);
     expect(rows.filter(r => r.overdue).map(r => r.index)).toEqual([1, 2]);
   });
 
   it('clamps month-end due dates instead of skipping a month', () => {
-    const rows = installmentSchedule(plan({ firstDueDate: local(2026, 1, 31), totalCount: 3 }), NOW, 'gregorian');
+    const rows = installmentSchedule(
+      plan({ firstDueDate: local(2026, 1, 31), totalCount: 3 }),
+      NOW,
+      'gregorian',
+    );
     expect(rows.map(r => new Date(r.dueDate).getDate())).toEqual([31, 28, 31]);
   });
 
@@ -92,7 +100,11 @@ describe('installment plans', () => {
     const status = planStatus(
       plan({
         principalRial: 50_000_000,
-        payments: [0, 1, 2].map(i => ({ index: i, paidAt: NOW.toISOString(), amountRial: 5_000_000 })),
+        payments: [0, 1, 2].map(i => ({
+          index: i,
+          paidAt: NOW.toISOString(),
+          amountRial: 5_000_000,
+        })),
       }),
       NOW,
       'gregorian',
@@ -113,8 +125,20 @@ describe('installment plans', () => {
 
 describe('upcoming dues and month-end forecast', () => {
   const input = {
-    plans: [plan({ payments: [0, 1].map(i => ({ index: i, paidAt: NOW.toISOString(), amountRial: 5_000_000 })) })],
-    cheques: [cheque(), cheque({ id: 'c2', direction: 'received', amountRial: 8_000_000, dueDate: local(2026, 11, 2) })],
+    plans: [
+      plan({
+        payments: [0, 1].map(i => ({ index: i, paidAt: NOW.toISOString(), amountRial: 5_000_000 })),
+      }),
+    ],
+    cheques: [
+      cheque(),
+      cheque({
+        id: 'c2',
+        direction: 'received',
+        amountRial: 8_000_000,
+        dueDate: local(2026, 11, 2),
+      }),
+    ],
     debts: [debt({ dueDate: local(2026, 11, 20) })],
   };
 
@@ -136,7 +160,12 @@ describe('upcoming dues and month-end forecast', () => {
       {
         plans: [],
         cheques: [cheque({ status: 'cleared' })],
-        debts: [debt({ dueDate: local(2026, 11, 1), settlements: [{ id: 's', amountRial: 20_000_000, date: NOW.toISOString() }] })],
+        debts: [
+          debt({
+            dueDate: local(2026, 11, 1),
+            settlements: [{ id: 's', amountRial: 20_000_000, date: NOW.toISOString() }],
+          }),
+        ],
       },
       NOW,
     );
@@ -148,10 +177,26 @@ describe('upcoming dues and month-end forecast', () => {
       { id: 'a', kind: 'bank', balanceRial: 25_000_000 },
       { id: 'gold', kind: 'asset', assetClass: 'gold', balanceRial: 900_000_000 },
     ] as FinancialAccount[];
-    const forecast = monthEndForecast({ ...input, accounts }, NOW, new Date(2026, 10, 21), 'gregorian');
+    const forecast = monthEndForecast(
+      { ...input, accounts },
+      NOW,
+      new Date(2026, 10, 21),
+      'gregorian',
+    );
     // out: 5M overdue + 5M + 30M cheque; in: 8M cheque + 20M debt
-    expect(forecast).toMatchObject({ liquidRial: 25_000_000, outRial: 40_000_000, inRial: 28_000_000, projectedRial: 13_000_000, shortfall: false });
-    const tight = monthEndForecast({ ...input, debts: [], accounts }, NOW, new Date(2026, 10, 21), 'gregorian');
+    expect(forecast).toMatchObject({
+      liquidRial: 25_000_000,
+      outRial: 40_000_000,
+      inRial: 28_000_000,
+      projectedRial: 13_000_000,
+      shortfall: false,
+    });
+    const tight = monthEndForecast(
+      { ...input, debts: [], accounts },
+      NOW,
+      new Date(2026, 10, 21),
+      'gregorian',
+    );
     expect(tight.shortfall).toBe(true);
   });
 });
@@ -184,9 +229,17 @@ describe('matching SMS transactions to dues', () => {
     const dismissed = new Set(['cheque:c1|t_cheque']);
     const linkedInput = {
       ...input,
-      plans: [plan({ payments: [{ index: 9, paidAt: NOW.toISOString(), amountRial: 1, transactionId: 't_inst' }] })],
+      plans: [
+        plan({
+          payments: [
+            { index: 9, paidAt: NOW.toISOString(), amountRial: 1, transactionId: 't_inst' },
+          ],
+        }),
+      ],
     };
-    const keys = suggestDueMatches(linkedInput, NOW, dismissed, 'gregorian').map(m => m.transaction.id);
+    const keys = suggestDueMatches(linkedInput, NOW, dismissed, 'gregorian').map(
+      m => m.transaction.id,
+    );
     expect(keys).toEqual(['t_back']);
   });
 
@@ -206,14 +259,28 @@ describe('personal debts', () => {
     const balances = balancesByPerson([
       debt({ id: 'a', person: 'علی ', amountRial: 10_000_000 }),
       debt({ id: 'b', person: 'علی', direction: 'borrowed', amountRial: 4_000_000 }),
-      debt({ id: 'c', person: 'سارا', amountRial: 2_000_000, settlements: [{ id: 's', amountRial: 500_000, date: NOW.toISOString() }] }),
-      debt({ id: 'd', person: 'رضا', amountRial: 1_000_000, settlements: [{ id: 's', amountRial: 1_000_000, date: NOW.toISOString() }] }),
+      debt({
+        id: 'c',
+        person: 'سارا',
+        amountRial: 2_000_000,
+        settlements: [{ id: 's', amountRial: 500_000, date: NOW.toISOString() }],
+      }),
+      debt({
+        id: 'd',
+        person: 'رضا',
+        amountRial: 1_000_000,
+        settlements: [{ id: 's', amountRial: 1_000_000, date: NOW.toISOString() }],
+      }),
     ]);
     expect(balances.map(b => [b.person, b.netRial])).toEqual([
       ['علی', 6_000_000],
       ['سارا', 1_500_000],
     ]);
-    expect(debtRemainingRial(debt({ settlements: [{ id: 's', amountRial: 25_000_000, date: NOW.toISOString() }] }))).toBe(0);
+    expect(
+      debtRemainingRial(
+        debt({ settlements: [{ id: 's', amountRial: 25_000_000, date: NOW.toISOString() }] }),
+      ),
+    ).toBe(0);
   });
 });
 
@@ -227,9 +294,30 @@ describe('group split (dong)', () => {
       { id: 's', name: 'سارا' },
     ],
     expenses: [
-      { id: 'e1', title: 'ویلا', amountRial: 9_000_000, paidBy: 'me', shares: { me: 1, a: 1, s: 1 }, date: NOW.toISOString() },
-      { id: 'e2', title: 'شام', amountRial: 3_000_000, paidBy: 'a', shares: { me: 1, a: 1, s: 1 }, date: NOW.toISOString() },
-      { id: 'e3', title: 'بنزین', amountRial: 1_000_000, paidBy: 's', shares: { me: 1, a: 1 }, date: NOW.toISOString() },
+      {
+        id: 'e1',
+        title: 'ویلا',
+        amountRial: 9_000_000,
+        paidBy: 'me',
+        shares: { me: 1, a: 1, s: 1 },
+        date: NOW.toISOString(),
+      },
+      {
+        id: 'e2',
+        title: 'شام',
+        amountRial: 3_000_000,
+        paidBy: 'a',
+        shares: { me: 1, a: 1, s: 1 },
+        date: NOW.toISOString(),
+      },
+      {
+        id: 'e3',
+        title: 'بنزین',
+        amountRial: 1_000_000,
+        paidBy: 's',
+        shares: { me: 1, a: 1 },
+        date: NOW.toISOString(),
+      },
     ],
     payments: [],
     createdAt: NOW.toISOString(),
@@ -237,9 +325,23 @@ describe('group split (dong)', () => {
   };
 
   it('splits by weight and keeps every Rial', () => {
-    const shares = expenseShares({ id: 'x', title: 'x', amountRial: 100, paidBy: 'me', shares: { me: 1, a: 1, s: 1 }, date: '' });
+    const shares = expenseShares({
+      id: 'x',
+      title: 'x',
+      amountRial: 100,
+      paidBy: 'me',
+      shares: { me: 1, a: 1, s: 1 },
+      date: '',
+    });
     expect([...shares.values()].reduce((s, v) => s + v, 0)).toBe(100);
-    const weighted = expenseShares({ id: 'x', title: 'x', amountRial: 900, paidBy: 'me', shares: { me: 2, a: 1 }, date: '' });
+    const weighted = expenseShares({
+      id: 'x',
+      title: 'x',
+      amountRial: 900,
+      paidBy: 'me',
+      shares: { me: 2, a: 1 },
+      date: '',
+    });
     expect(Object.fromEntries(weighted)).toEqual({ me: 600, a: 300 });
   });
 
@@ -260,7 +362,11 @@ describe('group split (dong)', () => {
   it('is settled once the transfers are recorded as payments', () => {
     const paid: SplitGroup = {
       ...group,
-      payments: settleUp(memberSummaries(group)).map((t, i) => ({ id: `p${i}`, ...t, date: NOW.toISOString() })),
+      payments: settleUp(memberSummaries(group)).map((t, i) => ({
+        id: `p${i}`,
+        ...t,
+        date: NOW.toISOString(),
+      })),
     };
     expect(settleUp(memberSummaries(paid))).toEqual([]);
     expect(isGroupSettled(paid)).toBe(true);
@@ -286,7 +392,11 @@ describe('inflation', () => {
   });
 
   it('compares months in dollars when both rates are known', () => {
-    expect(dollarMonthOverMonth(1_200, 1_000, 12, 10)).toMatchObject({ currentUsd: 100, previousUsd: 100, pct: 0 });
+    expect(dollarMonthOverMonth(1_200, 1_000, 12, 10)).toMatchObject({
+      currentUsd: 100,
+      previousUsd: 100,
+      pct: 0,
+    });
     expect(dollarMonthOverMonth(1_200, 1_000, 12, undefined)).toBeNull();
   });
 });

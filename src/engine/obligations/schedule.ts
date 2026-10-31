@@ -38,6 +38,9 @@ export function installmentDueDate(
     : addJalaliMonths(plan.firstDueDate, index);
 }
 
+/** Months of dues generated ahead for a plan that never ends. */
+const OPEN_ENDED_LOOKAHEAD = 12;
+
 export interface InstallmentRow {
   index: number;
   dueDate: string;
@@ -55,7 +58,11 @@ export function installmentSchedule(
 ): InstallmentRow[] {
   const paidByIndex = new Map(plan.payments.map(p => [p.index, p]));
   const today = startOfDay(now).getTime();
-  return Array.from({ length: plan.totalCount }, (_, index) => {
+  // An open-ended plan has no last row: show what is paid plus the next year of dues.
+  const length = plan.openEnded
+    ? Math.max(-1, ...plan.payments.map(p => p.index)) + 1 + OPEN_ENDED_LOOKAHEAD
+    : plan.totalCount;
+  return Array.from({ length }, (_, index) => {
     const dueDate = installmentDueDate(plan, index, calendar);
     const payment = paidByIndex.get(index);
     return {
@@ -94,6 +101,21 @@ export function planStatus(
   calendar: CalendarKind = 'jalali',
 ): PlanStatus {
   const rows = installmentSchedule(plan, now, calendar);
+  if (plan.openEnded) {
+    const open = rows.filter(r => !r.paid);
+    return {
+      paidCount: rows.length - open.length,
+      remainingCount: 0,
+      paidRial: rows.filter(r => r.paid).reduce((sum, r) => sum + r.amountRial, 0),
+      remainingRial: open[0]?.amountRial ?? plan.installmentRial,
+      totalRial: 0,
+      next: open[0],
+      overdue: open.filter(r => r.overdue),
+      finishDate: plan.firstDueDate,
+      progress: 0,
+      done: false,
+    };
+  }
   const paid = rows.filter(r => r.paid);
   const unpaid = rows.filter(r => !r.paid);
   const totalRial = plan.installmentRial * plan.totalCount;

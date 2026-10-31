@@ -149,3 +149,38 @@ export function jalaliMonthMeta(now = new Date()): {
   }
   return { ...today, daysInMonth, lead, start };
 }
+
+/** A Jalali month laid out for a calendar grid; `offset` empty cells come first (Saturday first). */
+export function jalaliMonthGrid(
+  year: number,
+  month: number,
+): { name: string; days: number; offset: number } {
+  const first = dayjs(isoForJalaliDayKey(`${year}-${month}-1`)).calendar('jalali');
+  return {
+    name: first.locale('fa').format('MMMM'),
+    days: first.daysInMonth(),
+    offset: (first.day() + 1) % 7,
+  };
+}
+
+/** Jalali year and month of a day key, moved by whole months (year rolls over). */
+export function shiftJalaliMonth(
+  year: number,
+  month: number,
+  delta: number,
+): { year: number; month: number } {
+  const index = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+
+export function jalaliKey(year: number, month: number, day: number): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+/** Weekday and date of a day key, e.g. «پنجشنبه ۱۰ آبان ۱۴۰۵». */
+export function jalaliFullLabel(key: string): string {
+  return toPersianDigits(
+    dayjs(isoForJalaliDayKey(key)).calendar('jalali').locale('fa').format('dddd D MMMM YYYY'),
+  );
+}

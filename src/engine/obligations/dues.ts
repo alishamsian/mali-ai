@@ -112,7 +112,11 @@ const LIQUID_KINDS = new Set<FinancialAccount['kind']>(['bank', 'cash', 'card', 
 
 export function liquidBalanceRial(accounts: FinancialAccount[]): number {
   return accounts
-    .filter(a => LIQUID_KINDS.has(a.kind) && (a.assetClass == null || a.assetClass === 'bank' || a.assetClass === 'cash'))
+    .filter(
+      a =>
+        LIQUID_KINDS.has(a.kind) &&
+        (a.assetClass == null || a.assetClass === 'bank' || a.assetClass === 'cash'),
+    )
     .reduce((sum, a) => sum + (a.balanceRial || 0), 0);
 }
 

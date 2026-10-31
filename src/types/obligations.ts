@@ -25,6 +25,8 @@ export interface InstallmentPlan {
   firstDueDate: string;
   /** Amount borrowed, when known; lets the app show the true cost of the loan. */
   principalRial?: number;
+  /** Repeats every month on the same day with no end (rent, subscriptions); totalCount is ignored. */
+  openEnded?: boolean;
   accountId?: string;
   payments: InstallmentPayment[];
   notes?: string;

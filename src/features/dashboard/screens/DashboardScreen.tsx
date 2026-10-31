@@ -25,9 +25,8 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { useFinanceStore } from '../../../store/finance/store';
 import { navigateSmsHub } from '../../../app/navigation/smsNavigation';
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
-import { toJalaliMonthYear } from '../../../utils/dates/jalali';
+import { jalaliDayKey, jalaliFullLabel } from '../../../utils/dates/jalali';
 import { formatTomanFromRial } from '../../../utils/currency/money';
-import { toPersianDigits } from '../../../utils/numbers/digits';
 import { t, interpolate } from '../../../i18n';
 import { PortfolioSummary } from '../components/PortfolioSummary';
 import { AssetCarousel } from '../components/AssetCarousel';
@@ -263,11 +262,7 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
                 <AppText style={styles.hello} numberOfLines={1}>
                   {name ? interpolate(dict.dashboard.hello, { name }) : dict.dashboard.helloAnon}
                 </AppText>
-                <AppText style={styles.period}>
-                  {`${toJalaliMonthYear(now.toISOString())} · ${interpolate(dict.home.daysLeft, {
-                    n: toPersianDigits(model.daysLeft),
-                  })}`}
-                </AppText>
+                <AppText style={styles.period}>{jalaliFullLabel(jalaliDayKey(now))}</AppText>
               </View>
             </PressScale>
             <View style={styles.headerActions}>

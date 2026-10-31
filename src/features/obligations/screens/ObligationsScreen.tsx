@@ -24,9 +24,10 @@ import {
   displayUnitLabel,
 } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
-import { toJalaliLabel } from '../../../utils/dates/jalali';
+import { toJalaliLabel, toJalaliMonthYear } from '../../../utils/dates/jalali';
 import { currentMonthWindow } from '../../../engine/insights/monthPeriod';
 import { monthEndForecast, upcomingDues, type DueItem } from '../../../engine/obligations/dues';
+import { obligationsPosition } from '../../../engine/obligations/position';
 import { suggestDueMatches } from '../../../engine/obligations/matching';
 import { debtRemainingRial, planStatus } from '../../../engine/obligations/schedule';
 import { chequeStatusLabel, daysLeftLabel } from '../format';
@@ -34,8 +35,8 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 
 /** Dismissed match suggestions live in the alert log under this prefix. */
 const DISMISS = 'match-dismiss:';
-type Tab = 'dues' | 'plans' | 'cheques' | 'debts';
-const TABS: Tab[] = ['dues', 'plans', 'cheques', 'debts'];
+type Tab = 'dues' | 'plans' | 'cheques' | 'debts' | 'balance';
+const TABS: Tab[] = ['dues', 'plans', 'cheques', 'debts', 'balance'];
 const DUES_HORIZON_DAYS = 45;
 
 function money(rial: number) {
@@ -109,12 +110,11 @@ export function ObligationsScreen() {
     }
     return out;
   }, [dues, now, calendar, startDay]);
-  const counts: Record<Tab, number> = {
-    dues: dues.length,
-    plans: plans.filter(p => !planStatus(p, now, calendar).done).length,
-    cheques: cheques.filter(c => c.status === 'pending').length,
-    debts: debts.filter(d => debtRemainingRial(d) > 0).length,
-  };
+  const snapshotForMonths = useFinanceStore(s => s.snapshot);
+  const position = useMemo(
+    () => obligationsPosition(input, snapshotForMonths, now, 4, calendar),
+    [input, snapshotForMonths, now, calendar],
+  );
 
   const styles = useThemedStyles((c, th) => ({
     body: { paddingHorizontal: th.spacing.lg, paddingBottom: 120 },
@@ -369,15 +369,21 @@ export function ObligationsScreen() {
                     ) : null}
                   </View>
                 </View>
-                <ProgressBar progress={status.progress} color={tone} track={colors.glassBorder} />
+                {plan.openEnded ? null : (
+                  <ProgressBar progress={status.progress} color={tone} track={colors.glassBorder} />
+                )}
                 <View style={styles.meta}>
                   <AppText style={styles.rowSub}>
-                    {interpolate(dict.paidOf, {
-                      paid: toPersianDigits(status.paidCount),
-                      total: toPersianDigits(plan.totalCount),
-                    })}
+                    {plan.openEnded
+                      ? interpolate(dict.paidMonths, { n: toPersianDigits(status.paidCount) })
+                      : interpolate(dict.paidOf, {
+                          paid: toPersianDigits(status.paidCount),
+                          total: toPersianDigits(plan.totalCount),
+                        })}
                   </AppText>
-                  {!status.done ? (
+                  {plan.openEnded ? (
+                    <StatusChip label={dict.repeatMonthly} color={colors.textSecondary} />
+                  ) : !status.done ? (
                     <AppText style={styles.rowSub}>
                       {`${dict.remaining} ${money(status.remainingRial)}`}
                     </AppText>
@@ -474,6 +480,92 @@ export function ObligationsScreen() {
           );
         });
 
+  const renderBalance = () => {
+    const net = position.totalReceiveRial - position.totalPayRial;
+    const parts: [string, number][] = [
+      [dict.partInstallments, position.split.installments],
+      [dict.partCheques, position.split.cheques],
+      [dict.partDebts, position.split.debts],
+    ];
+    return (
+      <>
+        <GlassPanel strong radius={22} style={styles.card}>
+          <AppText style={styles.rowSub}>{dict.netTotal}</AppText>
+          <AppText style={[styles.projected, { color: net < 0 ? colors.expense : colors.income }]}>
+            {`${net > 0 ? '+' : ''}${money(net)}`}
+          </AppText>
+          <View style={styles.flow}>
+            <View style={styles.flowItem}>
+              <AppText style={styles.kicker}>{dict.youOwe}</AppText>
+              <AppText style={styles.flowValue}>{money(position.totalPayRial)}</AppText>
+            </View>
+            <View style={styles.flowItem}>
+              <AppText style={styles.kicker}>{dict.owedToYou}</AppText>
+              <AppText style={[styles.flowValue, styles.amountIn]}>
+                {money(position.totalReceiveRial)}
+              </AppText>
+            </View>
+          </View>
+          {position.totalPayRial > 0 ? (
+            <View style={{ gap: 6 }}>
+              {parts
+                .filter(([, v]) => v > 0)
+                .map(([name, v]) => (
+                  <View key={name} style={{ gap: 4 }}>
+                    <View style={styles.meta}>
+                      <AppText style={styles.rowSub}>{name}</AppText>
+                      <AppText style={styles.rowSub}>{formatCompactToman(v)}</AppText>
+                    </View>
+                    <ProgressBar
+                      progress={v / position.totalPayRial}
+                      color={colors.expense}
+                      track={colors.glassBorder}
+                      height={6}
+                    />
+                  </View>
+                ))}
+            </View>
+          ) : null}
+        </GlassPanel>
+        <AppText style={[styles.groupTitle, { marginTop: 6 }]}>{dict.byMonth}</AppText>
+        {position.months.map((m, i) => {
+          const monthNet = m.receiveRial - m.payRial;
+          return (
+            <GlassPanel key={i} radius={20} style={styles.card}>
+              <View style={styles.meta}>
+                <AppText style={styles.rowTitle}>
+                  {toJalaliMonthYear(new Date(m.start.getTime() + 86_400_000).toISOString())}
+                </AppText>
+                <AppText
+                  style={[styles.amount, { color: monthNet < 0 ? colors.expense : colors.income }]}>
+                  {`${monthNet > 0 ? '+' : ''}${money(monthNet)}`}
+                </AppText>
+              </View>
+              <View style={styles.flow}>
+                <View style={styles.flowItem}>
+                  <AppText style={styles.kicker}>{dict.youOwe}</AppText>
+                  <AppText style={styles.amount}>{money(m.payRial)}</AppText>
+                </View>
+                <View style={styles.flowItem}>
+                  <AppText style={styles.kicker}>{dict.owedToYou}</AppText>
+                  <AppText style={[styles.amount, styles.amountIn]}>{money(m.receiveRial)}</AppText>
+                </View>
+              </View>
+              {i === 0 && m.overdueRial > 0 ? (
+                <StatusChip
+                  label={interpolate(dict.includesOverdue, {
+                    amount: formatCompactToman(m.overdueRial),
+                  })}
+                  color={colors.expense}
+                />
+              ) : null}
+            </GlassPanel>
+          );
+        })}
+      </>
+    );
+  };
+
   const labelFor = (v: Tab) => {
     const name =
       v === 'dues'
@@ -482,8 +574,10 @@ export function ObligationsScreen() {
         ? dict.tabPlans
         : v === 'cheques'
         ? dict.tabCheques
-        : dict.tabDebts;
-    return counts[v] > 0 ? `${name} ${toPersianDigits(counts[v])}` : name;
+        : v === 'debts'
+        ? dict.tabDebtsShort
+        : dict.tabBalance;
+    return name;
   };
 
   return (
@@ -582,6 +676,7 @@ export function ObligationsScreen() {
             {tab === 'plans' ? renderPlans() : null}
             {tab === 'cheques' ? renderCheques() : null}
             {tab === 'debts' ? renderDebts() : null}
+            {tab === 'balance' ? renderBalance() : null}
           </View>
         </View>
       </ScrollView>

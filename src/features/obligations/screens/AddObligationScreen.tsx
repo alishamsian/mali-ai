@@ -3,7 +3,18 @@ import React, { useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import {
+  Banknote,
+  CalendarClock,
+  Car,
+  GraduationCap,
+  HeartHandshake,
+  Home,
+  Landmark,
+  ShieldCheck,
+  ShoppingBag,
+  Wifi,
+} from 'lucide-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppText } from '../../../components/ui/AppText';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
@@ -13,6 +24,7 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { FilterChip } from '../../../components/ui/FilterChip';
+import { JalaliDateField } from '../../../components/ui/JalaliDateField';
 import { AmountField } from '../../../components/ui/AmountInput';
 import { t } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
@@ -20,13 +32,9 @@ import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { tomanToRial } from '../../../utils/currency/money';
 import { toEnglishDigits, toPersianDigits } from '../../../utils/numbers/digits';
-import {
-  addJalaliMonths,
-  isoForJalaliDayKey,
-  jalaliDayKey,
-  jalaliDayLabel,
-  shiftJalaliDayKey,
-} from '../../../utils/dates/jalali';
+import { isoForJalaliDayKey, jalaliDayKey, toJalaliLabel } from '../../../utils/dates/jalali';
+import { installmentDueDate } from '../../../engine/obligations/schedule';
+import { interpolate } from '../../../i18n';
 import { newObligationId } from '../format';
 import type { RootStackParamList } from '../../../app/navigation/types';
 
@@ -76,68 +84,27 @@ function TextField({
   );
 }
 
-/** Jalali day stepper with quick jumps; no native date picker speaks Jalali. */
-function DateField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (key: string) => void;
-}) {
-  const { colors } = useAppTheme();
-  const dict = t().obligations;
-  const today = jalaliDayKey(new Date());
-  const styles = useThemedStyles((c, th) => ({
-    field: { gap: 8 },
-    label: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
-    stepper: {
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 6,
-      minHeight: 48,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-      backgroundColor: c.glass,
-    },
-    day: { fontFamily: th.typography.fontFamily.semibold, color: c.text },
-    arrow: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    chips: { flexDirection: 'row-reverse', gap: 8 },
-  }));
-  const plusMonth = () => onChange(jalaliDayKey(addJalaliMonths(isoForJalaliDayKey(today), 1)));
-  return (
-    <View style={styles.field}>
-      <AppText style={styles.label}>{label}</AppText>
-      <View style={styles.stepper}>
-        <PressScale
-          accessibilityLabel="+1"
-          onPress={() => onChange(shiftJalaliDayKey(value, 1))}
-          style={styles.arrow}>
-          <ChevronLeft size={20} color={colors.text} />
-        </PressScale>
-        <AppText style={styles.day}>{jalaliDayLabel(value)}</AppText>
-        <PressScale
-          accessibilityLabel="-1"
-          onPress={() => onChange(shiftJalaliDayKey(value, -1))}
-          style={styles.arrow}>
-          <ChevronRight size={20} color={colors.text} />
-        </PressScale>
-      </View>
-      <View style={styles.chips}>
-        <FilterChip label={dict.today} active={value === today} onPress={() => onChange(today)} />
-        <FilterChip
-          label={dict.plusWeek}
-          active={false}
-          onPress={() => onChange(shiftJalaliDayKey(today, 7))}
-        />
-        <FilterChip label={dict.plusMonth} active={false} onPress={plusMonth} />
-      </View>
-    </View>
-  );
-}
+type Template = {
+  key: string;
+  Icon: typeof Home;
+  kind: 'loan' | 'purchase';
+  /** Repeats every month with no end. */
+  recurring: boolean;
+};
+
+/** Common monthly obligations; picking one fills the form and leaves only the amount. */
+const TEMPLATES: Template[] = [
+  { key: 'rent', Icon: Home, kind: 'purchase', recurring: true },
+  { key: 'loan', Icon: Landmark, kind: 'loan', recurring: false },
+  { key: 'car', Icon: Car, kind: 'loan', recurring: false },
+  { key: 'tuition', Icon: GraduationCap, kind: 'purchase', recurring: true },
+  { key: 'insurance', Icon: ShieldCheck, kind: 'purchase', recurring: true },
+  { key: 'internet', Icon: Wifi, kind: 'purchase', recurring: true },
+  { key: 'charity', Icon: HeartHandshake, kind: 'purchase', recurring: true },
+  { key: 'purchase', Icon: ShoppingBag, kind: 'purchase', recurring: false },
+];
+
+const KIND_ICON = { installment: CalendarClock, cheque: Banknote, debt: Landmark } as const;
 
 export function AddObligationScreen() {
   const insets = useSafeAreaInsets();
@@ -155,17 +122,74 @@ export function AddObligationScreen() {
   const [sayad, setSayad] = useState('');
   const [hasDue, setHasDue] = useState(false);
   const [dueKey, setDueKey] = useState(() => jalaliDayKey(new Date()));
+  const [recurring, setRecurring] = useState(false);
+  const [template, setTemplate] = useState<string | null>(null);
+  const { colors } = useAppTheme();
 
-  const styles = useThemedStyles((_c, th) => ({
+  const styles = useThemedStyles((c, th) => ({
     body: { paddingHorizontal: th.spacing.lg, paddingBottom: 60, gap: th.spacing.md },
     form: { padding: th.spacing.lg, gap: 16 },
+    kinds: { flexDirection: 'row-reverse', gap: 10 },
+    kindCard: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 14,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      backgroundColor: c.glassStrong,
+    },
+    kindText: { fontSize: 13, color: c.text, fontFamily: th.typography.fontFamily.medium },
+    section: { textAlign: 'right', color: c.textSecondary, fontSize: 12.5 },
+    templates: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+    tpl: {
+      flexDirection: 'row-reverse',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      minHeight: 40,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      backgroundColor: c.glass,
+    },
+    tplText: { fontSize: 13, color: c.text },
+    preview: { padding: 12, borderRadius: 14, backgroundColor: c.glass, gap: 2 },
+    previewText: { textAlign: 'right', color: c.textSecondary, fontSize: 12.5, lineHeight: 21 },
   }));
+
+  const pickTemplate = (tpl: Template) => {
+    setTemplate(tpl.key);
+    setPlanKind(tpl.kind);
+    setRecurring(tpl.recurring);
+    setTitle(dict.templates[tpl.key as keyof typeof dict.templates]);
+  };
+  // What the schedule will look like, so a typo in the day or count shows before saving.
+  const previewText = (() => {
+    if (kind !== 'installment' || !(Number(amount) > 0)) {
+      return null;
+    }
+    const first = isoForJalaliDayKey(dueKey);
+    if (recurring) {
+      return interpolate(dict.previewRecurring, { first: toJalaliLabel(first) });
+    }
+    const total = Number(count) || 0;
+    if (total <= 0) {
+      return null;
+    }
+    return interpolate(dict.previewFixed, {
+      n: toPersianDigits(total),
+      first: toJalaliLabel(first),
+      last: toJalaliLabel(installmentDueDate({ firstDueDate: first }, total - 1)),
+    });
+  })();
 
   const save = () => {
     const amountRial = tomanToRial(Number(amount) || 0);
     const name = (kind === 'installment' ? title : party).trim();
     const total = Number(count) || 0;
-    if (amountRial <= 0 || !name || (kind === 'installment' && total <= 0)) {
+    if (amountRial <= 0 || !name || (kind === 'installment' && !recurring && total <= 0)) {
       appAlert(dict.invalid);
       return;
     }
@@ -179,7 +203,8 @@ export function AddObligationScreen() {
         title: name,
         lender: party.trim() || undefined,
         installmentRial: amountRial,
-        totalCount: total,
+        totalCount: recurring ? 1 : total,
+        openEnded: recurring || undefined,
         firstDueDate: dueDate,
         payments: [],
         createdAt: now,
@@ -226,30 +251,76 @@ export function AddObligationScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 8 }}>
         <View style={styles.body}>
           <ScreenHeader title={dict.addTitle} onBack={() => nav.goBack()} />
-          <SegmentedControl options={KINDS} value={kind} onChange={setKind} labelFor={kindLabel} />
+          <View style={styles.kinds}>
+            {KINDS.map(k => {
+              const Icon = KIND_ICON[k];
+              const active = kind === k;
+              return (
+                <PressScale
+                  key={k}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setKind(k)}
+                  style={[
+                    styles.kindCard,
+                    active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}>
+                  <Icon size={22} color={active ? colors.onPrimary : colors.text} />
+                  <AppText style={[styles.kindText, active && { color: colors.onPrimary }]}>
+                    {kindLabel(k)}
+                  </AppText>
+                </PressScale>
+              );
+            })}
+          </View>
           <GlassPanel strong style={styles.form}>
             {kind === 'installment' ? (
               <>
-                <SegmentedControl
-                  options={['loan', 'purchase'] as const as ('loan' | 'purchase')[]}
-                  value={planKind}
-                  onChange={setPlanKind}
-                  labelFor={v => (v === 'loan' ? dict.loan : dict.purchase)}
-                />
+                <AppText style={styles.section}>{dict.templatesTitle}</AppText>
+                <View style={styles.templates}>
+                  {TEMPLATES.map(tpl => (
+                    <PressScale
+                      key={tpl.key}
+                      accessibilityRole="button"
+                      onPress={() => pickTemplate(tpl)}
+                      style={[
+                        styles.tpl,
+                        template === tpl.key && { borderColor: colors.primary, borderWidth: 1.5 },
+                      ]}>
+                      <tpl.Icon size={16} color={colors.textSecondary} />
+                      <AppText style={styles.tplText}>
+                        {dict.templates[tpl.key as keyof typeof dict.templates]}
+                      </AppText>
+                    </PressScale>
+                  ))}
+                </View>
                 <TextField
                   label={dict.titleLabel}
                   value={title}
                   onChange={setTitle}
                   placeholder={dict.titlePlaceholder}
                 />
-                <TextField label={dict.lender} value={party} onChange={setParty} />
                 <AmountField
                   label={dict.installmentAmount}
                   value={amount}
                   onChangeValue={setAmount}
                 />
-                <TextField label={dict.count} value={count} onChange={setCount} numeric />
-                <DateField label={dict.firstDue} value={dueKey} onChange={setDueKey} />
+                <JalaliDateField label={dict.firstDue} value={dueKey} onChange={setDueKey} />
+                <SegmentedControl
+                  options={['fixed', 'monthly'] as ('fixed' | 'monthly')[]}
+                  value={recurring ? 'monthly' : 'fixed'}
+                  onChange={v => setRecurring(v === 'monthly')}
+                  labelFor={v => (v === 'fixed' ? dict.repeatFixed : dict.repeatMonthly)}
+                />
+                {!recurring ? (
+                  <TextField label={dict.count} value={count} onChange={setCount} numeric />
+                ) : null}
+                <TextField label={dict.lender} value={party} onChange={setParty} />
+                {previewText ? (
+                  <View style={styles.preview}>
+                    <AppText style={styles.previewText}>{previewText}</AppText>
+                  </View>
+                ) : null}
               </>
             ) : null}
             {kind === 'cheque' ? (
@@ -262,7 +333,7 @@ export function AddObligationScreen() {
                 />
                 <TextField label={dict.counterparty} value={party} onChange={setParty} />
                 <AmountField label={dict.amount} value={amount} onChangeValue={setAmount} />
-                <DateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
+                <JalaliDateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
                 <TextField label={dict.bank} value={bank} onChange={setBank} />
                 <TextField
                   label={dict.sayad}
@@ -290,7 +361,7 @@ export function AddObligationScreen() {
                   />
                 </View>
                 {hasDue ? (
-                  <DateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
+                  <JalaliDateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
                 ) : null}
               </>
             ) : null}
