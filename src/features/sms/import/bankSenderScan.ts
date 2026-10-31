@@ -1,7 +1,4 @@
-import {
-  readBankSenderBatch,
-  type NormalizedInboxSms,
-} from '../native/SmsModule';
+import { readBankSenderBatch, type NormalizedInboxSms } from '../native/SmsModule';
 
 export const BANK_SENDER_PAGE_SIZE = 200;
 

@@ -1,7 +1,4 @@
-import {
-  historicalWindowMs,
-  runHistoricalSmsImport,
-} from '../import/historicalImport';
+import { historicalWindowMs, runHistoricalSmsImport } from '../import/historicalImport';
 import { looksFinancialCandidate, hasTransactionSignals } from '../filters/financialCandidate';
 import { sanitizeSmsText } from '../privacy/sanitize';
 import { scanForSensitiveData } from '../privacy/scanner';

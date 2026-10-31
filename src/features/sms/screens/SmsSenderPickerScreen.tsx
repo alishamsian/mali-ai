@@ -42,7 +42,11 @@ export function SmsSenderPickerScreen({
     screen: { flex: 1, backgroundColor: 'transparent' },
     body: { flex: 1, paddingHorizontal: th.spacing.lg },
     card: { marginBottom: th.spacing.sm, gap: 6 },
-    cardTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+    cardTop: {
+      flexDirection: 'row-reverse',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
     footer: {
       paddingHorizontal: th.spacing.lg,
       paddingTop: th.spacing.sm,
@@ -55,24 +59,27 @@ export function SmsSenderPickerScreen({
     toggle: { textAlign: 'center' as const, color: c.primary },
   }));
 
-  const load = useCallback(async (all: boolean) => {
-    setLoading(true);
-    setError(null);
-    const ok = await requestSmsPermission();
-    if (!ok) {
-      setError(dict.sms.historyPermission);
-      setLoading(false);
-      return;
-    }
-    try {
-      const rows = await loadSmsPickerCandidates({ showAll: all });
-      setItems(rows);
-    } catch {
-      setError(dict.sms.scanFail);
-    } finally {
-      setLoading(false);
-    }
-  }, [dict.sms.historyPermission, dict.sms.scanFail]);
+  const load = useCallback(
+    async (all: boolean) => {
+      setLoading(true);
+      setError(null);
+      const ok = await requestSmsPermission();
+      if (!ok) {
+        setError(dict.sms.historyPermission);
+        setLoading(false);
+        return;
+      }
+      try {
+        const rows = await loadSmsPickerCandidates({ showAll: all });
+        setItems(rows);
+      } catch {
+        setError(dict.sms.scanFail);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dict.sms.historyPermission, dict.sms.scanFail],
+  );
 
   useEffect(() => {
     void load(showAll);
@@ -102,7 +109,9 @@ export function SmsSenderPickerScreen({
           <AppText variant="caption" style={{ textAlign: 'right' }}>
             {toJalaliLabel(item.receivedAt)}
           </AppText>
-          {item.transactionLike ? <Badge label={dict.sms.transactionLikeBadge} tone="brand" /> : null}
+          {item.transactionLike ? (
+            <Badge label={dict.sms.transactionLikeBadge} tone="brand" />
+          ) : null}
         </Surface>
       </PressScale>
     ),
@@ -118,7 +127,9 @@ export function SmsSenderPickerScreen({
             subtitle={dict.sms.findSenderBody.replace('{{bank}}', bankName)}
             onBack={() => navigation.goBack()}
           />
-          <AppText variant="caption" style={{ textAlign: 'right', marginBottom: 12, color: colors.textMuted }}>
+          <AppText
+            variant="caption"
+            style={{ textAlign: 'right', marginBottom: 12, color: colors.textMuted }}>
             {dict.sms.verifiedSenderPrivacy}
           </AppText>
         </View>

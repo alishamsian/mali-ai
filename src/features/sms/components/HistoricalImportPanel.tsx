@@ -6,10 +6,7 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { interpolate, t } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { requestSmsPermission } from '../native/SmsModule';
-import {
-  runHistoricalSmsImport,
-  type HistoricalImportProgress,
-} from '../import/historicalImport';
+import { runHistoricalSmsImport, type HistoricalImportProgress } from '../import/historicalImport';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { getVerifiedSenderStrings } from '../senders/verified';
 import { withSettingsDefaults } from '../../settings/lib/settingsDefaults';
@@ -76,8 +73,7 @@ export function HistoricalImportPanel() {
           afterTimestampMs: forceFull ? undefined : settings.lastImportedTimestamp,
         },
         verifiedSenders,
-        ingest: payload =>
-          useFinanceStore.getState().ingestSms(payload, { mode: 'incremental' }),
+        ingest: payload => useFinanceStore.getState().ingestSms(payload, { mode: 'incremental' }),
         onProgress: setProgress,
         isCancelled: () => cancelRef.current,
       });

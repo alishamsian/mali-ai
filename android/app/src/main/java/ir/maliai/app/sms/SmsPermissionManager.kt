@@ -188,6 +188,58 @@ class SmsPermissionManager(private val ctx: ReactApplicationContext) :
         }
     }
 
+    /**
+     * One pass over the inbox since [minDateMs], newest first, without moving every body
+     * across the bridge: per sender, its message count, how many arrived since [recentFromMs],
+     * and its [perSender] newest messages (enough to tell a bank from anyone else).
+     */
+    @ReactMethod
+    fun readSenderSamples(minDateMs: Double, recentFromMs: Double, perSender: Int, promise: Promise) {
+        val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_SMS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            promise.reject("E_SMS_PERMISSION", "READ_SMS not granted")
+            return
+        }
+        try {
+            val keep = perSender.coerceIn(1, 10)
+            val recentFrom = recentFromMs.toLong()
+            val counts = LinkedHashMap<String, IntArray>()
+            val samples = HashMap<String, WritableArray>()
+            ctx.contentResolver.query(
+                Telephony.Sms.Inbox.CONTENT_URI,
+                PROJECTION,
+                "${Telephony.Sms.DATE} >= ?",
+                arrayOf(minDateMs.toLong().toString()),
+                "${Telephony.Sms.DATE} DESC",
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val sender = cursor.getString(1) ?: continue
+                    val c = counts.getOrPut(sender) { IntArray(3) }
+                    c[0] += 1
+                    if (cursor.getLong(3) >= recentFrom) c[1] += 1
+                    if (c[2] < keep) {
+                        val body = cursor.getString(2) ?: continue
+                        samples.getOrPut(sender) { Arguments.createArray() }.pushMap(rowToMap(cursor, body))
+                        c[2] += 1
+                    }
+                }
+            }
+            val out = Arguments.createArray()
+            for ((sender, c) in counts) {
+                val map = Arguments.createMap()
+                map.putString("sender", sender)
+                map.putInt("count", c[0])
+                map.putInt("recentCount", c[1])
+                map.putArray("rows", samples[sender] ?: Arguments.createArray())
+                out.pushMap(map)
+            }
+            promise.resolve(out)
+        } catch (e: Exception) {
+            promise.reject("E_SMS_SENDER_SAMPLES", e)
+        }
+    }
+
     @ReactMethod
     fun countInboxInRange(minDateMs: Double, maxDateMs: Double, promise: Promise) {
         countWithSelection(

@@ -93,17 +93,12 @@ export function addVerifiedSender(
   }
   const conn = list[idx]!;
   if (conn.verifiedSenders.some(v => sendersEqual(v.sender, sender))) {
-    return list.map((c, i) =>
-      i === idx ? { ...c, status: 'active', updatedAt: now } : c,
-    );
+    return list.map((c, i) => (i === idx ? { ...c, status: 'active', updatedAt: now } : c));
   }
   list[idx] = {
     ...conn,
     status: 'active',
-    verifiedSenders: [
-      ...conn.verifiedSenders,
-      { sender, verifiedAt: now, method },
-    ],
+    verifiedSenders: [...conn.verifiedSenders, { sender, verifiedAt: now, method }],
     updatedAt: now,
   };
   return list;
@@ -154,9 +149,7 @@ export function migrateBankConnections(settings: UserSettings): UserSettings {
   }
   const now = new Date().toISOString();
   const connections: BankConnection[] = selected.map(bankId => {
-    const aliases = (BANK_SENDER_ALIASES[bankId] ?? [])
-      .map(normalizeSmsSender)
-      .filter(Boolean);
+    const aliases = (BANK_SENDER_ALIASES[bankId] ?? []).map(normalizeSmsSender).filter(Boolean);
     const unique = [...new Set(aliases)];
     const verifiedSenders: VerifiedSmsSender[] = unique.map(sender => ({
       sender,
@@ -211,9 +204,7 @@ export function noteDiscoveredSender(
   return list.slice(0, 50);
 }
 
-export function syncSelectedBankIdsFromConnections(
-  connections: BankConnection[],
-): string[] {
+export function syncSelectedBankIdsFromConnections(connections: BankConnection[]): string[] {
   return [
     ...new Set(
       connections

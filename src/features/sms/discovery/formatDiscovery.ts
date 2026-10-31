@@ -18,9 +18,7 @@ export function formatIdFromHash(patternHash: string): string {
   return `format-${patternHash.slice(0, 8)}`;
 }
 
-export function groupByFormat(
-  items: Array<{ bankId: string; body: string }>,
-): FormatGroup[] {
+export function groupByFormat(items: Array<{ bankId: string; body: string }>): FormatGroup[] {
   const map = new Map<string, FormatGroup>();
   for (const item of items) {
     const patternHash = patternHashFor(item.body);

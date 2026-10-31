@@ -2,12 +2,7 @@
  * Privacy scanner — blocks fixture export when sensitive data remains.
  */
 
-export type PrivacyHit =
-  | 'full_card'
-  | 'iban'
-  | 'otp'
-  | 'phone'
-  | 'suspicious';
+export type PrivacyHit = 'full_card' | 'iban' | 'otp' | 'phone' | 'suspicious';
 
 export type PrivacyScanResult = {
   ok: boolean;

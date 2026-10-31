@@ -9,10 +9,7 @@ import { BANK_REGISTRY } from './banks';
  * User-verified senders in settings.bankConnections are authoritative.
  */
 export const BANK_SENDER_ALIASES: Record<string, string[]> = Object.fromEntries(
-  BANK_REGISTRY.map(bank => [
-    bank.id,
-    unique([...bank.senders, ...bank.legacyAliases, bank.id]),
-  ]),
+  BANK_REGISTRY.map(bank => [bank.id, unique([...bank.senders, ...bank.legacyAliases, bank.id])]),
 );
 
 function unique(items: string[]): string[] {

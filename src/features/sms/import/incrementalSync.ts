@@ -70,7 +70,9 @@ export type IncrementalSyncInput = {
     offset: number;
     limit: number;
   }) => Promise<NormalizedInboxSms[]>;
-  onProgress?: (partial: Partial<IncrementalSyncResult> & { status: IncrementalSyncStatus }) => void;
+  onProgress?: (
+    partial: Partial<IncrementalSyncResult> & { status: IncrementalSyncStatus },
+  ) => void;
 };
 
 let inFlight: Promise<IncrementalSyncResult> | null = null;
@@ -177,9 +179,7 @@ async function executeIncrementalSmsSync(
     return skipped;
   }
 
-  const permissionOk = input.hasPermission
-    ? await input.hasPermission()
-    : await hasSmsPermission();
+  const permissionOk = input.hasPermission ? await input.hasPermission() : await hasSmsPermission();
   if (!permissionOk) {
     const skipped = { ...base, status: 'skipped' as const, skipReason: 'permission' as const };
     emit(skipped);

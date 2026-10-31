@@ -1,7 +1,11 @@
 import { detectBankSenders } from './detectBanks';
 import { matchBankIdBySender } from '../registry/senders';
 
-const row = (sender: string, body: string, receivedAt = '2026-10-01T10:00:00Z') => ({ sender, body, receivedAt });
+const row = (sender: string, body: string, receivedAt = '2026-10-01T10:00:00Z') => ({
+  sender,
+  body,
+  receivedAt,
+});
 
 describe('detectBankSenders', () => {
   it('keeps senders with transaction messages, named by sender or body, biggest first', () => {

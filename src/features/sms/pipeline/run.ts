@@ -7,7 +7,11 @@ import type {
 } from '../../../types/finance';
 import { categorize } from '../../../engine/category/engine';
 import { bandFor } from '../../../engine/confidence';
-import { buildFingerprint, findFuzzyDuplicates, isExactDuplicate } from '../../../engine/duplicate/fingerprint';
+import {
+  buildFingerprint,
+  findFuzzyDuplicates,
+  isExactDuplicate,
+} from '../../../engine/duplicate/fingerprint';
 import { detectBank } from '../detectors/bankDetector';
 import { mellatParser } from '../banks/mellat/parser';
 import { melliParser } from '../banks/melli/parser';
@@ -35,7 +39,9 @@ const bankParsers: BankSmsParser[] = BANK_REGISTRY.map(
 
 /** «پیگیری: 123456», «شماره مرجع 9876543210», «رهگیری:…»: digits only, 6–20 long. */
 export function extractReceiptCode(body: string): string | undefined {
-  const m = toEnglishDigits(body).match(/(?:پیگیری|رهگیری|مرجع|ارجاع|شماره سند|سند)\s*[:：]?\s*(\d{6,20})/);
+  const m = toEnglishDigits(body).match(
+    /(?:پیگیری|رهگیری|مرجع|ارجاع|شماره سند|سند)\s*[:：]?\s*(\d{6,20})/,
+  );
   return m?.[1];
 }
 
@@ -79,10 +85,7 @@ export function runSmsPipeline(input: {
 }): PipelineResult {
   const normalized = preprocessSms(input.raw);
   let detection = detectBank(normalized);
-  if (
-    input.forcedBankId &&
-    (!detection.matched || !detection.bankId || detection.conflict)
-  ) {
+  if (input.forcedBankId && (!detection.matched || !detection.bankId || detection.conflict)) {
     detection = {
       matched: true,
       confidence: 0.85,
@@ -232,7 +235,11 @@ export function runSmsPipeline(input: {
 
   const status = bandFor(parsed.confidence);
   if (status === 'pending') {
-    return { status: 'pending', transaction: { ...draft, needsReview: true, isConfirmed: false }, telemetry };
+    return {
+      status: 'pending',
+      transaction: { ...draft, needsReview: true, isConfirmed: false },
+      telemetry,
+    };
   }
   if (status === 'review') {
     return { status: 'review', transaction: { ...draft, needsReview: true }, telemetry };

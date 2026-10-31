@@ -23,19 +23,19 @@ import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { toJalaliLabel } from '../../../utils/dates/jalali';
 import { resolveBankName } from '../../banks/names';
-import { readInboxBatch, requestSmsPermission, type NormalizedInboxSms } from '../native/SmsModule';
-import { collectBankSenderSms } from '../import/bankSenderScan';
-import { detectBankSenders, type DetectedBankSender } from '../setup/detectBanks';
+import { requestSmsPermission } from '../native/SmsModule';
+import type { DetectedBankSender } from '../setup/detectBanks';
+import {
+  detectBanksQuickly,
+  importBankSms,
+  importInBackground,
+  initialImportWindow,
+} from '../import/historyImport';
 import type { RootStackParamList } from '../../../app/navigation/types';
 
 type Phase = 'intro' | 'denied' | 'scanning' | 'pick' | 'none' | 'importing' | 'done';
 type Props = NativeStackScreenProps<RootStackParamList, 'SmsSetup'>;
 
-const SCAN_PAGE = 500;
-/** Yield to the UI every this many messages so progress keeps moving. */
-const YIELD_EVERY = 60;
-
-const nextFrame = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 const fa = (n: number) => toPersianDigits(n.toLocaleString('en-US'));
 
 /**
@@ -47,7 +47,6 @@ export function SmsSetupScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
   const dict = t().smsSetup;
   const [phase, setPhase] = useState<Phase>('intro');
-  const [scanned, setScanned] = useState(0);
   const [found, setFound] = useState<DetectedBankSender[]>([]);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -69,17 +68,10 @@ export function SmsSetupScreen({ navigation }: Props) {
 
   const scan = useCallback(async () => {
     setPhase('scanning');
-    const rows: NormalizedInboxSms[] = [];
-    const now = Date.now();
-    for (let offset = 0; alive.current; offset += SCAN_PAGE) {
-      const page = await readInboxBatch({ minDateMs: 0, maxDateMs: now, offset, limit: SCAN_PAGE });
-      rows.push(...page);
-      setScanned(rows.length);
-      if (page.length < SCAN_PAGE) {
-        break;
-      }
+    const detected = await detectBanksQuickly();
+    if (!alive.current) {
+      return;
     }
-    const detected = detectBankSenders(rows);
     setFound(detected);
     setChosen(new Set(detected.map(d => d.sender)));
     setPhase(detected.length > 0 ? 'pick' : 'none');
@@ -109,51 +101,29 @@ export function SmsSetupScreen({ navigation }: Props) {
       store.verifyBankSender({ bankId: f.bankId, sender: f.sender });
     }
     const now = Date.now();
-    const { rows } = await collectBankSenderSms({
-      minDateMs: 0,
-      maxDateMs: now,
-      senders: selected.map(f => f.sender),
+    const senders = selected.map(f => f.sender);
+    const { currentFromMs, historyFromMs } = initialImportWindow(new Date(now));
+    // This month first, so the user is in within seconds; the two months before it
+    // follow in the background (older history is a choice in settings).
+    const { created, review, total } = await importBankSms({
+      senders,
+      fromMs: currentFromMs,
+      toMs: now,
+      onProgress: (done, all) => setProgress({ done, total: all }),
     });
-    // Oldest first, so balances settle on the newest message.
-    rows.sort((a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt));
-    setProgress({ done: 0, total: rows.length });
-    let created = 0;
-    let review = 0;
-    store.beginSmsBatch();
-    try {
-      for (let i = 0; i < rows.length; i += 1) {
-        const row = rows[i];
-        const result = useFinanceStore
-          .getState()
-          .ingestSms(
-            {
-              sender: row.sender,
-              body: row.body,
-              receivedAt: row.receivedAt,
-              sourceSmsId: row.sourceSmsId,
-            },
-            { mode: 'incremental' },
-          );
-        if (result.kind === 'created') {
-          created += 1;
-        } else if (result.kind === 'review' || result.kind === 'pending') {
-          review += 1;
-        }
-        if (i % YIELD_EVERY === 0) {
-          setProgress({ done: i + 1, total: rows.length });
-          await nextFrame();
-        }
-      }
-    } finally {
-      useFinanceStore.getState().endSmsBatch();
-    }
+    void importInBackground({
+      senders,
+      fromMs: historyFromMs,
+      toMs: currentFromMs - 1,
+      message: t().smsSetup.fillingHistory,
+    });
     const syncEnd = new Date(now).toISOString();
     useFinanceStore.getState().updateSettings({
       lastSuccessfulSmsSyncAt: syncEnd,
       smsLastInboxAt: syncEnd,
       lastHistoricalImportAt: syncEnd,
     });
-    setProgress({ done: rows.length, total: rows.length });
+    setProgress({ done: total, total });
     setSummary({ created, review, banks: new Set(selected.map(f => f.bankId)).size });
     setPhase('done');
   }, [chosen, found]);
@@ -288,8 +258,8 @@ export function SmsSetupScreen({ navigation }: Props) {
       case 'scanning':
         return (
           <>
-            {stage(Inbox, dict.scanningTitle, interpolate(dict.scanned, { n: fa(scanned) }))}
-            {progressBar(scanned > 0 ? 0.35 + Math.min(0.6, scanned / 20000) : 0.1)}
+            {stage(Inbox, dict.scanningTitle, dict.scanningBody)}
+            {progressBar(0.5)}
           </>
         );
       case 'pick': {

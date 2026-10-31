@@ -47,7 +47,11 @@ function parseJalaliStamp(body: string, receivedAt: string): string | undefined 
     return undefined;
   }
   const received = new Date(receivedAt);
-  const jy = gregorianToJalali(received.getFullYear(), received.getMonth() + 1, received.getDate()).year;
+  const jy = gregorianToJalali(
+    received.getFullYear(),
+    received.getMonth() + 1,
+    received.getDate(),
+  ).year;
   const g = jalaliToGregorian(jy, month, day);
   return new Date(g.year, g.month - 1, g.day, hour, minute, 0).toISOString();
 }

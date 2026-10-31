@@ -17,7 +17,10 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 
-function createSmsTestStyles(c: { background: string; border: string; text: string; surfaceSolid: string }, th: { typography: { fontFamily: { regular: string } } }) {
+function createSmsTestStyles(
+  c: { background: string; border: string; text: string; surfaceSolid: string },
+  th: { typography: { fontFamily: { regular: string } } },
+) {
   return {
     screen: { flex: 1, backgroundColor: 'transparent' },
     sectionLabel: { textAlign: 'right' as const, marginTop: 4 },
@@ -30,7 +33,11 @@ function createSmsTestStyles(c: { background: string; border: string; text: stri
       paddingVertical: 6,
       backgroundColor: c.surfaceSolid,
     },
-    row: { flexDirection: 'row-reverse' as const, justifyContent: 'space-between' as const, paddingVertical: 8 },
+    row: {
+      flexDirection: 'row-reverse' as const,
+      justifyContent: 'space-between' as const,
+      paddingVertical: 8,
+    },
     sender: {
       minHeight: 44,
       borderRadius: 14,
@@ -95,7 +102,10 @@ export function SmsTestScreen({
 
   const injectAllSamples = () => {
     if (!snapshot.settings.smsProcessingEnabled) {
-      update({ smsProcessingEnabled: true, selectedBankIds: ['melli', 'mellat', 'saman', 'tejarat', 'pasargad'] });
+      update({
+        smsProcessingEnabled: true,
+        selectedBankIds: ['melli', 'mellat', 'saman', 'tejarat', 'pasargad'],
+      });
     }
     let n = 0;
     const base = Date.now();
@@ -118,7 +128,12 @@ export function SmsTestScreen({
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={{ paddingTop: insets.top + 20, padding: 20, gap: 10, paddingBottom: 40 }}>
+      contentContainerStyle={{
+        paddingTop: insets.top + 20,
+        padding: 20,
+        gap: 10,
+        paddingBottom: 40,
+      }}>
       <AppText variant="title" style={{ textAlign: 'center' }}>
         {dict.sms.testTitle}
       </AppText>
@@ -159,17 +174,10 @@ export function SmsTestScreen({
       />
       <GlassCard>
         <Row k={dict.transactions.bank} v={preview?.telemetry.bankId ?? '—'} />
-        <Row
-          k={dict.transactions.type}
-          v={preview?.transaction?.type ?? preview?.status ?? '—'}
-        />
+        <Row k={dict.transactions.type} v={preview?.transaction?.type ?? preview?.status ?? '—'} />
         <Row
           k={dict.transactions.amount}
-          v={
-            preview?.transaction
-              ? formatTomanLabel(preview.transaction.amountRial)
-              : '—'
-          }
+          v={preview?.transaction ? formatTomanLabel(preview.transaction.amountRial) : '—'}
         />
         <Row k={dict.transactions.date} v={toJalaliLabel(new Date().toISOString())} />
       </GlassCard>
@@ -184,7 +192,10 @@ export function SmsTestScreen({
           navigation.navigate('Main');
         }}
       />
-      <PrimaryButton label={dict.sms.correct} onPress={() => navigation.navigate('AddTransaction', { mode: 'expense' })} />
+      <PrimaryButton
+        label={dict.sms.correct}
+        onPress={() => navigation.navigate('AddTransaction', { mode: 'expense' })}
+      />
       <PrimaryButton
         label={dict.sms.scanInbox}
         onPress={async () => {

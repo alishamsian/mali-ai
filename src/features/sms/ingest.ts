@@ -7,11 +7,7 @@ import { preprocessSms } from './normalizer/preprocess';
 import { runSmsPipeline, getSmsParserVersion } from './pipeline/run';
 import { classifySmsBody, isNonTransactionalSms } from './senders/classify';
 import { normalizeSmsSender } from './senders/normalize';
-import {
-  isVerifiedSender,
-  matchVerifiedBankId,
-  noteDiscoveredSender,
-} from './senders/verified';
+import { isVerifiedSender, matchVerifiedBankId, noteDiscoveredSender } from './senders/verified';
 import { sanitizeSmsText } from './privacy/sanitize';
 import { toUnknownRecord } from './validators/unknown';
 
@@ -46,7 +42,6 @@ export type IngestSmsResult = {
   /** When an unverified sender was noted for discovery UI */
   discoveredSender?: string;
 };
-
 
 export function resolveAccountId(
   snapshot: FinanceSnapshot,
@@ -134,8 +129,7 @@ export function recomputeAccountBalancesFromSms(
     }
     if (
       dateMs > prev.dateMs ||
-      (dateMs === prev.dateMs &&
-        smsId.localeCompare(prev.smsId, undefined, { numeric: true }) > 0)
+      (dateMs === prev.dateMs && smsId.localeCompare(prev.smsId, undefined, { numeric: true }) > 0)
     ) {
       bestByAccount.set(tx.accountId, {
         balance: tx.balanceAfterRial,
@@ -183,10 +177,7 @@ export function ingestIncomingSms(
 
   // AUTHORITATIVE GATE: only user-verified (or migrated legacy) senders enter bank pipeline
   if (!verified) {
-    const discovered = noteDiscoveredSender(
-      snapshot.settings.discoveredSmsSenders,
-      payload.sender,
-    );
+    const discovered = noteDiscoveredSender(snapshot.settings.discoveredSmsSenders, payload.sender);
     // Soft note for discovery UI — do not parse as bank TX
     return {
       kind: 'ignored',
@@ -200,7 +191,10 @@ export function ingestIncomingSms(
   const bankId = verified.bankId;
 
   // SENDER AUTHORIZATION ≠ TRANSACTION CLASSIFICATION
-  if (isNonTransactionalSms(payload.body) || classifySmsBody(payload.body) === 'non_transactional') {
+  if (
+    isNonTransactionalSms(payload.body) ||
+    classifySmsBody(payload.body) === 'non_transactional'
+  ) {
     return { kind: 'non_transactional' };
   }
 
@@ -236,7 +230,10 @@ export function ingestIncomingSms(
 
   if (detected.status === 'unknown' || !detected.transaction) {
     // Verified sender + transactional-looking but unparsed → unknownSms (never ignore)
-    if (hasTransactionSignals(normalized.body) || classifySmsBody(normalized.body) === 'transaction_candidate') {
+    if (
+      hasTransactionSignals(normalized.body) ||
+      classifySmsBody(normalized.body) === 'transaction_candidate'
+    ) {
       const unknown =
         detected.unknown ??
         toUnknownRecord({
@@ -256,11 +253,7 @@ export function ingestIncomingSms(
   }
 
   const now = new Date().toISOString();
-  const existingId = resolveAccountId(
-    snapshot,
-    bankId,
-    detected.transaction.cardLast4,
-  );
+  const existingId = resolveAccountId(snapshot, bankId, detected.transaction.cardLast4);
   const account = existingId
     ? undefined
     : accountFromSms({
@@ -285,11 +278,18 @@ export function ingestIncomingSms(
     updatedAt: now,
   };
   const kind =
-    detected.status === 'created' ? 'created' : detected.status === 'pending' ? 'pending' : 'review';
+    detected.status === 'created'
+      ? 'created'
+      : detected.status === 'pending'
+      ? 'pending'
+      : 'review';
   return { kind, transaction, account };
 }
 
 /** @deprecated Prefer isVerifiedSender from senders/verified */
-export function isKnownBankSenderCompat(settings: FinanceSnapshot['settings'], sender: string): boolean {
+export function isKnownBankSenderCompat(
+  settings: FinanceSnapshot['settings'],
+  sender: string,
+): boolean {
   return isVerifiedSender(settings, sender);
 }

@@ -7,7 +7,12 @@ describe('ingestIncomingSms verified-sender mode', () => {
     const snapshot = emptySnapshot('u1');
     snapshot.settings.smsProcessingEnabled = true;
     snapshot.settings.selectedBankIds = ['melli'];
-    snapshot.settings.bankConnections = addVerifiedSender([], 'mellat', '9909', 'user_selected_sms');
+    snapshot.settings.bankConnections = addVerifiedSender(
+      [],
+      'mellat',
+      '9909',
+      'user_selected_sms',
+    );
 
     const payload = {
       sender: '9909',
@@ -30,7 +35,12 @@ describe('ingestIncomingSms verified-sender mode', () => {
   test('TEST 15: verified sender unfamiliar transactional body → unknown or non_transactional', () => {
     const snapshot = emptySnapshot('u1');
     snapshot.settings.smsProcessingEnabled = true;
-    snapshot.settings.bankConnections = addVerifiedSender([], 'mellat', '9909', 'user_selected_sms');
+    snapshot.settings.bankConnections = addVerifiedSender(
+      [],
+      'mellat',
+      '9909',
+      'user_selected_sms',
+    );
 
     const result = ingestIncomingSms(
       snapshot,

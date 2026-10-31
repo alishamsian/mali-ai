@@ -28,7 +28,9 @@ export function inferType(body: string): { type: TransactionType; confidence: nu
  * «مانده/موجودی» is the balance, not the amount; one after «مبلغ», a transaction word or
  * next to a +/− sign is likely the amount.
  */
-export function extractAmountParts(body: string): { amount: number; currency: 'IRR' | 'IRT' } | null {
+export function extractAmountParts(
+  body: string,
+): { amount: number; currency: 'IRR' | 'IRT' } | null {
   const currency = detectCurrencyHint(body) ?? 'IRR';
   const text = body.replace(/(\d)[,٬،](?=\d{3})/g, '$1');
   let best: { value: number; score: number } | null = null;
@@ -59,7 +61,8 @@ export function extractAmountParts(body: string): { amount: number; currency: 'I
     const post = text.slice(end, end + 12).trim();
     let score = 0;
     if (/مانده|موجودی/.test(pre)) score -= 10;
-    if (/حساب|کارت|شبا|کد|پیگیری|مرجع|شماره|رمز|پویا/.test(pre) && !/مبلغ|واریز/.test(pre)) score -= 4;
+    if (/حساب|کارت|شبا|کد|پیگیری|مرجع|شماره|رمز|پویا/.test(pre) && !/مبلغ|واریز/.test(pre))
+      score -= 4;
     if (/مبلغ/.test(pre)) score += 5;
     if (/واریز|برداشت|خرید|انتقال|پرداخت|کسر/.test(pre)) score += 4;
     if (pre.trim().endsWith('+') || after === '+') score += 4;
@@ -96,7 +99,10 @@ export function extractBalance(body: string): number | undefined {
  * Keyword-based fallback. This is NOT a bank-specific format parser.
  * Confidence stays lower so results usually land in needs-review.
  */
-export function parseGenericBankSms(message: NormalizedSms, bankId = 'generic'): ParsedTransaction | null {
+export function parseGenericBankSms(
+  message: NormalizedSms,
+  bankId = 'generic',
+): ParsedTransaction | null {
   const typeInfo = inferType(message.body);
   const amountInfo = extractAmountParts(message.body);
   if (!amountInfo) {
@@ -105,8 +111,7 @@ export function parseGenericBankSms(message: NormalizedSms, bankId = 'generic'):
 
   const amountRialDisplay = amountInfo.amount;
   const balance = extractBalance(message.body);
-  const overall =
-    0.55 * 0.7 + typeInfo.confidence * 0.2 + (amountInfo ? 1 : 0) * 0.1;
+  const overall = 0.55 * 0.7 + typeInfo.confidence * 0.2 + (amountInfo ? 1 : 0) * 0.1;
 
   return {
     bankId,

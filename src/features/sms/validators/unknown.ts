@@ -4,7 +4,10 @@ import { sanitizeSmsText } from '../privacy/sanitize';
 import { formatIdFromHash } from '../discovery/formatDiscovery';
 
 export function patternHashFor(body: string): string {
-  const skeleton = body.replace(/\d/g, '0').replace(/[A-Za-z]/g, 'A').slice(0, 400);
+  const skeleton = body
+    .replace(/\d/g, '0')
+    .replace(/[A-Za-z]/g, 'A')
+    .slice(0, 400);
   return sha256(skeleton);
 }
 

@@ -37,11 +37,16 @@ export function detectBankSenders(rows: NormalizedInboxSms[]): DetectedBankSende
 
   const out: DetectedBankSender[] = [];
   for (const [sender, group] of groups) {
-    const transactional = group.rows.filter(r => classifySmsBody(r.body) === 'transaction_candidate');
+    const transactional = group.rows.filter(
+      r => classifySmsBody(r.body) === 'transaction_candidate',
+    );
     if (transactional.length === 0) {
       continue;
     }
-    const bankId = matchBankIdBySender(group.display) ?? matchBankIdBySender(sender) ?? bankFromBodies(transactional);
+    const bankId =
+      matchBankIdBySender(group.display) ??
+      matchBankIdBySender(sender) ??
+      bankFromBodies(transactional);
     if (!bankId) {
       continue;
     }

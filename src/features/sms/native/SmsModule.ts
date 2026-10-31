@@ -21,6 +21,11 @@ type SmsNative = {
     offset: number,
     limit: number,
   ) => Promise<InboxSmsRow[]>;
+  readSenderSamples?: (
+    minDateMs: number,
+    recentFromMs: number,
+    perSender: number,
+  ) => Promise<{ sender: string; count: number; recentCount: number; rows: InboxSmsRow[] }[]>;
   readBankSenderBatch?: (
     sender: string,
     minDateMs: number,
@@ -91,9 +96,7 @@ export async function hasSmsPermission(): Promise<boolean> {
   }
 }
 
-export async function readFinancialInbox(
-  limit = SMS_INBOX_LIMIT,
-): Promise<NormalizedInboxSms[]> {
+export async function readFinancialInbox(limit = SMS_INBOX_LIMIT): Promise<NormalizedInboxSms[]> {
   if (Platform.OS !== 'android' || !MaliSmsModule?.readInbox) {
     return [];
   }
@@ -134,6 +137,34 @@ export async function readInboxBatch(input: {
       input.limit ?? 200,
     );
     return (rows ?? []).map(mapRow);
+  } catch {
+    return [];
+  }
+}
+
+export type SenderSample = {
+  sender: string;
+  count: number;
+  recentCount: number;
+  rows: NormalizedInboxSms[];
+};
+
+/** Every sender since `minDateMs` with its counts and newest few messages, in one native pass. */
+export async function readSenderSamples(input: {
+  minDateMs: number;
+  recentFromMs: number;
+  perSender?: number;
+}): Promise<SenderSample[]> {
+  if (Platform.OS !== 'android' || !MaliSmsModule?.readSenderSamples) {
+    return [];
+  }
+  try {
+    const groups = await MaliSmsModule.readSenderSamples(
+      input.minDateMs,
+      input.recentFromMs,
+      input.perSender ?? 5,
+    );
+    return (groups ?? []).map(g => ({ ...g, rows: (g.rows ?? []).map(mapRow) }));
   } catch {
     return [];
   }

@@ -24,17 +24,17 @@ const LEGACY_SENDER_HINTS: Record<string, string[]> = Object.fromEntries(
 
 /** Arabic ي/ك and zero-width joiners vary between banks; compare without them. */
 function fold(text: string): string {
-  return text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200c/g, ' ');
+  return text
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/\u200c/g, ' ');
 }
 
 function scoreBank(message: NormalizedSms, bank: BankIdentity): number {
   const sender = `${message.sender} ${message.senderName ?? ''}`.toLowerCase();
   const body = fold(message.body);
   let score = 0;
-  const senders = [
-    ...bank.senders,
-    ...(LEGACY_SENDER_HINTS[bank.bankId] ?? []),
-  ];
+  const senders = [...bank.senders, ...(LEGACY_SENDER_HINTS[bank.bankId] ?? [])];
   if (senders.some(s => sender.includes(s.toLowerCase()))) {
     score += 0.7;
   }
@@ -62,11 +62,7 @@ export function detectBank(message: NormalizedSms): DetectionResult {
     };
   }
 
-  if (
-    second &&
-    second.confidence >= 0.6 &&
-    Math.abs(best.confidence - second.confidence) <= 0.05
-  ) {
+  if (second && second.confidence >= 0.6 && Math.abs(best.confidence - second.confidence) <= 0.05) {
     return {
       matched: false,
       confidence: best.confidence,

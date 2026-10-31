@@ -55,7 +55,8 @@ export function parseMellatSms(message: NormalizedSms): ParsedTransaction | null
     cardLast4: card,
     merchant,
     transactionDate: message.receivedAt,
-    description: merchant ?? (type === 'deposit' ? 'واریز' : type === 'purchase' ? 'خرید' : 'برداشت'),
+    description:
+      merchant ?? (type === 'deposit' ? 'واریز' : type === 'purchase' ? 'خرید' : 'برداشت'),
     confidence: 0.9,
     source: 'android_sms',
     parserStatus: 'ok',

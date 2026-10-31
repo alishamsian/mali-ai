@@ -9,13 +9,18 @@ import {
 } from '../senders/verified';
 import { normalizeSmsSender } from '../senders/normalize';
 import { isNonTransactionalSms, isSuitableForSenderVerification } from '../senders/classify';
-import { runIncrementalSmsSync, __resetIncrementalSyncLockForTests } from '../import/incrementalSync';
+import {
+  runIncrementalSmsSync,
+  __resetIncrementalSyncLockForTests,
+} from '../import/incrementalSync';
 import { collectBankSenderSms } from '../import/bankSenderScan';
 import type { NormalizedInboxSms } from '../native/SmsModule';
 import type { UserSettings } from '../../../types/finance';
 
 function mellatDeposit(amount: number, balance: number): string {
-  return `بانک ملت\nواریز مبلغ ${amount.toLocaleString('en-US')} ریال\nمانده ${balance.toLocaleString('en-US')}`;
+  return `بانک ملت\nواریز مبلغ ${amount.toLocaleString(
+    'en-US',
+  )} ریال\nمانده ${balance.toLocaleString('en-US')}`;
 }
 
 function withVerifiedMellat(settings: UserSettings, sender = '9909'): UserSettings {
@@ -131,9 +136,9 @@ describe('verified sender architecture', () => {
     });
     expect(migrated.bankConnections?.length).toBe(1);
     expect(migrated.bankConnections?.[0]?.bankId).toBe('melli');
-    expect(migrated.bankConnections?.[0]?.verifiedSenders.some(s => s.method === 'legacy_system')).toBe(
-      true,
-    );
+    expect(
+      migrated.bankConnections?.[0]?.verifiedSenders.some(s => s.method === 'legacy_system'),
+    ).toBe(true);
     expect(getVerifiedSenderStrings(migrated).length).toBeGreaterThan(0);
   });
 
@@ -188,7 +193,9 @@ describe('verified sender architecture', () => {
     snapshot = {
       ...snapshot,
       accounts: a.account ? [...snapshot.accounts, a.account] : snapshot.accounts,
-      transactions: a.transaction ? [a.transaction, ...snapshot.transactions] : snapshot.transactions,
+      transactions: a.transaction
+        ? [a.transaction, ...snapshot.transactions]
+        : snapshot.transactions,
     };
     const b = ingestIncomingSms(
       snapshot,
@@ -204,7 +211,9 @@ describe('verified sender architecture', () => {
     expect(b.kind).not.toBe('duplicate');
     snapshot = {
       ...snapshot,
-      transactions: b.transaction ? [b.transaction, ...snapshot.transactions] : snapshot.transactions,
+      transactions: b.transaction
+        ? [b.transaction, ...snapshot.transactions]
+        : snapshot.transactions,
     };
     snapshot = {
       ...snapshot,

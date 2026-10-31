@@ -120,7 +120,9 @@ export function SmsSenderConfirmScreen({
 
   if (done) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         <AppText variant="title" style={{ textAlign: 'center' }}>
           {dict.sms.bankConnectedTitle.replace('{{bank}}', bankName)}
         </AppText>

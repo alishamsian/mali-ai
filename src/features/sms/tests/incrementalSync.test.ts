@@ -7,7 +7,11 @@ import {
 } from '../import/incrementalSync';
 import type { NormalizedInboxSms } from '../native/SmsModule';
 
-function makeSms(id: string, dateMs: number, body = 'بانک ملت واریز مبلغ 100000 ریال مانده 1'): NormalizedInboxSms {
+function makeSms(
+  id: string,
+  dateMs: number,
+  body = 'بانک ملت واریز مبلغ 100000 ریال مانده 1',
+): NormalizedInboxSms {
   return {
     sourceSmsId: id,
     sender: '9909',
@@ -192,9 +196,7 @@ describe('incremental SMS sync', () => {
       nowMs: now,
       hasPermission: async () => true,
       readBatch: async ({ offset }) =>
-        offset === 0
-          ? [makeSms('id-1', now - 2000, body), makeSms('id-2', now - 1000, body)]
-          : [],
+        offset === 0 ? [makeSms('id-1', now - 2000, body), makeSms('id-2', now - 1000, body)] : [],
       ingest: payload => {
         ids.push(payload.sourceSmsId ?? '');
         return { kind: 'created' };

@@ -29,7 +29,8 @@ function toRegistryEntry(seed: BankCatalogSeed): BankRegistryEntry {
     senders: seed.senders,
     senderVerified: seed.senderVerified ?? seed.senders.length > 0,
     fixtureCount: seed.fixtureCount ?? 0,
-    status: seed.status ?? (seed.fixtureCount && seed.fixtureCount > 0 ? 'active' : 'needs-fixtures'),
+    status:
+      seed.status ?? (seed.fixtureCount && seed.fixtureCount > 0 ? 'active' : 'needs-fixtures'),
     strongKeywords: seed.strongKeywords,
     weakKeywords: seed.weakKeywords,
     legacyAliases: seed.legacyAliases,

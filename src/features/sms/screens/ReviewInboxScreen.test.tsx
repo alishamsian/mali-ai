@@ -88,7 +88,9 @@ describe('ReviewInboxScreen', () => {
     state().addTransaction(reviewTx('rv_3', 'سوپرمارکت', 99_000));
     renderInbox();
     fireEvent.press(screen.getByText(fa.sms.confirmAll));
-    expect(state().snapshot.transactions.filter(t => t.needsReview && !t.isConfirmed)).toHaveLength(0);
+    expect(state().snapshot.transactions.filter(t => t.needsReview && !t.isConfirmed)).toHaveLength(
+      0,
+    );
 
     act(() => {
       jest.advanceTimersByTime(60_000);

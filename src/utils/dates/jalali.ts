@@ -95,6 +95,9 @@ export function isoForJalaliDayKey(key: string): string {
   const [year, month, day] = key.split('-').map(Number);
   return dayjs()
     .calendar('jalali')
+    // Changing a month/year while keeping today's day can overflow (e.g. 31 →
+    // a 30-day month). Anchor the day before setting the requested calendar parts.
+    .date(1)
     .year(year)
     .month(month - 1)
     .date(day)

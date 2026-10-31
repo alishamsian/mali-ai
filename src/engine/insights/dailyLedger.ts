@@ -1,17 +1,17 @@
-import type {
-  BudgetCategory,
-  CategoryId,
-  Transaction,
-  TransactionSource,
-} from '../../types/finance';
+import type { CategoryId, Transaction, TransactionSource, UserSettings } from '../../types/finance';
 import {
   isoForJalaliDayKey,
   jalaliDayKey,
-  jalaliMonthMeta,
   shiftJalaliDayKey,
   todayJalaliKey,
 } from '../../utils/dates/jalali';
-import { isExpenseLike, isIncomeLike } from './analytics';
+import { isExpenseLike, isIncomeLike, isRefund, monthlyTotals } from './analytics';
+import { currentMonthWindow } from './monthPeriod';
+import { currentMonthlyLimitRial } from './safeToSpend';
+import type { FinanceSnapshot } from '../../database/schema/snapshot';
+import { formatTomanLabel, type DisplayCurrency } from '../../utils/currency/money';
+import { interpolate } from '../../i18n';
+import { toPersianDigits } from '../../utils/numbers/digits';
 
 export type DayGroupBy = 'none' | 'category' | 'account' | 'source';
 export type DaySort = 'time_desc' | 'time_asc' | 'amount_desc' | 'amount_asc';
@@ -34,6 +34,7 @@ export interface DaySummary {
   incomeRial: number;
   expenseRial: number;
   transferRial: number;
+  refundRial: number;
   netRial: number;
   txCount: number;
   incomeCount: number;
@@ -62,7 +63,7 @@ export function isoAtLocalNoon(key: string): string {
 }
 
 function isTransferLike(tx: Transaction): boolean {
-  return tx.type === 'transfer' || Boolean(tx.transferId);
+  return tx.direction === 'internal' || Boolean(tx.transferId);
 }
 
 /** Day index per transactions array; the store replaces the array on every change, so it never goes stale. */
@@ -101,7 +102,7 @@ export function filterDayTransactions(
     return transactions.filter(isIncomeLike);
   }
   if (filter === 'expense') {
-    return transactions.filter(isExpenseLike);
+    return transactions.filter(tx => isExpenseLike(tx) || isRefund(tx));
   }
   if (filter === 'sms') {
     return transactions.filter(tx => tx.source === 'android_sms');
@@ -112,10 +113,10 @@ export function filterDayTransactions(
 export function sortDayTransactions(transactions: Transaction[], sort: DaySort): Transaction[] {
   const list = [...transactions];
   if (sort === 'time_desc') {
-    return list.sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
+    return list.sort((a, b) => Date.parse(b.transactionDate) - Date.parse(a.transactionDate));
   }
   if (sort === 'time_asc') {
-    return list.sort((a, b) => a.transactionDate.localeCompare(b.transactionDate));
+    return list.sort((a, b) => Date.parse(a.transactionDate) - Date.parse(b.transactionDate));
   }
   if (sort === 'amount_desc') {
     return list.sort((a, b) => b.amountRial - a.amountRial);
@@ -128,6 +129,8 @@ export function summarizeDay(transactions: Transaction[], key: string): DaySumma
   let incomeRial = 0;
   let expenseRial = 0;
   let transferRial = 0;
+  let refundRial = 0;
+  const countedTransfers = new Set<string>();
   let incomeCount = 0;
   let expenseCount = 0;
   let transferCount = 0;
@@ -146,36 +149,45 @@ export function summarizeDay(transactions: Transaction[], key: string): DaySumma
       const a = accMap.get(tx.accountId) ?? { incomeRial: 0, expenseRial: 0 };
       a.incomeRial += tx.amountRial;
       accMap.set(tx.accountId, a);
-    } else if (isExpenseLike(tx)) {
-      expenseRial += tx.amountRial;
-      expenseCount += 1;
+    } else if (isExpenseLike(tx) || isRefund(tx)) {
+      const amount = isRefund(tx) ? -tx.amountRial : tx.amountRial;
+      expenseRial += amount;
+      if (isRefund(tx)) {
+        refundRial += tx.amountRial;
+      } else {
+        expenseCount += 1;
+      }
       const c = catMap.get(tx.categoryId) ?? { incomeRial: 0, expenseRial: 0 };
-      c.expenseRial += tx.amountRial;
+      c.expenseRial += amount;
       catMap.set(tx.categoryId, c);
       const a = accMap.get(tx.accountId) ?? { incomeRial: 0, expenseRial: 0 };
-      a.expenseRial += tx.amountRial;
+      a.expenseRial += amount;
       accMap.set(tx.accountId, a);
     } else if (isTransferLike(tx)) {
-      if (tx.direction === 'out' || tx.type === 'transfer') {
+      const id = tx.transferId ?? tx.id;
+      if (!countedTransfers.has(id)) {
+        countedTransfers.add(id);
         transferRial += tx.amountRial;
+        transferCount += 1;
       }
-      transferCount += 1;
     }
   }
 
   const categories = [...catMap.entries()]
-    .map(([categoryId, v]) => ({ categoryId, ...v }))
+    .map(([categoryId, v]) => ({ categoryId, ...v, expenseRial: Math.max(0, v.expenseRial) }))
     .sort((a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial));
 
   const accounts = [...accMap.entries()]
-    .map(([accountId, v]) => ({ accountId, ...v }))
+    .map(([accountId, v]) => ({ accountId, ...v, expenseRial: Math.max(0, v.expenseRial) }))
     .sort((a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial));
 
   return {
     key,
     incomeRial,
-    expenseRial,
+    expenseRial: Math.max(0, expenseRial),
     transferRial,
+    refundRial,
+    // Net cash flow keeps refunds even on a day with no purchases.
     netRial: incomeRial - expenseRial,
     txCount: dayTx.length,
     incomeCount,
@@ -207,46 +219,75 @@ export function weekExpenseAverage(transactions: Transaction[], throughKey: stri
   return sum / 7;
 }
 
-export function monthToDateNet(transactions: Transaction[], throughKey: string): number {
-  const [ty, tm, td] = throughKey.split('-').map(Number);
-  let net = 0;
-  for (const tx of transactions) {
-    const k = jalaliDayKey(tx.transactionDate);
-    const [y, m, d] = k.split('-').map(Number);
-    if (y !== ty || m !== tm) {
-      continue;
+type FinancialSettings = Pick<Partial<UserSettings>, 'calendar' | 'financialMonthStartDay'>;
+
+function financialTransactionsThroughDay(
+  transactions: Transaction[],
+  key: string,
+  settings: FinancialSettings,
+  now: Date,
+): { transactions: Transaction[]; daysLeft: number } {
+  const day = new Date(isoForJalaliDayKey(key));
+  const window = currentMonthWindow(settings, day);
+  const end = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime();
+  const start = window.start.getTime();
+  return {
+    transactions: transactions.filter(tx => {
+      const at = Date.parse(tx.transactionDate);
+      return at >= start && at < end && at <= now.getTime();
+    }),
+    daysLeft: Math.max(1, window.daysInMonth - window.day + 1),
+  };
+}
+
+export function monthToDateNet(
+  transactions: Transaction[],
+  throughKey: string,
+  settings: FinancialSettings = {},
+  now = new Date(),
+): number {
+  // Cash flow: a refund is money received, but never income.
+  return financialTransactionsThroughDay(
+    transactions,
+    throughKey,
+    settings,
+    now,
+  ).transactions.reduce((net, tx) => {
+    if (isIncomeLike(tx) || isRefund(tx)) {
+      return net + tx.amountRial;
     }
-    if (d > td) {
-      continue;
-    }
-    if (isIncomeLike(tx)) {
-      net += tx.amountRial;
-    } else if (isExpenseLike(tx)) {
-      net -= tx.amountRial;
-    }
-  }
-  return net;
+    return isExpenseLike(tx) ? net - tx.amountRial : net;
+  }, 0);
 }
 
 export function dayShareText(
   summary: DaySummary,
   label: string,
-  formatToman: (rial: number) => string,
   dict: {
     income: string;
     expense: string;
     net: string;
     transfer: string;
     count: string;
+    refund: string;
   },
+  options: { hidden: boolean; displayCurrency: DisplayCurrency },
 ): string {
+  const amount = (rial: number, sign = false) =>
+    options.hidden
+      ? '••••'
+      : formatTomanLabel(rial, { sign, displayCurrency: options.displayCurrency });
+  const count = dict.count.includes('{{count}}')
+    ? interpolate(dict.count, { count: summary.txCount })
+    : `${dict.count}: ${toPersianDigits(summary.txCount)}`;
   return [
     label,
-    `${dict.income}: ${formatToman(summary.incomeRial)}`,
-    `${dict.expense}: ${formatToman(summary.expenseRial)}`,
-    `${dict.net}: ${formatToman(summary.netRial)}`,
-    summary.transferRial ? `${dict.transfer}: ${formatToman(summary.transferRial)}` : '',
-    `${dict.count}: ${summary.txCount}`,
+    `${dict.income}: ${amount(summary.incomeRial)}`,
+    `${dict.expense}: ${amount(summary.expenseRial)}`,
+    summary.refundRial ? `${dict.refund}: ${amount(summary.refundRial)}` : '',
+    `${dict.net}: ${amount(summary.netRial, true)}`,
+    summary.transferRial ? `${dict.transfer}: ${amount(summary.transferRial)}` : '',
+    count,
   ]
     .filter(Boolean)
     .join('\n');
@@ -286,15 +327,15 @@ export function groupDayTransactions(
     const row = map.get(id) ?? { id, label, incomeRial: 0, expenseRial: 0, transactions: [] };
     if (isIncomeLike(tx)) {
       row.incomeRial += tx.amountRial;
-    } else if (isExpenseLike(tx)) {
-      row.expenseRial += tx.amountRial;
+    } else if (isExpenseLike(tx) || isRefund(tx)) {
+      row.expenseRial += isRefund(tx) ? -tx.amountRial : tx.amountRial;
     }
     row.transactions.push(tx);
     map.set(id, row);
   }
-  return [...map.values()].sort(
-    (a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial),
-  );
+  return [...map.values()]
+    .map(row => ({ ...row, expenseRial: Math.max(0, row.expenseRial) }))
+    .sort((a, b) => b.expenseRial + b.incomeRial - (a.expenseRial + a.incomeRial));
 }
 
 export function reviewCountForDay(transactions: Transaction[], key: string): number {
@@ -315,32 +356,26 @@ export function expenseSeries(
 }
 
 export function dailySpendAllowance(
-  transactions: Transaction[],
-  budgetCategories: BudgetCategory[],
+  snapshot: Pick<FinanceSnapshot, 'transactions' | 'budgets' | 'settings'>,
   dayKey: string,
+  now = new Date(),
 ): { remainingMonthRial: number; dailyAllowanceRial: number; daysLeft: number } | null {
-  const totalLimit = budgetCategories.reduce((sum, row) => sum + row.limitRial, 0);
-  if (totalLimit <= 0) {
+  const totalLimit = currentMonthlyLimitRial(snapshot);
+  if (totalLimit == null) {
     return null;
   }
-  const [y, m, d] = dayKey.split('-').map(Number);
-  const meta = jalaliMonthMeta(new Date(isoForJalaliDayKey(dayKey)));
-  const daysLeft = Math.max(1, meta.daysInMonth - d + 1);
-  let mtdExpense = 0;
-  for (const tx of transactions) {
-    const k = jalaliDayKey(tx.transactionDate);
-    const [ty, tm, td] = k.split('-').map(Number);
-    if (ty !== y || tm !== m || td > d) {
-      continue;
-    }
-    if (isExpenseLike(tx)) {
-      mtdExpense += tx.amountRial;
-    }
-  }
-  const remainingMonthRial = totalLimit - mtdExpense;
-  const dailyAllowanceRial =
-    remainingMonthRial <= 0 ? 0 : Math.round(remainingMonthRial / daysLeft);
-  return { remainingMonthRial, dailyAllowanceRial, daysLeft };
+  const period = financialTransactionsThroughDay(
+    snapshot.transactions,
+    dayKey,
+    snapshot.settings,
+    now,
+  );
+  const remainingMonthRial = totalLimit - monthlyTotals(period.transactions).expenseRial;
+  return {
+    remainingMonthRial,
+    dailyAllowanceRial: Math.max(0, Math.floor(remainingMonthRial / period.daysLeft)),
+    daysLeft: period.daysLeft,
+  };
 }
 
 export function dayInsightLine(
@@ -366,7 +401,8 @@ export function dayInsightLine(
     return null;
   }
   if (yesterday.expenseRial <= 0) {
-    return summary.expenseRial > 0 ? { code: 'yesterdayUp', vars: { pct: 100 } } : null;
+    // Percentage growth from a zero baseline is undefined.
+    return null;
   }
   const pct = ((summary.expenseRial - yesterday.expenseRial) / yesterday.expenseRial) * 100;
   if (Math.abs(pct) < 3) {

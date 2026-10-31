@@ -76,7 +76,7 @@ export function ReviewInboxScreen({
     setUndo(next);
     timer.current = setTimeout(() => setUndo(null), UNDO_MS);
   }, []);
-  useEffect(() => () => (timer.current ? clearTimeout(timer.current) : undefined), []);
+  useEffect(() => () => timer.current ? clearTimeout(timer.current) : undefined, []);
 
   /** Snapshot of the review fields so «برگرداندن» puts the item back exactly as it was. */
   const restoreRule = useFinanceStore(s => s.restoreMerchantRule);
@@ -100,7 +100,9 @@ export function ReviewInboxScreen({
       if (categoryId && categoryId !== tx.categoryId) {
         // Also teaches a merchant rule, so the next SMS from here is filed automatically.
         const merchant = tx.merchant?.trim();
-        const previousRule = merchant ? snapshot.rules.find(r => r.matcher === merchant) : undefined;
+        const previousRule = merchant
+          ? snapshot.rules.find(r => r.matcher === merchant)
+          : undefined;
         recategorize(tx.id, categoryId);
         offerUndo({
           label: interpolate(dict.sms.recategorizedToast, { cat: dict.categories[categoryId] }),
@@ -172,7 +174,9 @@ export function ReviewInboxScreen({
     ({ item }: { item: Row }) => {
       if (item.kind === 'header') {
         return (
-          <AppText style={[styles.sectionTitle, { color: colors.textSecondary }]}>{item.title}</AppText>
+          <AppText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {item.title}
+          </AppText>
         );
       }
       if (item.kind === 'unknown') {
@@ -188,7 +192,8 @@ export function ReviewInboxScreen({
                   {u.sender}
                 </AppText>
                 <AppText style={[styles.meta, { color: colors.textMuted }]}>
-                  {reasonLabel(u.failureReason, dict)} · {jalaliDayLabel(jalaliDayKey(u.receivedAt))}
+                  {reasonLabel(u.failureReason, dict)} ·{' '}
+                  {jalaliDayLabel(jalaliDayKey(u.receivedAt))}
                 </AppText>
               </View>
             </View>
@@ -199,7 +204,9 @@ export function ReviewInboxScreen({
             ) : null}
             <PressScale onPress={() => dismiss(u.id)} style={styles.alignStart}>
               <GlassPanel strong radius={14} style={styles.smallBtn}>
-                <AppText style={[styles.smallBtnText, { color: colors.text }]}>{dict.sms.ignore}</AppText>
+                <AppText style={[styles.smallBtnText, { color: colors.text }]}>
+                  {dict.sms.ignore}
+                </AppText>
               </GlassPanel>
             </PressScale>
           </GlassPanel>
@@ -242,11 +249,16 @@ export function ReviewInboxScreen({
                   <PressScale
                     key={c}
                     onPress={() => onConfirm(tx, c)}
-                    accessibilityLabel={`${dict.categories[c]}${suggested ? `، ${dict.sms.suggested}` : ''}`}>
+                    accessibilityLabel={`${dict.categories[c]}${
+                      suggested ? `، ${dict.sms.suggested}` : ''
+                    }`}>
                     <GlassPanel
                       strong
                       radius={999}
-                      style={[styles.chip, suggested && { borderColor: colors.text, borderWidth: 1.5 }]}>
+                      style={[
+                        styles.chip,
+                        suggested && { borderColor: colors.text, borderWidth: 1.5 },
+                      ]}>
                       <AppText style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
                         {dict.categories[c]}
                       </AppText>
@@ -268,10 +280,14 @@ export function ReviewInboxScreen({
             <PressScale
               style={styles.flex}
               onPress={() => onConfirm(tx)}
-              accessibilityLabel={`${dict.sms.confirm}: ${tx.merchant ?? ''} ${dict.categories[tx.categoryId]}`}>
+              accessibilityLabel={`${dict.sms.confirm}: ${tx.merchant ?? ''} ${
+                dict.categories[tx.categoryId]
+              }`}>
               <View style={[styles.confirmBtn, { backgroundColor: colors.primary }]}>
                 <Check color={colors.onPrimary} size={18} strokeWidth={2.6} />
-                <AppText style={[styles.confirmText, { color: colors.onPrimary }]} numberOfLines={1}>
+                <AppText
+                  style={[styles.confirmText, { color: colors.onPrimary }]}
+                  numberOfLines={1}>
                   {dict.sms.confirm} · {dict.categories[tx.categoryId]}
                 </AppText>
               </View>
@@ -302,7 +318,9 @@ export function ReviewInboxScreen({
               <ChevronRight color={colors.text} size={22} />
             </GlassPanel>
           </PressScale>
-          <AppText style={[styles.screenTitle, { color: colors.text }]}>{dict.sms.reviewTitle}</AppText>
+          <AppText style={[styles.screenTitle, { color: colors.text }]}>
+            {dict.sms.reviewTitle}
+          </AppText>
           <View style={[styles.brandTile, { backgroundColor: colors.primary }]}>
             <AppText style={[styles.brandGlyph, { color: colors.onPrimary }]}>پ</AppText>
           </View>
@@ -314,12 +332,16 @@ export function ReviewInboxScreen({
               <AppText style={[styles.title, { color: colors.text }]}>
                 {interpolate(dict.sms.reviewCount, { n: toPersianDigits(transactions.length) })}
               </AppText>
-              <AppText style={[styles.meta, { color: colors.textMuted }]}>{dict.sms.reviewHint}</AppText>
+              <AppText style={[styles.meta, { color: colors.textMuted }]}>
+                {dict.sms.reviewHint}
+              </AppText>
             </View>
             {transactions.length > 1 ? (
               <PressScale onPress={onConfirmAll}>
                 <View style={[styles.allBtn, { backgroundColor: colors.primary }]}>
-                  <AppText style={[styles.confirmText, { color: colors.onPrimary }]}>{dict.sms.confirmAll}</AppText>
+                  <AppText style={[styles.confirmText, { color: colors.onPrimary }]}>
+                    {dict.sms.confirmAll}
+                  </AppText>
                 </View>
               </PressScale>
             ) : null}
@@ -332,7 +354,9 @@ export function ReviewInboxScreen({
             {__DEV__ ? (
               <PressScale onPress={seedForDev} style={styles.alignCenter}>
                 <GlassPanel strong radius={14} style={styles.smallBtn}>
-                  <AppText style={[styles.smallBtnText, { color: colors.textSecondary }]}>{dict.sms.devSeed}</AppText>
+                  <AppText style={[styles.smallBtnText, { color: colors.textSecondary }]}>
+                    {dict.sms.devSeed}
+                  </AppText>
                 </GlassPanel>
               </PressScale>
             ) : null}
@@ -352,7 +376,9 @@ export function ReviewInboxScreen({
 
         {undo ? (
           <View style={[styles.toastWrap, { bottom: insets.bottom + 16 }]} pointerEvents="box-none">
-            <View style={[styles.toast, { backgroundColor: colors.primary }]} accessibilityLiveRegion="polite">
+            <View
+              style={[styles.toast, { backgroundColor: colors.primary }]}
+              accessibilityLiveRegion="polite">
               <AppText style={[styles.toastText, { color: colors.onPrimary }]} numberOfLines={1}>
                 {undo.label}
               </AppText>
@@ -362,7 +388,9 @@ export function ReviewInboxScreen({
                   setUndo(null);
                 }}
                 hitSlop={10}>
-                <AppText style={[styles.toastAction, { color: colors.highlight }]}>{dict.sms.undo}</AppText>
+                <AppText style={[styles.toastAction, { color: colors.highlight }]}>
+                  {dict.sms.undo}
+                </AppText>
               </PressScale>
             </View>
           </View>
@@ -390,12 +418,36 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   screenTitle: { fontSize: 17, fontFamily: theme.typography.fontFamily.semibold },
-  brandTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  brandTile: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   brandGlyph: { fontSize: 28, lineHeight: 40, fontFamily: theme.typography.fontFamily.bold },
-  summary: { marginHorizontal: 16, marginBottom: 12, padding: 14, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+  summary: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
   summaryText: { flex: 1, alignItems: 'flex-end', gap: 2 },
-  allBtn: { height: 44, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { ...rtl, fontSize: 13, fontFamily: theme.typography.fontFamily.semibold, marginTop: 6 },
+  allBtn: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    ...rtl,
+    fontSize: 13,
+    fontFamily: theme.typography.fontFamily.semibold,
+    marginTop: 6,
+  },
   card: { padding: 12, gap: 12 },
   head: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
   tile: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },

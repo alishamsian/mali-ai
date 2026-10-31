@@ -15,7 +15,16 @@ const FINANCIAL_KEYS = [
   'کارت',
 ];
 
-const TX_KEYS = ['برداشت', 'واریز', 'خرید', 'انتقال', 'حواله', 'برداشت وجه', 'خریداينترنتی', 'خریداینترنتی'];
+const TX_KEYS = [
+  'برداشت',
+  'واریز',
+  'خرید',
+  'انتقال',
+  'حواله',
+  'برداشت وجه',
+  'خریداينترنتی',
+  'خریداینترنتی',
+];
 
 export function looksFinancialCandidate(body: string): boolean {
   if (!body || !/\d/.test(body)) {

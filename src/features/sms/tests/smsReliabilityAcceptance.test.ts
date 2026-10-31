@@ -1,12 +1,17 @@
 import { emptySnapshot } from '../../../database/schema/snapshot';
 import { ingestIncomingSms, recomputeAccountBalancesFromSms } from '../ingest';
 import { collectBankSenderSms } from '../import/bankSenderScan';
-import { runIncrementalSmsSync, __resetIncrementalSyncLockForTests } from '../import/incrementalSync';
+import {
+  runIncrementalSmsSync,
+  __resetIncrementalSyncLockForTests,
+} from '../import/incrementalSync';
 import type { NormalizedInboxSms } from '../native/SmsModule';
 import { addVerifiedSender } from '../senders/verified';
 
 function mellatDeposit(amount: number, balance: number): string {
-  return `بانک ملت\nواریز مبلغ ${amount.toLocaleString('en-US')} ریال\nمانده ${balance.toLocaleString('en-US')}`;
+  return `بانک ملت\nواریز مبلغ ${amount.toLocaleString(
+    'en-US',
+  )} ریال\nمانده ${balance.toLocaleString('en-US')}`;
 }
 
 function enableMellat(snapshot: ReturnType<typeof emptySnapshot>) {
@@ -117,7 +122,9 @@ describe('SMS reliability acceptance', () => {
     snapshot = {
       ...snapshot,
       accounts: a.account ? [...snapshot.accounts, a.account] : snapshot.accounts,
-      transactions: a.transaction ? [a.transaction, ...snapshot.transactions] : snapshot.transactions,
+      transactions: a.transaction
+        ? [a.transaction, ...snapshot.transactions]
+        : snapshot.transactions,
     };
     const b = ingestIncomingSms(
       snapshot,

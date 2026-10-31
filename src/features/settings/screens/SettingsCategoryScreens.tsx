@@ -1,5 +1,10 @@
 import { requestWidgetPin } from '../../../services/widget/widgetState';
-import { appAlert } from '../../../components/ui/AppAlert';
+import { appAlert, appToast } from '../../../components/ui/AppAlert';
+import {
+  importInBackground,
+  initialImportWindow,
+  verifiedSenders,
+} from '../../sms/import/historyImport';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -237,6 +242,37 @@ export function SettingsBanksSmsScreen() {
   const unknown = snapshot.unknownSms.length;
   const review = snapshot.transactions.filter(tx => tx.needsReview && !tx.isConfirmed).length;
   const last = smsSync.lastResult;
+  // Setup brings in three months; anything older is the user's call, in the background.
+  const importOlder = () => {
+    const senders = verifiedSenders();
+    if (!senders.length) {
+      navigateRoot(navigation, 'SmsSetup');
+      return;
+    }
+    const { historyFromMs } = initialImportWindow();
+    const run = (months: number | null) => {
+      const fromMs = months == null ? 0 : Date.now() - months * 30 * 86_400_000;
+      appToast(dict.settings.olderHistoryStarted);
+      void importInBackground({
+        senders,
+        fromMs,
+        toMs: historyFromMs - 1,
+        message: dict.settings.olderHistoryRunning,
+      }).then(result => {
+        if (result) {
+          appToast(
+            interpolate(dict.settings.olderHistoryDone, { n: toPersianDigits(result.created) }),
+          );
+        }
+      });
+    };
+    appAlert(dict.settings.olderHistory, dict.settings.olderHistoryBody, [
+      { text: dict.settings.olderHistory6, onPress: () => run(6) },
+      { text: dict.settings.olderHistory12, onPress: () => run(12) },
+      { text: dict.settings.olderHistoryAll, onPress: () => run(null) },
+      { text: dict.common.cancel, style: 'cancel' },
+    ]);
+  };
   const syncDebug =
     last &&
     `اسکن ${last.scannedCount} · تراکنش ${last.createdCount} · ناشناس ${last.unknownCount} · تکراری ${last.duplicateCount}`;
@@ -316,6 +352,17 @@ export function SettingsBanksSmsScreen() {
           title={dict.settings.openSmsSetup}
           onPress={() => navigateRoot(navigation, 'SmsSetup')}
         />
+        {settings.smsProcessingEnabled ? (
+          <SettingsNavRow
+            title={dict.settings.olderHistory}
+            subtitle={
+              smsSync.status === 'scanning' && smsSync.message
+                ? smsSync.message
+                : dict.settings.olderHistoryHint
+            }
+            onPress={importOlder}
+          />
+        ) : null}
         {settings.smsProcessingEnabled ? (
           <PrimaryButton label={dict.sms.scanInbox} onPress={() => void runSmsSync()} />
         ) : null}

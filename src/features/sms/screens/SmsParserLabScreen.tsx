@@ -19,7 +19,10 @@ import type { RootStackParamList } from '../../../app/navigation/types';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 
-function createLabStyles(c: { border: string; text: string; surfaceSolid: string }, th: { typography: { fontFamily: { regular: string } } }) {
+function createLabStyles(
+  c: { border: string; text: string; surfaceSolid: string },
+  th: { typography: { fontFamily: { regular: string } } },
+) {
   return {
     input: {
       minHeight: 48,
