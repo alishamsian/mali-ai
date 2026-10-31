@@ -46,7 +46,11 @@ export function BudgetsScreen() {
             value={section}
             onChange={setSection}
             labelFor={s =>
-              s === 'budgets' ? dict.budgets.title : s === 'goals' ? dict.goals.title : dict.bills.title
+              s === 'budgets'
+                ? dict.budgets.title
+                : s === 'goals'
+                ? dict.goals.title
+                : dict.bills.title
             }
           />
         </View>

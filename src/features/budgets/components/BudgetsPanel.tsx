@@ -13,6 +13,11 @@ import { categoryTotals } from '../../../engine/insights/analytics';
 import { currentMonthWindow } from '../../../engine/insights/monthPeriod';
 import { BUDGET_SETUP_CATEGORIES } from '../../../constants/categories';
 import { hapticSuccess } from '../../../utils/haptics';
+import { ProgressRing } from '../../../components/ui/ProgressRing';
+import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { StatusChip } from '../../../components/ui/StatusChip';
+import { categoryIcons } from '../../../components/lists/TransactionRow';
+import { toPersianDigits } from '../../../utils/numbers/digits';
 import type { Budget, BudgetCategory, CategoryId } from '../../../types/finance';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
@@ -29,7 +34,7 @@ export function BudgetsPanel() {
   const cats = snapshot.budgetCategories.filter(c => !budget || c.budgetId === budget.id);
   const [editing, setEditing] = useState(false);
 
-  const { rows, used, limit, projected, previousUsed } = useMemo(() => {
+  const { rows, used, limit, projected, previousUsed, daysLeft } = useMemo(() => {
     // This month only: the old panel summed every expense ever recorded.
     const window = currentMonthWindow(snapshot.settings);
     const start = window.start.getTime();
@@ -72,6 +77,7 @@ export function BudgetsPanel() {
       limit: totalLimit,
       projected: Math.round((totalUsed / Math.max(1, meta.day)) * meta.daysInMonth),
       previousUsed: prevUsed,
+      daysLeft: Math.max(1, meta.daysInMonth - meta.day + 1),
     };
   }, [cats, snapshot.transactions, snapshot.settings]);
 
@@ -133,16 +139,61 @@ export function BudgetsPanel() {
     amount: { color: c.textMuted, fontSize: 12 },
     limitRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
     cancel: { padding: 12, alignItems: 'center' },
+    hero: { padding: 18, gap: 16, marginTop: 12 },
+    heroRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 18 },
+    heroText: { flex: 1, gap: 4 },
+    ringPct: {
+      fontSize: 22,
+      lineHeight: 30,
+      color: c.text,
+      fontFamily: th.typography.fontFamily.bold,
+    },
+    ringCaption: { fontSize: 11, color: c.textMuted },
+    left: {
+      textAlign: 'right',
+      fontSize: 26,
+      lineHeight: 38,
+      color: c.text,
+      fontFamily: th.typography.fontFamily.bold,
+    },
+    stats: { flexDirection: 'row-reverse', gap: 10 },
+    stat: { flex: 1, padding: 12, borderRadius: 16, gap: 2, backgroundColor: c.glass },
+    statValue: {
+      textAlign: 'right',
+      color: c.text,
+      fontSize: 14,
+      fontFamily: th.typography.fontFamily.semibold,
+    },
+    list: { padding: 6, marginTop: 12 },
+    cat: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, padding: 12 },
+    catIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.glassStrong,
+    },
+    catBody: { flex: 1, gap: 6 },
+    catHead: {
+      flexDirection: 'row-reverse',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    catName: { color: c.text, fontSize: 14, fontFamily: th.typography.fontFamily.semibold },
+    editBtn: {
+      marginTop: 12,
+      minHeight: 46,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+    },
   }));
 
   const toneOf = (pace: Pace) =>
     pace === 'over' ? colors.expense : pace === 'tight' ? colors.highlight : colors.income;
-  const bar = (pct: number, color: string) => (
-    <View style={styles.track}>
-      <View style={{ flex: Math.min(1, pct), backgroundColor: color, borderRadius: 4 }} />
-      <View style={{ flex: Math.max(0, 1 - pct) }} />
-    </View>
-  );
 
   if (editing) {
     return (
@@ -186,54 +237,101 @@ export function BudgetsPanel() {
   }
 
   const overallPace: Pace = used >= limit ? 'over' : projected > limit ? 'tight' : 'ok';
+  const tone = toneOf(overallPace);
+  const share = used / Math.max(1, limit);
+  const remaining = limit - used;
   return (
     <>
-      <GlassPanel strong radius={26} style={styles.panel}>
+      <GlassPanel strong radius={26} style={styles.hero}>
         <View style={styles.head}>
           <AppText style={styles.kicker}>{dict.budgets.thisMonth}</AppText>
           <Pressable onPress={openEditor} accessibilityRole="button" hitSlop={8}>
             <AppText style={styles.link}>{dict.budgets.edit}</AppText>
           </Pressable>
         </View>
-        <AppText style={styles.big}>
-          {interpolate(dict.budgets.usedOf, {
-            used: formatCompactToman(used),
-            limit: formatCompactToman(limit),
-          })}
-        </AppText>
-        {bar(used / Math.max(1, limit), toneOf(overallPace))}
-        <AppText style={[styles.sub, overallPace !== 'ok' && { color: toneOf(overallPace) }]}>
-          {overallPace === 'over'
-            ? dict.budgets.paceOver
-            : interpolate(overallPace === 'tight' ? dict.budgets.paceTight : dict.budgets.paceOk, {
-                amount: formatCompactToman(projected),
-              })}
-        </AppText>
-        {previousUsed > 0 ? (
-          <AppText style={styles.amount}>
-            {interpolate(dict.budgets.lastMonth, {
-              used: formatCompactToman(previousUsed),
-              limit: formatCompactToman(limit),
-            })}
-          </AppText>
-        ) : null}
+        <View style={styles.heroRow}>
+          <ProgressRing
+            progress={share}
+            size={112}
+            stroke={11}
+            color={tone}
+            track={colors.glassBorder}>
+            <AppText style={styles.ringPct}>{`${toPersianDigits(
+              Math.round(share * 100),
+            )}٪`}</AppText>
+            <AppText style={styles.ringCaption}>{dict.budgets.usedShort}</AppText>
+          </ProgressRing>
+          <View style={styles.heroText}>
+            <AppText style={styles.kicker}>
+              {remaining >= 0 ? dict.budgets.remaining : dict.budgets.overBy}
+            </AppText>
+            <AppText style={[styles.left, remaining < 0 && { color: colors.expense }]}>
+              {formatCompactToman(Math.abs(remaining))}
+            </AppText>
+            <StatusChip
+              label={
+                overallPace === 'over'
+                  ? dict.budgets.chipOver
+                  : overallPace === 'tight'
+                  ? dict.budgets.chipTight
+                  : dict.budgets.chipOk
+              }
+              color={tone}
+            />
+          </View>
+        </View>
+        <View style={styles.stats}>
+          <View style={styles.stat}>
+            <AppText style={styles.kicker}>{dict.budgets.perDay}</AppText>
+            <AppText style={styles.statValue}>
+              {remaining > 0 ? formatCompactToman(remaining / daysLeft) : '—'}
+            </AppText>
+          </View>
+          <View style={styles.stat}>
+            <AppText style={styles.kicker}>{dict.budgets.forecast}</AppText>
+            <AppText style={[styles.statValue, overallPace !== 'ok' && { color: tone }]}>
+              {formatCompactToman(projected)}
+            </AppText>
+          </View>
+          {previousUsed > 0 ? (
+            <View style={styles.stat}>
+              <AppText style={styles.kicker}>{dict.budgets.prevMonth}</AppText>
+              <AppText style={styles.statValue}>{formatCompactToman(previousUsed)}</AppText>
+            </View>
+          ) : null}
+        </View>
       </GlassPanel>
 
-      <GlassPanel radius={26} style={styles.panel}>
-        {rows.map(r => (
-          <View key={r.id} style={styles.row}>
-            <View style={styles.rowHead}>
-              <AppText style={styles.name}>{dict.categories[r.id]}</AppText>
-              <AppText style={[styles.amount, r.pace !== 'ok' && { color: toneOf(r.pace) }]}>
-                {interpolate(dict.budgets.usedOf, {
-                  used: formatCompactToman(r.used),
-                  limit: formatCompactToman(r.limit),
-                })}
-              </AppText>
+      <GlassPanel radius={26} style={styles.list}>
+        {rows.map(r => {
+          const Icon = categoryIcons[r.id];
+          const rowTone = toneOf(r.pace);
+          return (
+            <View key={r.id} style={styles.cat}>
+              <View style={styles.catIcon}>{Icon ? <Icon size={20} color={rowTone} /> : null}</View>
+              <View style={styles.catBody}>
+                <View style={styles.catHead}>
+                  <AppText style={styles.catName}>{dict.categories[r.id]}</AppText>
+                  <AppText style={[styles.amount, r.pace !== 'ok' && { color: rowTone }]}>
+                    {`${toPersianDigits(Math.round(r.pct * 100))}٪`}
+                  </AppText>
+                </View>
+                <ProgressBar
+                  progress={r.pct}
+                  color={rowTone}
+                  track={colors.glassBorder}
+                  height={7}
+                />
+                <AppText style={styles.amount}>
+                  {interpolate(dict.budgets.usedOf, {
+                    used: formatCompactToman(r.used),
+                    limit: formatCompactToman(r.limit),
+                  })}
+                </AppText>
+              </View>
             </View>
-            {bar(r.pct, toneOf(r.pace))}
-          </View>
-        ))}
+          );
+        })}
       </GlassPanel>
     </>
   );

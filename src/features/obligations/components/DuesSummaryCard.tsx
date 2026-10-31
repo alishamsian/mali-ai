@@ -70,7 +70,10 @@ export function DuesSummaryCard({ hidden }: { hidden: boolean }) {
           <AppText style={[styles.sub, overdue > 0 && styles.late]} numberOfLines={1}>
             {overdue > 0
               ? interpolate(dict.homeOverdue, { n: toPersianDigits(overdue) })
-              : interpolate(dict.homeNext, { title: first.title, when: daysLeftLabel(first.daysLeft) })}
+              : interpolate(dict.homeNext, {
+                  title: first.title,
+                  when: daysLeftLabel(first.daysLeft),
+                })}
           </AppText>
         </View>
         <AppText style={styles.amount}>

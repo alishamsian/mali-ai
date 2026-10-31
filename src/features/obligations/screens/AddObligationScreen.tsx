@@ -77,7 +77,15 @@ function TextField({
 }
 
 /** Jalali day stepper with quick jumps; no native date picker speaks Jalali. */
-function DateField({ label, value, onChange }: { label: string; value: string; onChange: (key: string) => void }) {
+function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (key: string) => void;
+}) {
   const { colors } = useAppTheme();
   const dict = t().obligations;
   const today = jalaliDayKey(new Date());
@@ -104,17 +112,27 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
     <View style={styles.field}>
       <AppText style={styles.label}>{label}</AppText>
       <View style={styles.stepper}>
-        <PressScale accessibilityLabel="+1" onPress={() => onChange(shiftJalaliDayKey(value, 1))} style={styles.arrow}>
+        <PressScale
+          accessibilityLabel="+1"
+          onPress={() => onChange(shiftJalaliDayKey(value, 1))}
+          style={styles.arrow}>
           <ChevronLeft size={20} color={colors.text} />
         </PressScale>
         <AppText style={styles.day}>{jalaliDayLabel(value)}</AppText>
-        <PressScale accessibilityLabel="-1" onPress={() => onChange(shiftJalaliDayKey(value, -1))} style={styles.arrow}>
+        <PressScale
+          accessibilityLabel="-1"
+          onPress={() => onChange(shiftJalaliDayKey(value, -1))}
+          style={styles.arrow}>
           <ChevronRight size={20} color={colors.text} />
         </PressScale>
       </View>
       <View style={styles.chips}>
         <FilterChip label={dict.today} active={value === today} onPress={() => onChange(today)} />
-        <FilterChip label={dict.plusWeek} active={false} onPress={() => onChange(shiftJalaliDayKey(today, 7))} />
+        <FilterChip
+          label={dict.plusWeek}
+          active={false}
+          onPress={() => onChange(shiftJalaliDayKey(today, 7))}
+        />
         <FilterChip label={dict.plusMonth} active={false} onPress={plusMonth} />
       </View>
     </View>
@@ -218,9 +236,18 @@ export function AddObligationScreen() {
                   onChange={setPlanKind}
                   labelFor={v => (v === 'loan' ? dict.loan : dict.purchase)}
                 />
-                <TextField label={dict.titleLabel} value={title} onChange={setTitle} placeholder={dict.titlePlaceholder} />
+                <TextField
+                  label={dict.titleLabel}
+                  value={title}
+                  onChange={setTitle}
+                  placeholder={dict.titlePlaceholder}
+                />
                 <TextField label={dict.lender} value={party} onChange={setParty} />
-                <AmountField label={dict.installmentAmount} value={amount} onChangeValue={setAmount} />
+                <AmountField
+                  label={dict.installmentAmount}
+                  value={amount}
+                  onChangeValue={setAmount}
+                />
                 <TextField label={dict.count} value={count} onChange={setCount} numeric />
                 <DateField label={dict.firstDue} value={dueKey} onChange={setDueKey} />
               </>
@@ -237,7 +264,12 @@ export function AddObligationScreen() {
                 <AmountField label={dict.amount} value={amount} onChangeValue={setAmount} />
                 <DateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
                 <TextField label={dict.bank} value={bank} onChange={setBank} />
-                <TextField label={dict.sayad} value={sayad} onChange={v => setSayad(v.slice(0, 16))} numeric />
+                <TextField
+                  label={dict.sayad}
+                  value={sayad}
+                  onChange={v => setSayad(v.slice(0, 16))}
+                  numeric
+                />
               </>
             ) : null}
             {kind === 'debt' ? (
@@ -251,9 +283,15 @@ export function AddObligationScreen() {
                 <TextField label={dict.person} value={party} onChange={setParty} />
                 <AmountField label={dict.amount} value={amount} onChangeValue={setAmount} />
                 <View style={{ flexDirection: 'row-reverse' }}>
-                  <FilterChip label={dict.hasDue} active={hasDue} onPress={() => setHasDue(v => !v)} />
+                  <FilterChip
+                    label={dict.hasDue}
+                    active={hasDue}
+                    onPress={() => setHasDue(v => !v)}
+                  />
                 </View>
-                {hasDue ? <DateField label={dict.dueDate} value={dueKey} onChange={setDueKey} /> : null}
+                {hasDue ? (
+                  <DateField label={dict.dueDate} value={dueKey} onChange={setDueKey} />
+                ) : null}
               </>
             ) : null}
           </GlassPanel>

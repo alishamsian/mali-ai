@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Plus } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Check, Plus } from 'lucide-react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppText } from '../../../components/ui/AppText';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
@@ -11,12 +11,18 @@ import { GlassPanel } from '../../../components/ui/GlassPanel';
 import { PressScale } from '../../../components/ui/PressScale';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
+import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { StatusChip } from '../../../components/ui/StatusChip';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import { t, interpolate } from '../../../i18n';
 import { useFinanceStore } from '../../../store/finance/store';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
-import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
+import {
+  formatTomanFromRial,
+  formatCompactToman,
+  displayUnitLabel,
+} from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
 import { toJalaliLabel } from '../../../utils/dates/jalali';
 import { currentMonthWindow } from '../../../engine/insights/monthPeriod';
@@ -34,6 +40,15 @@ const DUES_HORIZON_DAYS = 45;
 
 function money(rial: number) {
   return `${formatTomanFromRial(rial)} ${displayUnitLabel()}`;
+}
+
+type Bucket = 'overdue' | 'week' | 'month' | 'later';
+const BUCKETS: Bucket[] = ['overdue', 'week', 'month', 'later'];
+
+/** The day number and short month of a date, for the calendar badge on a due. */
+function dayBadge(iso: string): { day: string; month: string } {
+  const [day = '', month = ''] = toJalaliLabel(iso).split(' ');
+  return { day, month };
 }
 
 export function ObligationsScreen() {
@@ -78,42 +93,98 @@ export function ObligationsScreen() {
     return monthEndForecast({ ...input, accounts }, now, until, calendar);
   }, [input, accounts, now, calendar, startDay]);
 
+  const grouped = useMemo(() => {
+    const monthEnd = currentMonthWindow({ calendar, financialMonthStartDay: startDay }, now).end;
+    const daysToMonthEnd = Math.ceil((monthEnd.getTime() - now.getTime()) / 86_400_000);
+    const out: Record<Bucket, DueItem[]> = { overdue: [], week: [], month: [], later: [] };
+    for (const due of dues) {
+      const bucket: Bucket = due.overdue
+        ? 'overdue'
+        : due.daysLeft <= 7
+        ? 'week'
+        : due.daysLeft <= daysToMonthEnd
+        ? 'month'
+        : 'later';
+      out[bucket].push(due);
+    }
+    return out;
+  }, [dues, now, calendar, startDay]);
+  const counts: Record<Tab, number> = {
+    dues: dues.length,
+    plans: plans.filter(p => !planStatus(p, now, calendar).done).length,
+    cheques: cheques.filter(c => c.status === 'pending').length,
+    debts: debts.filter(d => debtRemainingRial(d) > 0).length,
+  };
+
   const styles = useThemedStyles((c, th) => ({
     body: { paddingHorizontal: th.spacing.lg, paddingBottom: 120 },
-    summary: { padding: th.spacing.lg, gap: 12, marginBottom: th.spacing.md },
-    kicker: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
+    hero: { padding: 18, gap: 12, marginBottom: 14 },
+    kicker: { textAlign: 'right', color: c.textSecondary, fontSize: 12.5 },
     projected: {
       textAlign: 'right',
-      fontSize: 26,
+      fontSize: 28,
+      lineHeight: 42,
       fontFamily: th.typography.fontFamily.bold,
       color: forecast.shortfall ? c.warning : c.text,
     },
-    statsRow: { flexDirection: 'row-reverse', gap: 12 },
-    stat: { flex: 1, gap: 2 },
-    statValue: { textAlign: 'right', fontFamily: th.typography.fontFamily.semibold, color: c.text },
-    warn: { textAlign: 'right', color: c.warning, fontSize: 12 },
-    tabs: { marginBottom: th.spacing.md },
-    list: { gap: 10 },
-    row: { padding: 14, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+    flow: { flexDirection: 'row-reverse', gap: 18 },
+    flowItem: { flex: 1, gap: 2 },
+    flowDot: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    flowValue: { textAlign: 'right', fontFamily: th.typography.fontFamily.semibold, color: c.text },
+    warn: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+    tabs: { marginBottom: 14 },
+    list: { gap: 8 },
+    group: { gap: 8, marginBottom: 6 },
+    groupHead: {
+      flexDirection: 'row-reverse',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 4,
+      marginTop: 6,
+    },
+    groupTitle: { color: c.text, fontSize: 14, fontFamily: th.typography.fontFamily.semibold },
+    groupSum: { color: c.textMuted, fontSize: 12 },
+    row: { padding: 12, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
     rowMain: { flex: 1, gap: 3 },
     rowTitle: { textAlign: 'right', fontFamily: th.typography.fontFamily.semibold, color: c.text },
     rowSub: { textAlign: 'right', color: c.textMuted, fontSize: 12 },
+    badge: {
+      width: 46,
+      height: 50,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.glassStrong,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+    },
+    badgeDay: {
+      fontSize: 17,
+      lineHeight: 22,
+      fontFamily: th.typography.fontFamily.bold,
+      color: c.text,
+    },
+    badgeMonth: { fontSize: 10.5, color: c.textMuted },
+    side: { alignItems: 'flex-start', gap: 4 },
     amount: { fontFamily: th.typography.fontFamily.semibold, color: c.text },
     amountIn: { color: c.income },
     late: { color: c.warning },
     matchBtn: {
+      flex: 1,
       borderRadius: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    checkBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      minHeight: 42,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: c.primary,
+    },
+    checkBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: c.glassBorder,
     },
     addBtn: {
       width: 44,
@@ -123,8 +194,16 @@ export function ObligationsScreen() {
       justifyContent: 'center',
       backgroundColor: c.primary,
     },
-    track: { height: 6, borderRadius: 3, backgroundColor: c.glassBorder, overflow: 'hidden' },
-    fill: { height: 6, borderRadius: 3, backgroundColor: c.highlight },
+    card: { padding: 14, gap: 10 },
+    cardHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+    icon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    meta: { flexDirection: 'row-reverse', justifyContent: 'space-between' },
   }));
 
   const settleDue = (due: DueItem, transactionId?: string) => {
@@ -177,108 +256,201 @@ export function ObligationsScreen() {
     />
   );
 
+  const urgency = (due: DueItem) =>
+    due.overdue
+      ? colors.expense
+      : due.daysLeft <= 3
+      ? colors.warning
+      : due.flow === 'in'
+      ? colors.income
+      : colors.textSecondary;
+
+  const renderDueRow = (due: DueItem) => {
+    const badge = dayBadge(due.dueDate);
+    const tone = urgency(due);
+    return (
+      <GlassPanel key={due.key} radius={20} style={styles.row}>
+        <View style={styles.badge}>
+          <AppText style={styles.badgeDay}>{badge.day}</AppText>
+          <AppText style={styles.badgeMonth}>{badge.month}</AppText>
+        </View>
+        <View style={styles.rowMain}>
+          <AppText style={styles.rowTitle} numberOfLines={1}>
+            {due.title}
+            {due.index != null ? ` · ${toPersianDigits(due.index + 1)}` : ''}
+          </AppText>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+            <StatusChip label={daysLeftLabel(due.daysLeft)} color={tone} />
+            {due.party ? (
+              <AppText style={styles.rowSub} numberOfLines={1}>
+                {due.party}
+              </AppText>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.side}>
+          <AppText style={[styles.amount, due.flow === 'in' && styles.amountIn]}>
+            {due.flow === 'in' ? '+' : ''}
+            {money(due.amountRial)}
+          </AppText>
+        </View>
+        <PressScale
+          accessibilityRole="button"
+          accessibilityLabel={due.flow === 'in' ? dict.markReceived : dict.markPaid}
+          onPress={() => settleDue(due)}
+          style={styles.checkBtn}>
+          <Check size={18} color={colors.textSecondary} />
+        </PressScale>
+      </GlassPanel>
+    );
+  };
+
   const renderDues = () =>
     dues.length === 0
       ? empty(dict.emptyDues)
-      : dues.map(due => (
-          <GlassPanel key={due.key} radius={20} style={styles.row}>
-            <View style={styles.rowMain}>
-              <AppText style={styles.rowTitle} numberOfLines={1}>
-                {due.title}
-                {due.index != null ? ` · ${toPersianDigits(due.index + 1)}` : ''}
-              </AppText>
-              <AppText style={[styles.rowSub, due.overdue && styles.late]}>
-                {[due.party, toJalaliLabel(due.dueDate), daysLeftLabel(due.daysLeft)]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </AppText>
+      : BUCKETS.filter(b => grouped[b].length > 0).map(bucket => {
+          const total = grouped[bucket].reduce(
+            (sum, due) => sum + (due.flow === 'out' ? due.amountRial : 0),
+            0,
+          );
+          return (
+            <View key={bucket} style={styles.group}>
+              <View style={styles.groupHead}>
+                <AppText style={[styles.groupTitle, bucket === 'overdue' && styles.late]}>
+                  {dict.groups[bucket]}
+                </AppText>
+                {total > 0 ? (
+                  <AppText style={styles.groupSum}>{formatCompactToman(total)}</AppText>
+                ) : null}
+              </View>
+              {grouped[bucket].map(renderDueRow)}
             </View>
-            <AppText style={[styles.amount, due.flow === 'in' && styles.amountIn]}>
-              {due.flow === 'in' ? '+' : ''}
-              {money(due.amountRial)}
-            </AppText>
-            <PressScale
-              accessibilityRole="button"
-              accessibilityLabel={due.flow === 'in' ? dict.markReceived : dict.markPaid}
-              onPress={() => settleDue(due)}
-              style={styles.checkBtn}>
-              <Check size={18} color={colors.onPrimary} />
-            </PressScale>
-          </GlassPanel>
-        ));
+          );
+        });
 
   const renderPlans = () =>
     plans.length === 0
       ? empty(dict.emptyList)
       : plans.map(plan => {
           const status = planStatus(plan, now, calendar);
+          const tone =
+            status.overdue.length > 0
+              ? colors.expense
+              : status.done
+              ? colors.income
+              : colors.highlight;
           return (
             <PressScale
               key={plan.id}
               onLongPress={() => confirmDelete(() => store().deleteInstallmentPlan(plan.id))}>
-              <GlassPanel
-                radius={20}
-                style={[styles.row, { flexDirection: 'column', alignItems: 'stretch' }]}>
-                <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-                  <AppText style={styles.rowTitle}>{plan.title}</AppText>
-                  <AppText style={styles.amount}>{money(plan.installmentRial)}</AppText>
+              <GlassPanel radius={20} style={styles.card}>
+                <View style={styles.cardHead}>
+                  <View style={styles.rowMain}>
+                    <AppText style={styles.rowTitle} numberOfLines={1}>
+                      {plan.title}
+                    </AppText>
+                    <AppText style={styles.rowSub}>
+                      {status.done
+                        ? dict.done
+                        : status.next
+                        ? `${dict.next}: ${toJalaliLabel(status.next.dueDate)}`
+                        : ''}
+                    </AppText>
+                  </View>
+                  <View style={styles.side}>
+                    <AppText style={styles.amount}>{money(plan.installmentRial)}</AppText>
+                    {status.overdue.length > 0 ? (
+                      <StatusChip
+                        label={interpolate(dict.overdueCount, {
+                          n: toPersianDigits(status.overdue.length),
+                        })}
+                        color={colors.expense}
+                      />
+                    ) : null}
+                  </View>
                 </View>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${Math.round(status.progress * 100)}%` }]} />
-                </View>
-                <AppText style={[styles.rowSub, status.overdue.length > 0 && styles.late]}>
-                  {[
-                    interpolate(dict.paidOf, {
+                <ProgressBar progress={status.progress} color={tone} track={colors.glassBorder} />
+                <View style={styles.meta}>
+                  <AppText style={styles.rowSub}>
+                    {interpolate(dict.paidOf, {
                       paid: toPersianDigits(status.paidCount),
                       total: toPersianDigits(plan.totalCount),
-                    }),
-                    status.done ? dict.done : `${dict.remaining} ${money(status.remainingRial)}`,
-                    status.next ? `${dict.next}: ${toJalaliLabel(status.next.dueDate)}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </AppText>
+                    })}
+                  </AppText>
+                  {!status.done ? (
+                    <AppText style={styles.rowSub}>
+                      {`${dict.remaining} ${money(status.remainingRial)}`}
+                    </AppText>
+                  ) : null}
+                </View>
               </GlassPanel>
             </PressScale>
           );
         });
+
+  const chequeTone = (status: string) =>
+    status === 'bounced'
+      ? colors.expense
+      : status === 'cleared'
+      ? colors.income
+      : status === 'cancelled'
+      ? colors.textMuted
+      : colors.warning;
 
   const renderCheques = () =>
     cheques.length === 0
       ? empty(dict.emptyList)
       : [...cheques]
           .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-          .map(cheque => (
-            <PressScale key={cheque.id} onPress={() => chequeActions(cheque.id)}>
-              <GlassPanel radius={20} style={styles.row}>
-                <View style={styles.rowMain}>
-                  <AppText style={styles.rowTitle}>
-                    {cheque.counterparty} ·{' '}
-                    {cheque.direction === 'issued' ? dict.issued : dict.received}
-                  </AppText>
-                  <AppText style={[styles.rowSub, cheque.status === 'bounced' && styles.late]}>
-                    {toJalaliLabel(cheque.dueDate)} · {chequeStatusLabel(cheque.status)}
-                  </AppText>
-                </View>
-                <AppText
-                  style={[styles.amount, cheque.direction === 'received' && styles.amountIn]}>
-                  {money(cheque.amountRial)}
-                </AppText>
-              </GlassPanel>
-            </PressScale>
-          ));
+          .map(cheque => {
+            const incoming = cheque.direction === 'received';
+            const Arrow = incoming ? ArrowDownLeft : ArrowUpRight;
+            const tint = incoming ? colors.income : colors.textSecondary;
+            return (
+              <PressScale key={cheque.id} onPress={() => chequeActions(cheque.id)}>
+                <GlassPanel radius={20} style={styles.row}>
+                  <View style={[styles.icon, { backgroundColor: colors.glassStrong }]}>
+                    <Arrow size={20} color={tint} />
+                  </View>
+                  <View style={styles.rowMain}>
+                    <AppText style={styles.rowTitle} numberOfLines={1}>
+                      {cheque.counterparty}
+                    </AppText>
+                    <AppText style={styles.rowSub}>
+                      {`${
+                        cheque.direction === 'issued' ? dict.issued : dict.received
+                      } · ${toJalaliLabel(cheque.dueDate)}`}
+                    </AppText>
+                  </View>
+                  <View style={styles.side}>
+                    <AppText style={[styles.amount, incoming && styles.amountIn]}>
+                      {money(cheque.amountRial)}
+                    </AppText>
+                    <StatusChip
+                      label={chequeStatusLabel(cheque.status)}
+                      color={chequeTone(cheque.status)}
+                    />
+                  </View>
+                </GlassPanel>
+              </PressScale>
+            );
+          });
 
   const renderDebts = () =>
     debts.length === 0
       ? empty(dict.emptyList)
       : debts.map(debt => {
           const remaining = debtRemainingRial(debt);
+          const lent = debt.direction === 'lent';
           return (
             <PressScale key={debt.id} onPress={() => debtActions(debt.id, remaining)}>
               <GlassPanel radius={20} style={styles.row}>
+                <View style={[styles.icon, { backgroundColor: colors.glassStrong }]}>
+                  <AppText style={styles.badgeDay}>{debt.person.trim().charAt(0) || '؟'}</AppText>
+                </View>
                 <View style={styles.rowMain}>
-                  <AppText style={styles.rowTitle}>
-                    {debt.person} · {debt.direction === 'lent' ? dict.lent : dict.borrowed}
+                  <AppText style={styles.rowTitle} numberOfLines={1}>
+                    {debt.person}
                   </AppText>
                   <AppText style={styles.rowSub}>
                     {remaining === 0
@@ -288,22 +460,31 @@ export function ObligationsScreen() {
                       : toJalaliLabel(debt.date)}
                   </AppText>
                 </View>
-                <AppText style={[styles.amount, debt.direction === 'lent' && styles.amountIn]}>
-                  {money(remaining)}
-                </AppText>
+                <View style={styles.side}>
+                  <AppText style={[styles.amount, lent && styles.amountIn]}>
+                    {money(remaining)}
+                  </AppText>
+                  <StatusChip
+                    label={lent ? dict.lent : dict.borrowed}
+                    color={lent ? colors.income : colors.warning}
+                  />
+                </View>
               </GlassPanel>
             </PressScale>
           );
         });
 
-  const labelFor = (v: Tab) =>
-    v === 'dues'
-      ? dict.tabDues
-      : v === 'plans'
-      ? dict.tabPlans
-      : v === 'cheques'
-      ? dict.tabCheques
-      : dict.tabDebts;
+  const labelFor = (v: Tab) => {
+    const name =
+      v === 'dues'
+        ? dict.tabDues
+        : v === 'plans'
+        ? dict.tabPlans
+        : v === 'cheques'
+        ? dict.tabCheques
+        : dict.tabDebts;
+    return counts[v] > 0 ? `${name} ${toPersianDigits(counts[v])}` : name;
+  };
 
   return (
     <NightCanvas>
@@ -325,22 +506,40 @@ export function ObligationsScreen() {
               </PressScale>
             }
           />
-          <GlassPanel strong style={styles.summary}>
+          <GlassPanel strong radius={24} style={styles.hero}>
             <AppText style={styles.kicker}>{`${dict.monthEnd} · ${dict.projected}`}</AppText>
             <AppText style={styles.projected}>{money(forecast.projectedRial)}</AppText>
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <AppText style={styles.kicker}>{dict.outLabel}</AppText>
-                <AppText style={styles.statValue}>{money(forecast.outRial)}</AppText>
+            {forecast.outRial + forecast.inRial > 0 ? (
+              <ProgressBar
+                progress={forecast.outRial / (forecast.outRial + forecast.inRial)}
+                color={colors.expense}
+                track={colors.income}
+                height={6}
+              />
+            ) : null}
+            <View style={styles.flow}>
+              <View style={styles.flowItem}>
+                <View style={styles.flowDot}>
+                  <View style={[styles.dot, { backgroundColor: colors.expense }]} />
+                  <AppText style={styles.kicker}>{dict.outLabel}</AppText>
+                </View>
+                <AppText style={styles.flowValue}>{money(forecast.outRial)}</AppText>
               </View>
-              <View style={styles.stat}>
-                <AppText style={styles.kicker}>{dict.inLabel}</AppText>
-                <AppText style={[styles.statValue, styles.amountIn]}>
+              <View style={styles.flowItem}>
+                <View style={styles.flowDot}>
+                  <View style={[styles.dot, { backgroundColor: colors.income }]} />
+                  <AppText style={styles.kicker}>{dict.inLabel}</AppText>
+                </View>
+                <AppText style={[styles.flowValue, styles.amountIn]}>
                   {money(forecast.inRial)}
                 </AppText>
               </View>
             </View>
-            {forecast.shortfall ? <AppText style={styles.warn}>{dict.shortfall}</AppText> : null}
+            {forecast.shortfall ? (
+              <View style={styles.warn}>
+                <StatusChip label={dict.shortfall} color={colors.warning} />
+              </View>
+            ) : null}
           </GlassPanel>
           <View style={styles.tabs}>
             <SegmentedControl options={TABS} value={tab} onChange={setTab} labelFor={labelFor} />
@@ -352,7 +551,10 @@ export function ObligationsScreen() {
                     key={m.key}
                     strong
                     radius={20}
-                    style={[styles.row, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                    style={[
+                      styles.row,
+                      { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+                    ]}>
                     <AppText style={styles.rowTitle}>{dict.matchTitle}</AppText>
                     <AppText style={styles.rowSub}>
                       {interpolate(dict.matchBody, {
@@ -361,7 +563,7 @@ export function ObligationsScreen() {
                         title: m.due.title,
                       })}
                     </AppText>
-                    <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+                    <View style={{ flexDirection: 'row-reverse', gap: 8, marginTop: 4 }}>
                       <PressScale
                         onPress={() => settleDue(m.due, m.transaction.id)}
                         style={[styles.matchBtn, { backgroundColor: colors.primary }]}>
