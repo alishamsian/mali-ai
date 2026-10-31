@@ -2,6 +2,7 @@ import React, { useSyncExternalStore } from 'react';
 import { StyleSheet, Text, type TextProps, type StyleProp, type TextStyle } from 'react-native';
 import { theme } from '../../theme';
 import { getThemeRevision, getThemeSnapshot, subscribeTheme } from '../../theme/runtime';
+import { compactText } from '../../theme/typeScale';
 
 type Variant = 'display' | 'hero' | 'headline' | 'number' | 'title' | 'body' | 'caption' | 'label' | 'kicker';
 
@@ -95,7 +96,7 @@ export function AppText({
   return (
     <Text
       maxFontSizeMultiplier={MAX_FONT_SCALE}
-      style={[styles[variant], { color }, style as StyleProp<TextStyle>]}
+      style={compactText([styles[variant], { color }, style as StyleProp<TextStyle>])}
       {...rest}
     />
   );

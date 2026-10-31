@@ -108,7 +108,7 @@ export function SettingsHomeScreen() {
     row: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      paddingVertical: 14,
+      paddingVertical: 11,
       gap: 10,
     },
     rowBorder: {

@@ -2,6 +2,7 @@ import React, { useSyncExternalStore } from 'react';
 import { Text, type TextProps } from 'react-native';
 import { theme } from '../../theme';
 import { getThemeRevision, getThemeSnapshot, subscribeTheme } from '../../theme/runtime';
+import { compactText } from '../../theme/typeScale';
 
 type Align = 'left' | 'right' | 'center';
 
@@ -25,7 +26,7 @@ export function MoneyText({
       adjustsFontSizeToFit
       minimumFontScale={minFontScale}
       ellipsizeMode="clip"
-      style={[
+      style={compactText([
         {
           color: color ?? colors.text,
           fontFamily: theme.typography.fontFamily.semibold,
@@ -34,7 +35,7 @@ export function MoneyText({
           flexShrink: 1,
         },
         style,
-      ]}
+      ])}
       {...rest}
     />
   );

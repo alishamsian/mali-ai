@@ -31,7 +31,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 54,
+    minHeight: 48,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',

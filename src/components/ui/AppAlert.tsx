@@ -71,7 +71,7 @@ export function AppAlertHost() {
       fontFamily: th.typography.fontFamily.semibold,
     },
     message: { textAlign: 'right', fontSize: 14, lineHeight: 22, color: c.textSecondary },
-    button: { minHeight: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    button: { minHeight: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
     buttonText: { fontSize: 15, fontFamily: th.typography.fontFamily.semibold },
     toast: {
       marginHorizontal: 16,

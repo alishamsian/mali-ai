@@ -30,7 +30,7 @@ function createSettingsUiStyles(colors: ThemeSnapshot['colors'], t: typeof theme
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'space-between' as const,
-      paddingVertical: 14,
+      paddingVertical: 11,
       paddingHorizontal: 14,
       gap: 12,
     },
