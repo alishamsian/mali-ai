@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { MoneyText } from '../../../components/ui/MoneyText';
 import { GlassPanel } from '../../../components/ui/GlassPanel';
+import { WeekSpendChart } from './WeekSpendChart';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { useAppTheme } from '../../../theme/ThemeBridge';
 import { formatTomanLabel, type DisplayCurrency } from '../../../utils/currency/money';
@@ -16,6 +17,9 @@ export function DaySummaryCard({
   hidden,
   currency,
   isToday,
+  trend,
+  trendLabels,
+  insight,
 }: {
   summary: DaySummary;
   monthlyNet: number;
@@ -23,9 +27,16 @@ export function DaySummaryCard({
   hidden: boolean;
   currency: DisplayCurrency;
   isToday: boolean;
+  /** Spend per day for the week ending on this day, oldest first. */
+  trend: number[];
+  /** Short weekday names for `trend`, same order. */
+  trendLabels: string[];
+  /** One line comparing this day with the days before it. */
+  insight?: string | null;
 }) {
   const { colors } = useAppTheme();
   const dict = t();
+  const [chartWidth, setChartWidth] = useState(0);
   const styles = useThemedStyles((c, th) => ({
     card: { padding: 16, marginHorizontal: 16, gap: 10 },
     metrics: { flexDirection: 'row-reverse', gap: 12 },
@@ -42,6 +53,8 @@ export function DaySummaryCard({
     },
     netLabel: { fontSize: 12, color: c.textSecondary, textAlign: 'right' },
     netAmount: { flex: 1, fontSize: 15, fontFamily: th.typography.fontFamily.semibold },
+    trend: { gap: 4, marginTop: 2 },
+    trendLabel: { fontSize: 11, color: c.textMuted, textAlign: 'right' },
     detail: { fontSize: 11, color: c.textMuted, textAlign: 'right', lineHeight: 19 },
   }));
   const money = (value: number, sign = false) =>
@@ -63,6 +76,24 @@ export function DaySummaryCard({
           </MoneyText>
         </View>
       </View>
+      {!hidden && trend.some(v => v > 0) ? (
+        <View
+          testID="daily-spend-trend"
+          style={styles.trend}
+          onLayout={e => setChartWidth(e.nativeEvent.layout.width)}>
+          <AppText style={styles.trendLabel}>{dict.daily.spendTrend}</AppText>
+          {chartWidth > 0 ? (
+            <WeekSpendChart
+              values={trend}
+              labels={trendLabels}
+              color={colors.income}
+              gridColor={colors.border}
+              width={chartWidth}
+            />
+          ) : null}
+          {insight ? <AppText style={styles.detail}>{insight}</AppText> : null}
+        </View>
+      ) : null}
       <View style={styles.net}>
         <AppText style={styles.netLabel}>{dict.daily.cashFlow}</AppText>
         <MoneyText

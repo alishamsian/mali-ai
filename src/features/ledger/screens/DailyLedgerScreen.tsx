@@ -176,15 +176,6 @@ export function DailyLedgerScreen() {
       overflow: 'hidden',
       flexDirection: 'row-reverse',
     },
-    bars: { height: 48, flexDirection: 'row-reverse', alignItems: 'flex-end', gap: 10 },
-    barColumn: {
-      flex: 1,
-      height: '100%',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      gap: 3,
-    },
-    bar: { width: 12, borderRadius: 3, backgroundColor: c.textSecondary },
     notice: { minHeight: 44, justifyContent: 'center', padding: 12 },
     veil: { backgroundColor: 'rgba(255,255,255,0.38)' },
   }));
@@ -243,6 +234,10 @@ export function DailyLedgerScreen() {
   const trend = useMemo(
     () => expenseSeries(snapshot.transactions, dayKey, 7),
     [snapshot.transactions, dayKey],
+  );
+  const trendLabels = useMemo(
+    () => trend.map((_, i) => jalaliWeekdayShort(shiftDayKey(dayKey, i - 6))),
+    [trend, dayKey],
   );
   const insight = useMemo(
     () =>
@@ -489,6 +484,9 @@ export function DailyLedgerScreen() {
               hidden={hidden}
               currency={currency}
               isToday={isToday}
+              trend={trend}
+              trendLabels={trendLabels}
+              insight={insightText}
             />
             <View style={styles.pad}>
               <PrimaryButton label={dict.daily.addTransaction} onPress={openAdd} />
@@ -618,29 +616,6 @@ export function DailyLedgerScreen() {
                     ) : null}
                   </PressScale>
                 ))}
-              </GlassPanel>
-            ) : null}
-            {!hidden && trend.some(value => value > 0) ? (
-              <GlassPanel testID="daily-spend-trend" radius={20} style={styles.detail}>
-                <AppText style={styles.sectionTitle}>{dict.daily.spendTrend}</AppText>
-                <View style={styles.bars} accessible accessibilityLabel={dict.daily.spendTrend}>
-                  {trend.map((value, index) => (
-                    <View key={index} style={styles.barColumn}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: value > 0 ? Math.max(2, (value / Math.max(...trend)) * 28) : 1,
-                          },
-                        ]}
-                      />
-                      <AppText style={styles.weekday}>
-                        {jalaliWeekdayShort(shiftDayKey(dayKey, index - 6))}
-                      </AppText>
-                    </View>
-                  ))}
-                </View>
-                {insightText ? <AppText style={styles.muted}>{insightText}</AppText> : null}
               </GlassPanel>
             ) : null}
           </View>
