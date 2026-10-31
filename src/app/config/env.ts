@@ -6,6 +6,6 @@ declare const process: {
 export const env = {
   supabaseUrl: process.env.SUPABASE_URL ?? '',
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? '',
-  /** HTTPS URL of version.json (written on each release); empty turns update checks off. */
+  /** HTTPS URL of update.json (scripts/release.sh uploads one per release); empty turns update checks off. */
   updateManifestUrl: process.env.UPDATE_MANIFEST_URL ?? '',
 };
