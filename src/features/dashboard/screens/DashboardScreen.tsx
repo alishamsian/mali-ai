@@ -27,10 +27,11 @@ import { navigateSmsHub } from '../../../app/navigation/smsNavigation';
 import type { MainTabParamList, RootStackParamList } from '../../../app/navigation/types';
 import { toJalaliMonthYear } from '../../../utils/dates/jalali';
 import { formatTomanFromRial } from '../../../utils/currency/money';
+import { toPersianDigits } from '../../../utils/numbers/digits';
 import { t, interpolate } from '../../../i18n';
 import { PortfolioSummary } from '../components/PortfolioSummary';
 import { AssetCarousel } from '../components/AssetCarousel';
-import { MonthPulse } from '../components/MonthPulse';
+import { BudgetCard } from '../components/BudgetCard';
 import { RecentTransaction } from '../components/RecentTransaction';
 import { HomeFocus } from '../components/HomeFocus';
 import { buildDashboardModel } from '../lib/dashboardModel';
@@ -107,58 +108,76 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
       paddingTop: 3,
       marginBottom: 1,
     },
-    brand: { alignItems: 'flex-end' },
-    wordmark: {
+    greeting: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+    greetingText: { flex: 1, alignItems: 'flex-end' },
+    hello: {
       color: c.text,
-      fontSize: 27,
-      lineHeight: 36,
+      fontSize: 19,
+      lineHeight: 30,
       fontFamily: th.typography.fontFamily.bold,
+      textAlign: 'right',
     },
-    page: { color: c.textMuted, fontSize: 10 },
+    period: { color: c.textSecondary, fontSize: 12, textAlign: 'right' },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 1 },
     iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     profile: {
-      width: 33,
-      height: 33,
-      borderRadius: 17,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: c.glass,
       alignItems: 'center',
       justifyContent: 'center',
     },
     initial: { color: c.text, fontSize: 16, fontFamily: th.typography.fontFamily.bold },
-    actions: {
+    addButton: {
       flexDirection: 'row-reverse',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 3,
+      justifyContent: 'center',
+      gap: 8,
+      minHeight: 52,
+      borderRadius: 18,
+      backgroundColor: c.primary,
     },
-    action: { minWidth: 64, alignItems: 'center', gap: 5 },
-    circle: {
-      width: 51,
-      height: 51,
-      borderRadius: 26,
+    addText: { color: c.onPrimary, fontSize: 16, fontFamily: th.typography.fontFamily.bold },
+    shortcuts: { flexDirection: 'row-reverse', gap: 8, marginTop: 8 },
+    shortcut: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 11,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: c.glassBorder,
-      backgroundColor: c.glass,
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: c.glassStrong,
     },
-    mainAction: { backgroundColor: c.primary, borderColor: c.primary },
-    actionText: { fontSize: 12, color: c.text, fontFamily: th.typography.fontFamily.medium },
+    shortcutText: { fontSize: 13, color: c.text, fontFamily: th.typography.fontFamily.medium },
+    recentCard: {
+      paddingHorizontal: 14,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      backgroundColor: c.glassStrong,
+    },
     sectionHeading: {
       flexDirection: 'row-reverse',
       alignItems: 'center',
       justifyContent: 'space-between',
       minHeight: 44,
     },
-    sectionTitle: { color: c.text, fontSize: 16, fontFamily: th.typography.fontFamily.bold },
+    sectionTitle: {
+      flex: 1,
+      color: c.text,
+      fontSize: 16,
+      fontFamily: th.typography.fontFamily.bold,
+      textAlign: 'right',
+    },
     all: { flexDirection: 'row-reverse', alignItems: 'center', gap: 3, minHeight: 44 },
-    allText: { fontSize: 12, color: c.textSecondary },
+    allText: { fontSize: 13, color: c.textSecondary },
     empty: { alignItems: 'center', paddingVertical: 15, gap: 9 },
     emptyTitle: { color: c.text, fontSize: 14, fontFamily: th.typography.fontFamily.semibold },
     emptyBody: { color: c.textMuted, fontSize: 11, lineHeight: 19, textAlign: 'center' },
     emptyButton: { alignSelf: 'stretch', marginTop: 4 },
-    recentUnit: { color: c.textMuted, fontSize: 9, textAlign: 'left', marginBottom: 2 },
+
     firstWin: { backgroundColor: c.glassStrong, padding: 14, borderRadius: 18, gap: 8 },
     firstWinTitle: { color: c.income, fontSize: 13, fontFamily: th.typography.fontFamily.semibold },
     firstWinBody: { color: c.textSecondary, fontSize: 12, lineHeight: 21 },
@@ -183,14 +202,7 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
   );
   // One «add» entry (the add screen has expense / income / transfer tabs) and the
   // shortcuts people actually reach for, instead of three buttons for one screen.
-  const actions = [
-    {
-      key: 'add',
-      label: dict.home.actions.add,
-      a11y: dict.dashboard.addExpense,
-      Icon: Plus,
-      go: () => navigation.navigate('AddTransaction', { mode: 'expense' }),
-    },
+  const shortcuts = [
     {
       key: 'voice',
       label: dict.home.actions.voice,
@@ -199,20 +211,21 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
       go: () => navigation.navigate('VoiceEntry'),
     },
     {
-      key: 'dues',
-      label: dict.home.actions.dues,
-      a11y: dict.obligations.title,
-      Icon: CalendarClock,
-      go: () => navigation.navigate('Obligations'),
-    },
-    {
       key: 'sms',
       label: dict.home.actions.sms,
       a11y: dict.dashboard.scanSms,
       Icon: MessageSquareText,
       go: onScan,
     },
+    {
+      key: 'dues',
+      label: dict.home.actions.dues,
+      a11y: dict.obligations.title,
+      Icon: CalendarClock,
+      go: () => navigation.navigate('Obligations'),
+    },
   ];
+  const name = (snapshot.profile.displayName ?? '').trim();
   return (
     <NightCanvas>
       {mode === 'light' ? <View pointerEvents="none" style={backdrop.veil} /> : null}
@@ -238,22 +251,26 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
             />
           }>
           <View style={[styles.header, styles.gutter]}>
-            <View style={styles.brand}>
-              <AppText style={styles.wordmark}>{dict.appName}</AppText>
-              <AppText style={styles.page}>{dict.nav.home}</AppText>
-            </View>
+            <PressScale
+              onPress={() => navigation.navigate('AccountProfile')}
+              style={styles.greeting}
+              accessibilityRole="button"
+              accessibilityLabel={dict.home.openProfile}>
+              <View style={styles.profile}>
+                <AppText style={styles.initial}>{name.charAt(0) || 'پ'}</AppText>
+              </View>
+              <View style={styles.greetingText}>
+                <AppText style={styles.hello} numberOfLines={1}>
+                  {name ? interpolate(dict.dashboard.hello, { name }) : dict.dashboard.helloAnon}
+                </AppText>
+                <AppText style={styles.period}>
+                  {`${toJalaliMonthYear(now.toISOString())} · ${interpolate(dict.home.daysLeft, {
+                    n: toPersianDigits(model.daysLeft),
+                  })}`}
+                </AppText>
+              </View>
+            </PressScale>
             <View style={styles.headerActions}>
-              <PressScale
-                onPress={() => navigation.navigate('AccountProfile')}
-                style={styles.iconButton}
-                accessibilityRole="button"
-                accessibilityLabel={dict.home.openProfile}>
-                <View style={styles.profile}>
-                  <AppText style={styles.initial}>
-                    {(snapshot.profile.displayName ?? '').trim().charAt(0) || 'پ'}
-                  </AppText>
-                </View>
-              </PressScale>
               <PressScale
                 onPress={() => navigation.navigate('Search')}
                 style={styles.iconButton}
@@ -285,35 +302,37 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
             onAll={() => navigation.navigate('Vault')}
             onAdd={() => navigation.navigate('AddWealthAsset')}
           />
-          <View style={[styles.actions, styles.gutter]}>
-            {actions.map((action, index) => (
-              <PressScale
-                key={action.key}
-                onPress={action.go}
-                style={styles.action}
-                accessibilityRole="button"
-                accessibilityLabel={action.a11y}>
-                <View style={[styles.circle, index === 0 && styles.mainAction]}>
-                  <action.Icon
-                    size={22}
-                    strokeWidth={1.7}
-                    color={index === 0 ? colors.onPrimary : colors.text}
-                  />
-                </View>
-                <AppText style={styles.actionText}>{action.label}</AppText>
-              </PressScale>
-            ))}
-          </View>
-          <HomeFocus hidden={hidden} />
           <View style={styles.gutter}>
-            <MonthPulse
+            <BudgetCard
               model={model}
               hidden={hidden}
-              label={toJalaliMonthYear(now.toISOString())}
-              onReport={() => navigation.navigate('Analytics', { section: 'recap' })}
-              onBudget={() => navigation.navigate('Budgets')}
+              onPress={() => navigation.navigate('Budgets')}
             />
           </View>
+          <View style={styles.gutter}>
+            <PressScale
+              onPress={() => navigation.navigate('AddTransaction', { mode: 'expense' })}
+              style={styles.addButton}
+              accessibilityRole="button"
+              accessibilityLabel={dict.dashboard.addExpense}>
+              <Plus size={21} strokeWidth={2} color={colors.onPrimary} />
+              <AppText style={styles.addText}>{dict.home.addTransaction}</AppText>
+            </PressScale>
+            <View style={styles.shortcuts}>
+              {shortcuts.map(item => (
+                <PressScale
+                  key={item.key}
+                  onPress={item.go}
+                  style={styles.shortcut}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.a11y}>
+                  <item.Icon size={21} strokeWidth={1.7} color={colors.text} />
+                  <AppText style={styles.shortcutText}>{item.label}</AppText>
+                </PressScale>
+              ))}
+            </View>
+          </View>
+          <HomeFocus hidden={hidden} />
           {settings.firstSmsWinReady && !settings.firstSmsWinDismissed && firstSms ? (
             <View style={[styles.firstWin, styles.gutter]}>
               <AppText style={styles.firstWinTitle}>{dict.dashboard.firstWinTitle}</AppText>
@@ -341,21 +360,20 @@ export function DashboardScreen({ navigation }: { navigation: Nav }) {
                 <ChevronLeft size={15} color={colors.textSecondary} />
               </PressScale>
             </View>
-            <AppText style={styles.recentUnit}>
-              {settings.displayCurrency === 'IRR' ? dict.common.rial : dict.common.toman}
-            </AppText>
             {model.recent.length ? (
-              model.recent.map((tx, index) => (
-                <SwipeTxRow key={tx.id} tx={tx}>
-                  <RecentTransaction
-                    tx={tx}
-                    hidden={hidden}
-                    now={now}
-                    last={index === model.recent.length - 1}
-                    onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
-                  />
-                </SwipeTxRow>
-              ))
+              <View style={styles.recentCard}>
+                {model.recent.map((tx, index) => (
+                  <SwipeTxRow key={tx.id} tx={tx}>
+                    <RecentTransaction
+                      tx={tx}
+                      hidden={hidden}
+                      now={now}
+                      last={index === model.recent.length - 1}
+                      onPress={() => navigation.navigate('TransactionDetails', { id: tx.id })}
+                    />
+                  </SwipeTxRow>
+                ))}
+              </View>
             ) : (
               <View style={styles.empty}>
                 <AppText style={styles.emptyTitle}>{dict.dashboard.emptyTitle}</AppText>

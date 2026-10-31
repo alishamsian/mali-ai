@@ -80,8 +80,14 @@ export function buildDashboardModel(snapshot: DashboardInput, now = new Date()) 
   if (trend.length >= 2 && trend[trend.length - 1] !== wealth.totalAssetsRial) {
     trend.push(wealth.totalAssetsRial);
   }
+  const nextStart = financialMonthStart(snapshot, now, 1).getTime();
+  const daysLeft = Math.max(1, Math.ceil((nextStart - now.getTime()) / 86_400_000));
+  const remainingRial = limit != null ? limit - month.expenseRial : null;
   return {
     totalAssetsRial: wealth.totalAssetsRial,
+    daysLeft,
+    remainingRial,
+    perDayRial: remainingRial != null && remainingRial > 0 ? remainingRial / daysLeft : 0,
     cashRial,
     month,
     budgetRatio,

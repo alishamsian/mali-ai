@@ -1,12 +1,5 @@
-import React, { useRef, useState } from 'react';
-import {
-  FlatList,
-  Image,
-  View,
-  useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import React from 'react';
+import { FlatList, Image, View, useWindowDimensions } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 import {
@@ -32,7 +25,6 @@ import { useAppTheme } from '../../../theme/ThemeBridge';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { formatTomanFromRial, displayUnitLabel } from '../../../utils/currency/money';
 import { toPersianDigits } from '../../../utils/numbers/digits';
-import { toJalaliLabel } from '../../../utils/dates/jalali';
 import { resolveAssetClass } from '../../wealth/catalog/classes';
 import type { FinancialAccount } from '../../../types/finance';
 import type { AssetClass } from '../../../types/wealth';
@@ -57,7 +49,7 @@ const ICONS: Partial<Record<AssetClass, typeof Landmark>> = {
 
 function GoldBars() {
   return (
-    <Svg width={46} height={42} viewBox="0 0 52 44" accessible={false}>
+    <Svg width={26} height={22} viewBox="0 0 52 44" accessible={false}>
       <Defs>
         <SvgGradient id="homeGold" x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor="#FFF3C3" />
@@ -134,12 +126,15 @@ function AssetCard({
   const dict = t();
   const bankLogo = cls === 'bank' ? resolveBankLogo(account.bankId) : undefined;
   const Icon = ICONS[cls] ?? Package;
-  const stamp = account.priceUpdatedAt ?? account.updatedAt;
-  const isMarketAsset = cls !== 'bank' && cls !== 'cash';
   const styles = useThemedStyles((c, th) => ({
-    button: { borderRadius: 19, overflow: 'hidden', borderWidth: 1, borderColor: c.glassBorder },
-    card: { minHeight: 118, padding: 12, justifyContent: 'space-between' },
-    top: { flexDirection: 'row-reverse', gap: 8, alignItems: 'flex-start' },
+    button: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: c.glassBorder },
+    card: {
+      minHeight: 86,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+      justifyContent: 'space-between',
+    },
+    top: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
     names: { flex: 1, minWidth: 0, alignItems: 'flex-end', gap: 1 },
     name: {
       fontSize: 13,
@@ -148,20 +143,25 @@ function AssetCard({
       textAlign: 'right',
       alignSelf: 'stretch',
     },
-    detail: { fontSize: 10, color: c.textSecondary, textAlign: 'right', alignSelf: 'stretch' },
+    detail: { fontSize: 11, color: c.textSecondary, textAlign: 'right', alignSelf: 'stretch' },
     value: {
-      fontSize: 22,
-      lineHeight: 33,
+      fontSize: 17,
+      lineHeight: 26,
       color: c.text,
       fontFamily: th.typography.fontFamily.bold,
     },
-    unit: { fontSize: 10, color: c.textSecondary, textAlign: 'right' },
-    note: { fontSize: 9, color: c.textMuted, textAlign: 'right', marginTop: 5 },
-    logo: { width: 26, height: 26 },
-    glyph: { width: 32, height: 34, alignItems: 'center', justifyContent: 'center' },
-    bottom: { marginTop: 9 },
+    unit: { fontSize: 11, color: c.textSecondary, textAlign: 'right' },
+    logo: { width: 24, height: 24 },
+    glyph: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: p.quiet,
+    },
+    bottom: { marginTop: 8 },
     valueRow: { flexDirection: 'row-reverse', alignItems: 'baseline', gap: 4 },
-    engraving: { position: 'absolute', left: -8, top: -12 },
   }));
   const gradient =
     cls === 'gold' || cls === 'jewelry' ? p.gold : cls === 'bank' ? p.bank : p.neutral;
@@ -184,24 +184,6 @@ function AssetCard({
         start={{ x: 1, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.card}>
-        {cls === 'bank' ? (
-          <Svg
-            style={styles.engraving}
-            width={130}
-            height={95}
-            pointerEvents="none"
-            accessible={false}>
-            {[0, 1, 2, 3, 4, 5].map(i => (
-              <Path
-                key={i}
-                d={`M -15 ${8 + i * 11} Q 40 ${5 + i * 2} 130 ${80 + i * 8}`}
-                stroke={p.engraving}
-                fill="none"
-                strokeWidth={1}
-              />
-            ))}
-          </Svg>
-        ) : null}
         <View style={styles.top}>
           <View style={styles.names}>
             <AppText style={styles.name} numberOfLines={1}>
@@ -218,7 +200,7 @@ function AssetCard({
               <Image source={bankLogo} style={styles.logo} resizeMode="contain" />
             ) : (
               <Icon
-                size={25}
+                size={19}
                 strokeWidth={1.6}
                 color={cls === 'jewelry' ? p.goldInk : colors.textSecondary}
               />
@@ -234,12 +216,6 @@ function AssetCard({
             </MoneyText>
             <AppText style={styles.unit}>{displayUnitLabel()}</AppText>
           </View>
-          {isMarketAsset ? (
-            <AppText style={styles.note} numberOfLines={1}>
-              {account.priceSource === 'provider' ? dict.home.marketValue : dict.home.recordedValue}
-              {stamp && !Number.isNaN(Date.parse(stamp)) ? ` · ${toJalaliLabel(stamp)}` : ''}
-            </AppText>
-          ) : null}
         </View>
       </LinearGradient>
     </PressScale>
@@ -260,18 +236,10 @@ export function AssetCarousel({
   onAdd: () => void;
 }) {
   const { width } = useWindowDimensions();
-  const { colors, mode } = useAppTheme();
+  const { colors } = useAppTheme();
   const dict = t();
-  const ref = useRef<FlatList<FinancialAccount>>(null);
-  const [position, setPosition] = useState(0);
-  const cardWidth =
-    accounts.length === 1
-      ? Math.min(width - 40, 360)
-      : Math.min(228, Math.max(164, (width - 52) / 2));
-  const visible = Math.max(1, Math.floor((width - 40 + GAP) / (cardWidth + GAP)));
-  const pages = Math.max(1, accounts.length - visible + 1);
-  const active = Math.min(position, pages - 1);
-  const p = homePalette(mode);
+  // Two and a bit cards on screen, so the rail reads as scrollable without dots.
+  const cardWidth = Math.min(176, Math.max(142, (width - 32 - GAP * 2) / 2.3));
   const styles = useThemedStyles((c, th) => ({
     root: { gap: 10 },
     heading: {
@@ -290,15 +258,16 @@ export function AssetCarousel({
     },
     allText: { color: c.textSecondary, fontSize: 12 },
     rail: { paddingHorizontal: 16, gap: GAP },
-    dots: {
-      flexDirection: 'row-reverse',
-      justifyContent: 'center',
+    addTile: {
+      width: 58,
+      minHeight: 88,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: c.glassBorder,
       alignItems: 'center',
-      gap: 5,
-      height: 10,
+      justifyContent: 'center',
     },
-    dot: { height: 4, width: 4, borderRadius: 2, backgroundColor: p.track },
-    selected: { width: 12, backgroundColor: c.income },
     empty: {
       marginHorizontal: 16,
       padding: 17,
@@ -322,9 +291,6 @@ export function AssetCarousel({
       alignItems: 'center',
     },
   }));
-  const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setPosition(Math.max(0, Math.round(event.nativeEvent.contentOffset.x / (cardWidth + GAP))));
-  };
   return (
     <View style={styles.root}>
       <View style={styles.heading}>
@@ -339,43 +305,34 @@ export function AssetCarousel({
         </PressScale>
       </View>
       {accounts.length ? (
-        <>
-          <FlatList
-            ref={ref}
-            horizontal
-            inverted
-            data={accounts}
-            keyExtractor={a => a.id}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.rail}
-            snapToInterval={cardWidth + GAP}
-            decelerationRate="fast"
-            disableIntervalMomentum
-            onMomentumScrollEnd={onScrollEnd}
-            onScrollEndDrag={onScrollEnd}
-            renderItem={({ item }) => (
-              <AssetCard
-                account={item}
-                width={cardWidth}
-                hidden={hidden}
-                onPress={() => onOpen(item.id)}
-              />
-            )}
-            accessibilityLabel={dict.home.assetRailHint}
-            initialNumToRender={4}
-            windowSize={3}
-          />
-          {pages > 1 ? (
-            <View
-              style={styles.dots}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants">
-              {Array.from({ length: Math.min(pages, 7) }, (_, i) => (
-                <View key={i} style={[styles.dot, i === Math.min(active, 6) && styles.selected]} />
-              ))}
-            </View>
-          ) : null}
-        </>
+        <FlatList
+          horizontal
+          inverted
+          data={accounts}
+          keyExtractor={a => a.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rail}
+          ListFooterComponent={
+            <PressScale
+              onPress={onAdd}
+              style={styles.addTile}
+              accessibilityRole="button"
+              accessibilityLabel={dict.home.addAsset}>
+              <Plus size={20} color={colors.textSecondary} />
+            </PressScale>
+          }
+          renderItem={({ item }) => (
+            <AssetCard
+              account={item}
+              width={cardWidth}
+              hidden={hidden}
+              onPress={() => onOpen(item.id)}
+            />
+          )}
+          accessibilityLabel={dict.home.assetRailHint}
+          initialNumToRender={4}
+          windowSize={3}
+        />
       ) : (
         <PressScale
           onPress={onAdd}
