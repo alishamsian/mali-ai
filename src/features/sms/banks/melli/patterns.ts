@@ -21,5 +21,5 @@ export const MELLI_SENDERS = ['9830009417', '983000'];
 
 export const MELLI_SIGNED_AMOUNT = /([^:\s]{2,40}):(\d{4,})([+-])/;
 export const MELLI_ACCOUNT = /حساب[:\s]*(\d{4,})/;
-export const MELLI_BALANCE = /مانده[:\s]*(\d{4,})/;
+export const MELLI_BALANCE = /مانده[:\s]*(-?\d{3,})/;
 export const MELLI_JALALI_TIME = /(\d{2})(\d{2})-(\d{1,2}):(\d{2})/;

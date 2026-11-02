@@ -4,14 +4,24 @@ import type { TransactionType } from '../../../../types/finance';
 import type { NormalizedSms, ParsedTransaction } from '../../types';
 
 const TYPE_KEYWORDS: Array<{ type: TransactionType; patterns: RegExp[]; weight: number }> = [
+  // Refunds and reversals first: «واریز برگشت خرید» is a refund, not income.
+  { type: 'reversal', patterns: [/برگشت تراکنش/, /ابطال/], weight: 0.86 },
+  { type: 'refund', patterns: [/برگشت/, /بازگشت وجه/], weight: 0.88 },
   { type: 'purchase', patterns: [/خرید/, /خرید از/], weight: 0.95 },
   { type: 'transfer', patterns: [/انتقال/, /کارت به کارت/], weight: 0.93 },
   { type: 'deposit', patterns: [/واریز/, /واریز به/], weight: 0.96 },
   { type: 'withdrawal', patterns: [/برداشت/, /برداشت از/], weight: 0.96 },
   { type: 'fee', patterns: [/کارمزد/], weight: 0.9 },
-  { type: 'refund', patterns: [/برگشت/, /بازگشت وجه/], weight: 0.88 },
-  { type: 'reversal', patterns: [/برگشت تراکنش/, /ابطال/], weight: 0.86 },
 ];
+
+/** Types whose direction never depends on context (a transfer can go either way). */
+const CLEAR_TYPES = new Set<TransactionType>([
+  'purchase',
+  'withdrawal',
+  'deposit',
+  'fee',
+  'refund',
+]);
 
 export function inferType(body: string): { type: TransactionType; confidence: number } {
   for (const entry of TYPE_KEYWORDS) {
@@ -30,7 +40,7 @@ export function inferType(body: string): { type: TransactionType; confidence: nu
  */
 export function extractAmountParts(
   body: string,
-): { amount: number; currency: 'IRR' | 'IRT' } | null {
+): { amount: number; currency: 'IRR' | 'IRT'; score: number } | null {
   const currency = detectCurrencyHint(body) ?? 'IRR';
   const text = body.replace(/(\d)[,٬،](?=\d{3})/g, '$1');
   let best: { value: number; score: number } | null = null;
@@ -65,6 +75,8 @@ export function extractAmountParts(
       score -= 4;
     if (/مبلغ/.test(pre)) score += 5;
     if (/واریز|برداشت|خرید|انتقال|پرداخت|کسر/.test(pre)) score += 4;
+    // «برداشت:1,000,000»: the number right after a type word and colon is that amount.
+    if (/(واریز|برداشت|خرید|پرداخت|کسر)\s*:\s*$/.test(pre)) score += 2;
     if (pre.trim().endsWith('+') || after === '+') score += 4;
     if (pre.trim().endsWith('-') || after === '-') score += 3;
     if (/^(ریال|تومان|تومن|rial|irr)/i.test(post)) score += 2;
@@ -72,7 +84,7 @@ export function extractAmountParts(
       best = { value, score };
     }
   }
-  return best && best.score >= 0 ? { amount: best.value, currency } : null;
+  return best && best.score >= 0 ? { amount: best.value, currency, score: best.score } : null;
 }
 
 export function extractCardLast4(body: string): string | undefined {
@@ -88,11 +100,12 @@ export function extractMerchant(body: string): string | undefined {
 }
 
 export function extractBalance(body: string): number | undefined {
-  const match = body.match(/مانده[:\s]*([0-9,]{3,})/) ?? body.match(/موجودی[:\s]*([0-9,]{3,})/);
+  const match = body.match(/مانده[:\s]*(-?[0-9,]{3,})/) ?? body.match(/موجودی[:\s]*(-?[0-9,]{3,})/);
   if (!match?.[1]) {
     return undefined;
   }
-  return parseIntegerAmount(match[1]) ?? undefined;
+  const value = parseIntegerAmount(match[1].replace(/^-/, ''));
+  return value == null ? undefined : match[1].startsWith('-') ? -value : value;
 }
 
 /**
@@ -111,7 +124,10 @@ export function parseGenericBankSms(
 
   const amountRialDisplay = amountInfo.amount;
   const balance = extractBalance(message.body);
-  const overall = 0.55 * 0.7 + typeInfo.confidence * 0.2 + (amountInfo ? 1 : 0) * 0.1;
+  // Clear enough to record without asking: a one-way type word, an amount the message
+  // itself labels («مبلغ», a +/− sign or a type word), and the bank's balance after it.
+  const clear = CLEAR_TYPES.has(typeInfo.type) && amountInfo.score >= 5 && balance != null;
+  const overall = clear ? 0.9 : 0.55 * 0.7 + typeInfo.confidence * 0.2 + (amountInfo ? 1 : 0) * 0.1;
 
   return {
     bankId,
@@ -123,7 +139,7 @@ export function parseGenericBankSms(
     transactionDate: message.receivedAt,
     merchant: extractMerchant(message.body),
     description: typeInfo.type,
-    confidence: Math.min(0.84, Number(overall.toFixed(2))),
+    confidence: clear ? 0.9 : Math.min(0.84, Number(overall.toFixed(2))),
     source: 'android_sms',
     parserStatus: 'ok',
   };

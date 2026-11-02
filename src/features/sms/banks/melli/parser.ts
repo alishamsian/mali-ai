@@ -24,6 +24,15 @@ function classify(label: string, sign: '+' | '-'): TransactionType {
   return 'withdrawal';
 }
 
+/** «-50000» is an overdrawn balance, not 50000. */
+function signedAmount(raw: string | undefined): number | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const value = parseIntegerAmount(raw.replace(/^-/, ''));
+  return value == null ? undefined : raw.startsWith('-') ? -value : value;
+}
+
 function extractLabel(beforeColon: string): string {
   const tokens = beforeColon.trim().split(/\s+/).filter(Boolean);
   let last = (tokens[tokens.length - 1] ?? '').replace(/^\.+/, '');
@@ -69,13 +78,15 @@ export function parseMelliSms(message: NormalizedSms): ParsedTransaction | null 
   }
   const account = message.body.match(MELLI_ACCOUNT)?.[1];
   const balanceRaw = message.body.match(MELLI_BALANCE)?.[1];
-  const type = classify(label, sign);
+  // The whole line names the type: «برگشت وجه» ends in «وجه», which alone reads as a deposit.
+  const line = message.body.slice(message.body.lastIndexOf('\n', hit.index) + 1, hit.index);
+  const type = classify(line, sign);
   return {
     bankId: 'melli',
     type,
     amount,
     currency: 'IRR',
-    balance: balanceRaw ? parseIntegerAmount(balanceRaw) ?? undefined : undefined,
+    balance: signedAmount(balanceRaw),
     cardLast4: account ? account.slice(-4) : undefined,
     merchant: type === 'purchase' ? label : undefined,
     transactionDate: parseJalaliStamp(message.body, message.receivedAt) ?? message.receivedAt,

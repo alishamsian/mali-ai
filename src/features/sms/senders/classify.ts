@@ -1,4 +1,8 @@
-import { hasTransactionSignals, looksFinancialCandidate } from '../filters/financialCandidate';
+import {
+  canonicalSmsText,
+  hasTransactionSignals,
+  looksFinancialCandidate,
+} from '../filters/financialCandidate';
 
 const OTP_MARKERS = [
   'رمز پویا',
@@ -26,13 +30,27 @@ const NON_TX_MARKERS = [
   'اطلاع‌رسانی تبلیغاتی',
   'تخفیف ویژه',
   'پیشنهاد ویژه',
+  // Bank marketing that quotes an amount («تا ۵۰ میلیون وام بگیرید») but moves no money.
+  'وام بگیرید',
+  'تسهیلات',
+  'قرعه‌کشی',
+  'قرعه کشی',
+  'جایزه',
+  'باشگاه مشتریان',
+  'دانلود',
+  'نصب کنید',
+  'ثبت‌نام',
+  'ثبت نام',
+  'http',
+  'www.',
 ];
 
 /** OTP / security / marketing — never create a transaction. */
-export function isNonTransactionalSms(body: string): boolean {
-  if (!body) {
+export function isNonTransactionalSms(raw: string): boolean {
+  if (!raw) {
     return true;
   }
+  const body = canonicalSmsText(raw);
   const lower = body.toLowerCase();
   if (NON_TX_MARKERS.some(m => lower.includes(m.toLowerCase()))) {
     // OTP-like short codes often have digits but no ledger keywords

@@ -1,3 +1,14 @@
+import { toEnglishDigits } from '../../../utils/numbers/digits';
+import { normalizePersianArabicLetters } from '../../../utils/strings/text';
+
+/**
+ * The text the keyword gates read: Persian/Arabic digits as ASCII and Arabic ي/ك as
+ * Persian, so «خريد:۱۲۰,۰۰۰» matches the same keywords and digit checks as «خرید:120,000».
+ */
+export function canonicalSmsText(body: string): string {
+  return normalizePersianArabicLetters(toEnglishDigits(body ?? ''));
+}
+
 /** Soft gate: requires financial keywords + digit — not sender-only. */
 const FINANCIAL_KEYS = [
   'برداشت',
@@ -26,7 +37,8 @@ const TX_KEYS = [
   'خریداینترنتی',
 ];
 
-export function looksFinancialCandidate(body: string): boolean {
+export function looksFinancialCandidate(raw: string): boolean {
+  const body = canonicalSmsText(raw);
   if (!body || !/\d/.test(body)) {
     return false;
   }
@@ -34,7 +46,8 @@ export function looksFinancialCandidate(body: string): boolean {
 }
 
 /** Stronger gate against false positives (OTP / marketing with a lone number). */
-export function hasTransactionSignals(body: string): boolean {
+export function hasTransactionSignals(raw: string): boolean {
+  const body = canonicalSmsText(raw);
   if (!looksFinancialCandidate(body)) {
     return false;
   }
