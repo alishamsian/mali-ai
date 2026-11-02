@@ -99,8 +99,8 @@ android {
         applicationId "ir.maliai.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 33
-        versionName "1.22.0"
+        versionCode 34
+        versionName "1.23.0"
         // فقط منابع لازم — حذف ترجمه‌های اضافی کتابخانه‌ها
         resConfigs "en", "fa"
     }
