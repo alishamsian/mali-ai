@@ -34,7 +34,7 @@ export function BudgetsPanel() {
   const cats = snapshot.budgetCategories.filter(c => !budget || c.budgetId === budget.id);
   const [editing, setEditing] = useState(false);
 
-  const { rows, used, limit, projected, previousUsed, daysLeft } = useMemo(() => {
+  const { rows, used, limit, projected, previousUsed, daysLeft, prevSpent } = useMemo(() => {
     // This month only: the old panel summed every expense ever recorded.
     const window = currentMonthWindow(snapshot.settings);
     const start = window.start.getTime();
@@ -78,6 +78,7 @@ export function BudgetsPanel() {
       projected: Math.round((totalUsed / Math.max(1, meta.day)) * meta.daysInMonth),
       previousUsed: prevUsed,
       daysLeft: Math.max(1, meta.daysInMonth - meta.day + 1),
+      prevSpent,
     };
   }, [cats, snapshot.transactions, snapshot.settings]);
 
@@ -139,6 +140,19 @@ export function BudgetsPanel() {
     amount: { color: c.textMuted, fontSize: 12 },
     limitRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
     cancel: { padding: 12, alignItems: 'center' },
+    editHead: { padding: 18, gap: 4 },
+    suggestAll: { alignSelf: 'flex-end', paddingVertical: 6 },
+    editRow: { padding: 6, paddingBottom: 12, gap: 4 },
+    hintChip: {
+      paddingHorizontal: 10,
+      minHeight: 32,
+      borderRadius: 999,
+      justifyContent: 'center',
+      backgroundColor: c.glassStrong,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+    },
+    hintText: { color: c.text, fontSize: 12 },
     hero: { padding: 18, gap: 16, marginTop: 12 },
     heroRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 18 },
     heroText: { flex: 1, gap: 4 },
@@ -196,22 +210,77 @@ export function BudgetsPanel() {
     pace === 'over' ? colors.expense : pace === 'tight' ? colors.highlight : colors.income;
 
   if (editing) {
+    // Last month's spend, rounded up to a tidy figure, as a starting point for each limit.
+    const suggest = (id: CategoryId) => {
+      const toman = Math.round((prevSpent[id] ?? 0) / 10);
+      return toman > 0 ? String(Math.ceil(toman / 100_000) * 100_000) : '';
+    };
+    const draftTotal = BUDGET_SETUP_CATEGORIES.reduce(
+      (sum, id) => sum + (parseIntegerAmount(draft[id] ?? '') ?? 0),
+      0,
+    );
+    const hasSuggestions = BUDGET_SETUP_CATEGORIES.some(id => suggest(id));
     return (
-      <GlassPanel strong radius={26} style={styles.panel}>
-        <AppText style={styles.kicker}>{dict.budgets.setLimits}</AppText>
-        {BUDGET_SETUP_CATEGORIES.map(id => (
-          <View key={id} style={styles.limitRow}>
-            <AmountInput
-              value={draft[id] ?? ''}
-              onChangeValue={v => setDraft(s => ({ ...s, [id]: sanitizeAmountDigits(v) }))}
-              placeholder="0"
-              showWords={Boolean(draft[id])}
-              style={{ width: 132 }}
-              inputStyle={{ minHeight: 44, width: 132, paddingHorizontal: 10 }}
-            />
-            <AppText style={{ flex: 1, textAlign: 'right' }}>{dict.categories[id]}</AppText>
-          </View>
-        ))}
+      <View style={{ gap: 10, marginTop: 12 }}>
+        <GlassPanel strong radius={24} style={styles.editHead}>
+          <AppText style={styles.kicker}>{dict.budgets.monthTotal}</AppText>
+          <AppText style={styles.left}>{formatCompactToman(draftTotal * 10)}</AppText>
+          {hasSuggestions ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                setDraft(d => {
+                  const next = { ...d };
+                  for (const id of BUDGET_SETUP_CATEGORIES) {
+                    next[id] = next[id] || suggest(id);
+                  }
+                  return next;
+                })
+              }
+              style={styles.suggestAll}>
+              <AppText style={styles.link}>{dict.budgets.fillFromLastMonth}</AppText>
+            </Pressable>
+          ) : null}
+        </GlassPanel>
+        {BUDGET_SETUP_CATEGORIES.map(id => {
+          const Icon = categoryIcons[id];
+          const hint = suggest(id);
+          return (
+            <GlassPanel key={id} radius={20} style={styles.editRow}>
+              <View style={styles.cat}>
+                <View style={styles.catIcon}>
+                  {Icon ? <Icon size={20} color={colors.text} /> : null}
+                </View>
+                <View style={styles.catBody}>
+                  <AppText style={styles.catName}>{dict.categories[id]}</AppText>
+                  {prevSpent[id] ? (
+                    <AppText style={styles.amount}>
+                      {interpolate(dict.budgets.lastMonthSpent, {
+                        amount: formatCompactToman(prevSpent[id] ?? 0),
+                      })}
+                    </AppText>
+                  ) : null}
+                </View>
+                {hint && draft[id] !== hint ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setDraft(s => ({ ...s, [id]: hint }))}
+                    style={styles.hintChip}>
+                    <AppText style={styles.hintText}>
+                      {formatCompactToman(Number(hint) * 10)}
+                    </AppText>
+                  </Pressable>
+                ) : null}
+              </View>
+              <AmountInput
+                value={draft[id] ?? ''}
+                onChangeValue={v => setDraft(s => ({ ...s, [id]: sanitizeAmountDigits(v) }))}
+                placeholder={dict.budgets.noLimit}
+                showWords={Boolean(draft[id])}
+              />
+            </GlassPanel>
+          );
+        })}
         <PrimaryButton label={dict.budgets.saveMonth} onPress={save} />
         <Pressable
           onPress={() => setEditing(false)}
@@ -219,7 +288,7 @@ export function BudgetsPanel() {
           accessibilityRole="button">
           <AppText style={styles.amount}>{dict.common.cancel}</AppText>
         </Pressable>
-      </GlassPanel>
+      </View>
     );
   }
 

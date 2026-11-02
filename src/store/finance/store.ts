@@ -344,6 +344,12 @@ interface FinanceState {
   deleteCheque: (id: string) => void;
   upsertDebt: (debt: PersonalDebt) => void;
   settleDebt: (id: string, amountRial: number, transactionId?: string) => void;
+  /**
+   * Books a bank transaction as a loan: a new personal debt (out = lent, in = borrowed) or a
+   * repayment of an open one. The card balance keeps the movement; spending and income don't.
+   */
+  linkTransactionToDebt: (txId: string, target: { person: string } | { debtId: string }) => void;
+  unlinkTransactionDebt: (txId: string) => void;
   deleteDebt: (id: string) => void;
   recordAlerts: (keys: string[]) => void;
   /** Today's net-worth point, so the Vault chart grows a point a day. */
@@ -833,6 +839,101 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       ),
     });
   },
+  linkTransactionToDebt: (txId, target) => {
+    const snapshot = liveSnapshot(get);
+    const tx = snapshot.transactions.find(t => t.id === txId);
+    if (!tx || tx.debtId || (tx.direction !== 'in' && tx.direction !== 'out')) {
+      return;
+    }
+    const now = new Date().toISOString();
+    let debts = snapshot.debts;
+    let debtId: string;
+    if ('debtId' in target) {
+      const debt = debts.find(d => d.id === target.debtId);
+      if (!debt) {
+        return;
+      }
+      debtId = debt.id;
+      const remaining = Math.max(
+        0,
+        debt.amountRial - debt.settlements.reduce((sum, s) => sum + s.amountRial, 0),
+      );
+      debts = debts.map(d =>
+        d.id === debtId
+          ? {
+              ...d,
+              settlements: [
+                ...d.settlements,
+                {
+                  id: `stl_${Date.now().toString(36)}`,
+                  amountRial: Math.min(remaining, tx.amountRial),
+                  date: tx.transactionDate,
+                  transactionId: tx.id,
+                },
+              ],
+              updatedAt: now,
+            }
+          : d,
+      );
+    } else {
+      debtId = `debt_${Date.now().toString(36)}`;
+      debts = [
+        ...debts,
+        {
+          id: debtId,
+          person: target.person.trim(),
+          direction: tx.direction === 'out' ? 'lent' : 'borrowed',
+          amountRial: tx.amountRial,
+          date: tx.transactionDate,
+          note: tx.merchant,
+          settlements: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+    }
+    persistSet(set, {
+      ...snapshot,
+      debts,
+      transactions: snapshot.transactions.map(t =>
+        t.id === txId ? { ...t, debtId, updatedAt: now } : t,
+      ),
+    });
+  },
+  unlinkTransactionDebt: txId => {
+    const snapshot = liveSnapshot(get);
+    const tx = snapshot.transactions.find(t => t.id === txId);
+    if (!tx?.debtId) {
+      return;
+    }
+    const now = new Date().toISOString();
+    persistSet(set, {
+      ...snapshot,
+      // A debt this transaction created goes with it; a repayment is taken off its debt.
+      debts: snapshot.debts
+        .filter(
+          d =>
+            !(
+              d.id === tx.debtId &&
+              d.date === tx.transactionDate &&
+              d.amountRial === tx.amountRial &&
+              d.settlements.length === 0
+            ),
+        )
+        .map(d =>
+          d.id === tx.debtId
+            ? {
+                ...d,
+                settlements: d.settlements.filter(s => s.transactionId !== txId),
+                updatedAt: now,
+              }
+            : d,
+        ),
+      transactions: snapshot.transactions.map(t =>
+        t.id === txId ? { ...t, debtId: undefined, updatedAt: now } : t,
+      ),
+    });
+  },
   refreshUsdRate: async () => {
     const { usdRateAt } = liveSnapshot(get).settings;
     if (usdRateAt && Date.now() - Date.parse(usdRateAt) < USD_RATE_MAX_AGE_MS) {
@@ -864,7 +965,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   },
   deleteDebt: id => {
     const snapshot = liveSnapshot(get);
-    persistSet(set, { ...snapshot, debts: snapshot.debts.filter(d => d.id !== id) });
+    persistSet(set, {
+      ...snapshot,
+      debts: snapshot.debts.filter(d => d.id !== id),
+      // Its transactions count as ordinary spending or income again.
+      transactions: snapshot.transactions.map(t =>
+        t.debtId === id ? { ...t, debtId: undefined } : t,
+      ),
+    });
   },
   upsertRecurring: item => {
     const snapshot = liveSnapshot(get);

@@ -149,11 +149,11 @@ export function TransactionsScreen({
     return snapshot.transactions
       .filter(tx => {
         if (filter === 'expense') {
-          if (!(tx.direction === 'out' && tx.type !== 'transfer')) {
+          if (!(tx.direction === 'out' && tx.type !== 'transfer' && !tx.debtId)) {
             return false;
           }
         } else if (filter === 'income') {
-          if (!(tx.direction === 'in' && tx.type !== 'transfer')) {
+          if (!(tx.direction === 'in' && tx.type !== 'transfer' && !tx.debtId)) {
             return false;
           }
         } else if (filter === 'transfer') {

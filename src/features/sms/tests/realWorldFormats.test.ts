@@ -95,3 +95,36 @@ test('clear messages from banks without a dedicated parser are recorded, not que
       .kind,
   ).toBe('review');
 });
+
+test('the bank balance confirms an amount, or corrects a misread direction', () => {
+  const { checkAgainstBalance } = require('../ingest') as typeof import('../ingest');
+  const base = { accountId: 'a', amountRial: 1_000_000, transactionDate: '2026-11-01T10:00:00Z' };
+  const previous = {
+    ...base,
+    id: 'p',
+    direction: 'out',
+    balanceAfterRial: 6_000_000,
+    transactionDate: '2026-10-30T10:00:00Z',
+  };
+  const unsure = {
+    ...base,
+    id: 'n',
+    type: 'transfer',
+    direction: 'out',
+    needsReview: true,
+    confidence: 0.7,
+    balanceAfterRial: 5_000_000,
+  };
+  expect(checkAgainstBalance([previous] as never, unsure as never)).toMatchObject({
+    verdict: 'confirmed',
+    transaction: { needsReview: false, direction: 'out' },
+  });
+  const misread = { ...unsure, direction: 'in', type: 'deposit' };
+  expect(checkAgainstBalance([previous] as never, misread as never)).toMatchObject({
+    verdict: 'corrected',
+    transaction: { direction: 'out', type: 'withdrawal' },
+  });
+  // A missing SMS in between: nothing to conclude.
+  const gap = { ...unsure, balanceAfterRial: 2_000_000 };
+  expect(checkAgainstBalance([previous] as never, gap as never).verdict).toBe('unchecked');
+});

@@ -127,6 +127,8 @@ export interface Transaction {
   isConfirmed: boolean;
   needsReview: boolean;
   transferId?: string;
+  /** Money lent, borrowed or repaid: tracked as a personal debt, never as spending or income. */
+  debtId?: string;
   notes?: string;
   receiptNote?: string;
   /** کد پیگیری / شماره مرجع from the bank SMS, for finding a payment later. */

@@ -2,7 +2,15 @@ import { appAlert } from '../../../components/ui/AppAlert';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Mic, X } from 'lucide-react-native';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Mic,
+  X,
+} from 'lucide-react-native';
 import { NightCanvas } from '../../../components/ui/NightCanvas';
 import { AppText } from '../../../components/ui/AppText';
 import { GlassPanel } from '../../../components/ui/GlassPanel';
@@ -83,7 +91,9 @@ export function AddTransactionScreen({
   const initialMode = (route.params?.mode ?? 'expense') as Mode;
   const [mode, setMode] = useState<Mode>(initialMode === 'receipt' ? 'expense' : initialMode);
   const [merchant, setMerchant] = useState(route.params?.merchant ?? '');
-  const [amount, setAmount] = useState(route.params?.amountToman ? String(route.params.amountToman) : '');
+  const [amount, setAmount] = useState(
+    route.params?.amountToman ? String(route.params.amountToman) : '',
+  );
   const [notes, setNotes] = useState(route.params?.notes ?? '');
   const [dayKey, setDayKey] = useState(route.params?.dayKey ?? todayJalaliKey());
   const [formError, setFormError] = useState<string | null>(null);
@@ -241,7 +251,11 @@ export function AddTransactionScreen({
       setFormError(dict.add.needAmount);
       return;
     }
-    if (mode === 'transfer' && (!usableAccounts.some(a => a.id === accountId) || !usableAccounts.some(a => a.id === toAccountId))) {
+    if (
+      mode === 'transfer' &&
+      (!usableAccounts.some(a => a.id === accountId) ||
+        !usableAccounts.some(a => a.id === toAccountId))
+    ) {
       setFormError(dict.add.needAccount);
       return;
     }
@@ -340,9 +354,7 @@ export function AddTransactionScreen({
       setSavedIds(txs.map(tx => tx.id));
     };
     // Checked up front for every leg, so a transfer is never half-saved.
-    const duplicate = txs
-      .map(tx => findSmsDuplicateOf(snapshot.transactions, tx))
-      .find(Boolean);
+    const duplicate = txs.map(tx => findSmsDuplicateOf(snapshot.transactions, tx)).find(Boolean);
     if (!duplicate) {
       commit();
       return;

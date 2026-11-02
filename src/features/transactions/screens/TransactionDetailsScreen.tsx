@@ -11,6 +11,7 @@ import { MoneyText } from '../../../components/ui/MoneyText';
 import { BankEmblem } from '../../../components/banks/BankEmblem';
 import { categoryIcons } from '../../../components/lists/TransactionRow';
 import { CategoryPickerField } from '../components/CategoryPickerField';
+import { DebtLinkCard } from '../components/DebtLinkCard';
 import { EXPENSE_CATEGORIES } from '../../../constants/categories';
 import { t, interpolate } from '../../../i18n';
 import { appAlert } from '../../../components/ui/AppAlert';
@@ -550,6 +551,8 @@ export function TransactionDetailsScreen({
             ) : null}
           </GlassPanel>
         ) : null}
+
+        <DebtLinkCard tx={tx} />
 
         <View style={styles.actions}>
           {needsCategoryConfirm ? (

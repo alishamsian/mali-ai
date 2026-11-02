@@ -1,7 +1,11 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
-import { PickerField, flatPickerSections, type PickerItem } from '../../../components/ui/PickerField';
+import {
+  PickerField,
+  flatPickerSections,
+  type PickerItem,
+} from '../../../components/ui/PickerField';
 import { CATEGORY_COLOR } from '../../../theme/accents';
 import { useThemedStyles } from '../../../theme/useThemedStyles';
 import { t } from '../../../i18n';

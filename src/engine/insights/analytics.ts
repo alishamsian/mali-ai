@@ -6,17 +6,22 @@ import type { CategoryId, MonthlySnapshot, Transaction } from '../../types/finan
  * to someone else is real spending even though the bank calls it «انتقال».
  */
 export function isExpenseLike(tx: Transaction): boolean {
-  return tx.direction === 'out' && !tx.transferId;
+  return tx.direction === 'out' && !tx.transferId && !tx.debtId;
 }
 
 /** Money that reached you, with the same rule for your own transfers. */
 export function isIncomeLike(tx: Transaction): boolean {
-  return tx.direction === 'in' && !tx.transferId && !isRefund(tx);
+  return tx.direction === 'in' && !tx.transferId && !tx.debtId && !isRefund(tx);
 }
 
 /** Money coming back for an earlier purchase: it lowers spending, it is not income. */
 export function isRefund(tx: Transaction): boolean {
-  return tx.direction === 'in' && !tx.transferId && (tx.type === 'refund' || tx.type === 'reversal');
+  return (
+    tx.direction === 'in' &&
+    !tx.transferId &&
+    !tx.debtId &&
+    (tx.type === 'refund' || tx.type === 'reversal')
+  );
 }
 
 export function monthlyTotals(transactions: Transaction[]): MonthlySnapshot {

@@ -277,13 +277,75 @@ export function ingestIncomingSms(
     createdAt: now,
     updatedAt: now,
   };
-  const kind =
+  const parsedKind =
     detected.status === 'created'
       ? 'created'
       : detected.status === 'pending'
       ? 'pending'
       : 'review';
-  return { kind, transaction, account };
+  const checked = checkAgainstBalance(snapshot.transactions, transaction);
+  const kind = checked.verdict === 'confirmed' && parsedKind !== 'pending' ? 'created' : parsedKind;
+  return { kind, transaction: checked.transaction, account };
+}
+
+/**
+ * The bank's own balance is the referee. When the previous SMS on the same account gave a
+ * balance, this one's amount and direction must explain the difference:
+ * - they do → confirmed, even if the wording alone left doubt;
+ * - only the opposite direction does → the direction was misread and is corrected;
+ * - neither → left as parsed (an SMS in between may simply be missing; balance-gap
+ *   detection covers that).
+ */
+export function checkAgainstBalance(
+  transactions: Transaction[],
+  tx: Transaction,
+): { transaction: Transaction; verdict: 'confirmed' | 'corrected' | 'unchecked' } {
+  if (
+    typeof tx.balanceAfterRial !== 'number' ||
+    (tx.direction !== 'in' && tx.direction !== 'out')
+  ) {
+    return { transaction: tx, verdict: 'unchecked' };
+  }
+  const at = Date.parse(tx.transactionDate);
+  let previous: Transaction | undefined;
+  for (const other of transactions) {
+    if (
+      other.accountId === tx.accountId &&
+      other.id !== tx.id &&
+      typeof other.balanceAfterRial === 'number' &&
+      Date.parse(other.transactionDate) <= at &&
+      (!previous || Date.parse(other.transactionDate) > Date.parse(previous.transactionDate))
+    ) {
+      previous = other;
+    }
+  }
+  if (!previous) {
+    return { transaction: tx, verdict: 'unchecked' };
+  }
+  const delta = tx.balanceAfterRial - (previous.balanceAfterRial as number);
+  const signed = tx.direction === 'in' ? tx.amountRial : -tx.amountRial;
+  const sure = {
+    ...tx,
+    needsReview: false,
+    isConfirmed: true,
+    confidence: Math.max(tx.confidence ?? 0, 0.95),
+  };
+  if (delta === signed && tx.type !== 'unknown') {
+    return { transaction: sure, verdict: 'confirmed' };
+  }
+  if (delta === -signed && tx.amountRial > 0) {
+    const direction = tx.direction === 'in' ? 'out' : 'in';
+    const type =
+      direction === 'in'
+        ? tx.type === 'withdrawal' || tx.type === 'purchase' || tx.type === 'unknown'
+          ? 'deposit'
+          : tx.type
+        : tx.type === 'deposit' || tx.type === 'unknown' || tx.type === 'refund'
+        ? 'withdrawal'
+        : tx.type;
+    return { transaction: { ...sure, direction, type }, verdict: 'corrected' };
+  }
+  return { transaction: tx, verdict: 'unchecked' };
 }
 
 /** @deprecated Prefer isVerifiedSender from senders/verified */

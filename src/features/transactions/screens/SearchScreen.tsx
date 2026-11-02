@@ -133,9 +133,9 @@ export function SearchScreen({ navigation }: Props) {
               {interpolate(dict.search.results, { n: toPersianDigits(count) })}
             </AppText>
             <AppText style={styles.muted}>
-              {`${dict.search.total} ${hidden ? '••••' : formatTomanFromRial(total)} ${
-                displayUnitLabel()
-              }`}
+              {`${dict.search.total} ${
+                hidden ? '••••' : formatTomanFromRial(total)
+              } ${displayUnitLabel()}`}
             </AppText>
           </View>
         ) : null}

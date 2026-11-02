@@ -109,7 +109,11 @@ describe('AddTransactionScreen', () => {
     typeAmount(['۴', '۵', '۶', '۰', '۰', '۰']);
     pressSave();
 
-    expect(alert).toHaveBeenCalledWith(fa.add.duplicateTitle, expect.any(String), expect.any(Array));
+    expect(alert).toHaveBeenCalledWith(
+      fa.add.duplicateTitle,
+      expect.any(String),
+      expect.any(Array),
+    );
     expect(manualTxs()).toHaveLength(before);
 
     const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => void }[];
@@ -120,7 +124,6 @@ describe('AddTransactionScreen', () => {
     alert.mockRestore();
   });
 });
-
 
 test('first real expense leaves the demo and creates a persistent real wallet', () => {
   const before = state().snapshot;
